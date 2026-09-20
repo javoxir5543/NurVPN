@@ -24,3 +24,11 @@ captures/
 # APK
 *.apk
 *.aab
+
+# Log fayllar
+*.log
+build.log
+build2.log
+
+# Boshqa loyihalar
+NekoBoxForAndroid/
