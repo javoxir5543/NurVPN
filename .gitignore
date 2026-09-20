@@ -1,0 +1,26 @@
+# Keystore — MAXFIY! GitHub'ga yuborilmaydi
+keystore.properties
+keystore/
+*.jks
+*.keystore
+
+# libbox — 312 MB, GitHub limit
+app/libs/libbox.aar
+
+# Backups
+.backups/
+
+# Android
+*.iml
+.gradle/
+build/
+local.properties
+.idea/
+.DS_Store
+captures/
+.externalNativeBuild
+.cxx
+
+# APK
+*.apk
+*.aab

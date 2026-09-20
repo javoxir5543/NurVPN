@@ -1,0 +1,2631 @@
+// ═══════════════════════════════════════════════════════════════
+// NurVPN UI — Fragmentlar, Activitylar (tuzatilgan)
+// ═══════════════════════════════════════════════════════════════
+package com.nurvpn.app
+
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.CheckBox
+import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.annotation.NonNull
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.materialswitch.MaterialSwitch
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileWriter
+import java.io.InputStreamReader
+import java.util.ArrayList
+import java.util.Collections
+import java.util.HashSet
+import java.util.Locale
+
+// ═══════════════════════════════════════════════════════════════
+// AWGEditorActivity ↔ MainActivity ma'lumot almashish
+// ═══════════════════════════════════════════════════════════════
+object AWGEditorBus {
+    @JvmField var configs: MutableList<AWGConfig> = ArrayList()
+    @JvmField var current: AWGConfig? = null
+    @JvmField var protocol: String = "awg"
+
+    fun init(cfg: MutableList<AWGConfig>, cur: AWGConfig?, proto: String) {
+        configs = cfg
+        current = cur
+        protocol = proto
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 1. HomeFragment
+// ═══════════════════════════════════════════════════════════════
+class HomeFragment : Fragment() {
+
+    companion object {
+        private const val REQ_QR_SCAN = 1001
+    }
+
+    private var connectBtn: View? = null
+    private var connectIcon: ImageView? = null
+    private var statusText: TextView? = null
+    private var serverFlag: TextView? = null
+    private var serverName: TextView? = null
+    private var pingText: TextView? = null
+    private var timerText: TextView? = null
+    private var downText: TextView? = null
+    private var upText: TextView? = null
+
+    // Trafik kuzatuvchi
+    private var lastRxBytes: Long = -1L
+    private var lastTxBytes: Long = -1L
+    private var lastTrafficTime: Long = 0L
+
+    private var cardsContainer: LinearLayout? = null
+    private var bodyAwg: LinearLayout? = null
+    private var awgArrow: TextView? = null
+    private var awgCount: TextView? = null
+
+    private var awgExpanded = false
+
+    private val ui = Handler(Looper.getMainLooper())
+    private var ai: AIServerSelector? = null
+    private var tickerRunning = false
+    private var pulseX: android.animation.ObjectAnimator? = null
+    private var pulseY: android.animation.ObjectAnimator? = null
+
+    private val ticker = object : Runnable {
+        override fun run() {
+            if (!isAdded) { tickerRunning = false; return }
+            val a = activity as? MainActivity
+            if (a == null) { ui.postDelayed(this, 1000); return }
+            val start = a.connectStart
+            if (a.isRunning && start > 0) {
+                val sec = (System.currentTimeMillis() - start) / 1000
+                timerText?.text = String.format(Locale.US, "%02d:%02d:%02d",
+                    sec / 3600, (sec % 3600) / 60, sec % 60)
+                updateTraffic()
+            } else {
+                timerText?.text = "00:00:00"
+                resetTrafficCounter()
+            }
+            ui.postDelayed(this, 1000)
+        }
+    }
+
+    /** tun0 interfeysidan trafikni o'qib, tezlikni yangilaydi. */
+    private fun updateTraffic() {
+        val rx = android.net.TrafficStats.getTotalRxBytes()
+        val tx = android.net.TrafficStats.getTotalTxBytes()
+        val now = android.os.SystemClock.elapsedRealtime()
+
+        if (rx < 0L || tx < 0L) {
+            downText?.text = "N/A"
+            upText?.text = "N/A"
+            return
+        }
+
+        if (lastRxBytes >= 0L &&
+            lastTxBytes >= 0L &&
+            lastTrafficTime > 0L) {
+            val elapsedMs = now - lastTrafficTime
+            if (elapsedMs > 0L) {
+                val downPerSecond =
+                    ((rx - lastRxBytes).coerceAtLeast(0L) * 1000L) / elapsedMs
+                val upPerSecond =
+                    ((tx - lastTxBytes).coerceAtLeast(0L) * 1000L) / elapsedMs
+                downText?.text = formatSpeed(downPerSecond)
+                upText?.text = formatSpeed(upPerSecond)
+            }
+        }
+        lastRxBytes = rx
+        lastTxBytes = tx
+        lastTrafficTime = now
+    }
+
+    /** Trafik hisoblagichlarni tiklash. */
+    private fun resetTrafficCounter() {
+        lastRxBytes = -1L
+        lastTxBytes = -1L
+        lastTrafficTime = 0L
+        downText?.text = "0 B/s"
+        upText?.text = "0 B/s"
+    }
+
+    /** Baytlarni tezlikka aylantirish. */
+    private fun formatSpeed(bytesPerSec: Long): String {
+        if (bytesPerSec < 0) return "0 B/s"
+        return when {
+            bytesPerSec < 1024 -> "$bytesPerSec B/s"
+            bytesPerSec < 1024 * 1024 ->
+                String.format(Locale.US, "%.1f KB/s", bytesPerSec / 1024.0)
+            bytesPerSec < 1024L * 1024 * 1024 ->
+                String.format(Locale.US, "%.2f MB/s", bytesPerSec / (1024.0 * 1024))
+            else ->
+                String.format(Locale.US, "%.2f GB/s", bytesPerSec / (1024.0 * 1024 * 1024))
+        }
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+    ): View? {
+        val v = inflater.inflate(R.layout.fragment_home, container, false)
+        connectBtn = v.findViewById(R.id.connect_btn)
+        connectIcon = v.findViewById(R.id.connect_icon)
+        statusText = v.findViewById(R.id.status_text)
+        serverFlag = v.findViewById(R.id.server_flag)
+        serverName = v.findViewById(R.id.server_name)
+        pingText = v.findViewById(R.id.ping_text)
+        timerText = v.findViewById(R.id.timer_text)
+        downText = v.findViewById(R.id.down_text)
+        upText = v.findViewById(R.id.up_text)
+
+        cardsContainer = v.findViewById(R.id.server_cards_container)
+        bodyAwg = v.findViewById(R.id.body_awg)
+        awgArrow = v.findViewById(R.id.awg_arrow)
+        awgCount = v.findViewById(R.id.awg_count)
+
+        ai = AIServerSelector.get(requireContext().applicationContext)
+
+        connectBtn?.setOnClickListener { toggleConnection() }
+        v.findViewById<View>(R.id.header_awg)?.setOnClickListener { toggleAwg() }
+
+        v.findViewById<View>(R.id.chip_ai)?.setOnClickListener { runAIAnalysis() }
+        v.findViewById<View>(R.id.chip_fast)?.setOnClickListener { fastConnect() }
+
+        v.findViewById<View>(R.id.btn_add)?.setOnClickListener { showAddDialog() }
+        v.findViewById<View>(R.id.btn_paste)?.setOnClickListener { pasteFromClipboard() }
+        v.findViewById<View>(R.id.btn_scan)?.setOnClickListener {
+            val i = Intent(requireContext(), QrScanActivity::class.java)
+            startActivityForResult(i, REQ_QR_SCAN)
+        }
+
+        refresh()
+        return v
+    }
+
+    private fun toggleAwg() {
+        awgExpanded = !awgExpanded
+        bodyAwg?.visibility = if (awgExpanded) View.VISIBLE else View.GONE
+        awgArrow?.text = if (awgExpanded) "\u2B06" else "\u2B07"
+        if (awgExpanded) rebuildAwgList()
+    }
+
+    private fun rebuildServerCards() {
+        val a = activity as? MainActivity ?: return
+        val container = cardsContainer ?: return
+        container.removeAllViews()
+
+        if (a.servers.isEmpty() && a.subscriptions.isEmpty()) {
+            val tv = TextView(requireContext())
+            tv.text = "Serverlar yo'q. Pastdan qo'shing."
+            tv.setTextColor(androidx.core.content.ContextCompat
+                .getColor(requireContext(), R.color.text_tertiary))
+            tv.textSize = 12f
+            tv.setPadding(0, 12, 0, 12)
+            container.addView(tv)
+            return
+        }
+
+        // ═══ 1. HAR BIR SUBSCRIPTION — ALOHIDA KARTA ═══
+        for (sub in a.subscriptions) {
+            val list = a.servers.filter { it.subId == sub.id }
+            val card = makeExpandableCard("\uD83D\uDCE1", sub.name, list.size)
+            val body = card.getChildAt(1) as LinearLayout
+
+            if (list.isEmpty()) {
+                val tv = TextView(requireContext())
+                tv.text = "Serverlar yo'q"
+                tv.setTextColor(androidx.core.content.ContextCompat
+                .getColor(requireContext(), R.color.text_tertiary))
+                tv.textSize = 12f
+                tv.setPadding(0, 12, 0, 12)
+                body.addView(tv)
+            } else {
+                for (si in list) {
+                    body.addView(makeServerRow(si, a))
+                }
+            }
+            container.addView(card)
+        }
+
+        // ═══ 2. QO'LDA QO'SHILGAN — KARTASIZ, TO'G'RIDAN-TO'G'RI ═══
+        val manual = a.servers.filter { it.subId == null }
+        if (manual.isNotEmpty()) {
+            // Kichik sarlavha
+            val label = TextView(requireContext())
+            label.text = "\uD83D\uDD27  Qo'lda qo'shilgan  (${manual.size} ta)"
+            label.setTextColor(androidx.core.content.ContextCompat
+                .getColor(requireContext(), R.color.text_secondary))
+            label.textSize = 12f
+            label.setPadding(4, 20, 4, 6)
+            container.addView(label)
+
+            // Serverlar to'g'ridan-to'g'ri (kartasiz)
+            for (si in manual) {
+                container.addView(makeServerRow(si, a))
+            }
+        }
+    }
+
+    private fun makeServerRow(si: ServerItem, a: MainActivity): View {
+        val row = LayoutInflater.from(requireContext())
+            .inflate(R.layout.item_server_row, null, false)
+        row.findViewById<TextView>(R.id.row_flag).text = si.flag()
+        row.findViewById<TextView>(R.id.row_name).text = si.displayName()
+        row.findViewById<TextView>(R.id.row_host).text = si.host ?: ""
+        val proto = row.findViewById<TextView>(R.id.row_proto)
+        proto.text = protocolLabel(si.protocol)
+        proto.backgroundTintList = android.content.res.ColorStateList
+            .valueOf(protocolColor(si.protocol))
+        val pingView = row.findViewById<TextView>(R.id.row_ping)
+        pingView.text = pingLabel(si)
+        pingView.setTextColor(pingColor(si))
+        row.setOnClickListener {
+            a.selectServer(si)
+            Toast.makeText(context, si.displayName(), Toast.LENGTH_SHORT).show()
+            refresh()
+        }
+        return row
+    }
+
+    /**
+     * Karta yaratadi: header (icon + nom + soni + arrow) + body (yashirin).
+     * [0] = header, [1] = body
+     */
+    private fun makeExpandableCard(icon: String, title: String, count: Int): LinearLayout {
+        val ctx = requireContext()
+        val dp = resources.displayMetrics.density
+
+        val card = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            background = androidx.core.content.ContextCompat.getDrawable(
+                ctx, R.drawable.bg_card)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = (10 * dp).toInt() }
+        }
+
+        // Header
+        val header = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding((14*dp).toInt(), (14*dp).toInt(),
+                       (14*dp).toInt(), (14*dp).toInt())
+            isClickable = true
+            isFocusable = true
+        }
+
+        val iconBox = android.widget.FrameLayout(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams((40*dp).toInt(), (40*dp).toInt())
+            background = androidx.core.content.ContextCompat.getDrawable(
+                ctx, R.drawable.bg_icon_box)
+        }
+        val iconTv = TextView(ctx).apply {
+            text = icon
+            textSize = 16f
+            layoutParams = android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply { gravity = android.view.Gravity.CENTER }
+        }
+        iconBox.addView(iconTv)
+
+        val titles = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = (12*dp).toInt()
+            }
+        }
+        val colorPrimary = androidx.core.content.ContextCompat
+            .getColor(ctx, R.color.text_primary)
+        val colorTertiary = androidx.core.content.ContextCompat
+            .getColor(ctx, R.color.text_tertiary)
+        val colorAccent = androidx.core.content.ContextCompat
+            .getColor(ctx, R.color.accent)
+
+        val titleTv = TextView(ctx).apply {
+            text = title
+            setTextColor(colorPrimary)
+            textSize = 15f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        }
+        val countTv = TextView(ctx).apply {
+            text = "$count ta"
+            setTextColor(colorTertiary)
+            textSize = 12f
+        }
+        titles.addView(titleTv)
+        titles.addView(countTv)
+
+        val arrow = TextView(ctx).apply {
+            text = "\u2B07"
+            setTextColor(colorAccent)
+            textSize = 14f
+        }
+
+        header.addView(iconBox)
+        header.addView(titles)
+        header.addView(arrow)
+
+        // Body
+        val body = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = android.view.View.GONE
+            setPadding((14*dp).toInt(), 0, (14*dp).toInt(), (8*dp).toInt())
+        }
+
+        header.setOnClickListener {
+            if (body.visibility == android.view.View.VISIBLE) {
+                body.visibility = android.view.View.GONE
+                arrow.text = "\u2B07"
+            } else {
+                body.visibility = android.view.View.VISIBLE
+                arrow.text = "\u2B06"
+            }
+        }
+
+        card.addView(header)
+        card.addView(body)
+        return card
+    }
+
+    private fun rebuildAwgList() {
+        val a = activity as? MainActivity ?: return
+        val body = bodyAwg ?: return
+        body.removeAllViews()
+        if (a.awgConfigs.isEmpty()) {
+            val tv = TextView(requireContext())
+            tv.text = "AWG config yo'q."
+            tv.setTextColor(androidx.core.content.ContextCompat
+                .getColor(requireContext(), R.color.text_tertiary))
+            tv.textSize = 12f
+            tv.setPadding(0, 12, 0, 12)
+            body.addView(tv)
+            return
+        }
+        for (cfg in a.awgConfigs) {
+            val row = LayoutInflater.from(requireContext())
+                .inflate(R.layout.item_server_row, body, false)
+            row.findViewById<TextView>(R.id.row_flag).text = "🔒"
+            row.findViewById<TextView>(R.id.row_name).text = cfg.name ?: "AWG Config"
+            row.findViewById<TextView>(R.id.row_host).text = cfg.endpoint ?: ""
+            val proto = row.findViewById<TextView>(R.id.row_proto)
+            proto.text = "AWG"
+            proto.backgroundTintList = android.content.res.ColorStateList
+                .valueOf(0xFF6C5CE7.toInt())
+            row.findViewById<TextView>(R.id.row_ping).text = "—"
+            row.setOnClickListener {
+                a.currentAWG = cfg
+                a.protocol = MainActivity.PROTO_AWG
+                Toast.makeText(context, cfg.name ?: "AWG", Toast.LENGTH_SHORT).show()
+                refresh()
+            }
+            body.addView(row)
+        }
+    }
+
+    private fun protocolLabel(p: Protocol): String = when (p) {
+        Protocol.VLESS_REALITY -> "VLESS"
+        Protocol.VMESS -> "VMESS"
+        Protocol.TROJAN -> "TROJAN"
+        Protocol.SS_2022 -> "SS"
+        Protocol.HYSTERIA2 -> "HY2"
+        Protocol.TUIC -> "TUIC"
+    }
+
+    private fun protocolColor(p: Protocol): Int = when (p) {
+        Protocol.VLESS_REALITY -> 0xFF4A9EFF.toInt()
+        Protocol.VMESS -> 0xFF4A9EFF.toInt()
+        Protocol.TROJAN -> 0xFF4A9EFF.toInt()
+        Protocol.SS_2022 -> 0xFFFFC107.toInt()
+        Protocol.HYSTERIA2 -> 0xFF9B59B6.toInt()
+        Protocol.TUIC -> 0xFFE91E63.toInt()
+    }
+
+    private fun pingLabel(s: ServerItem): String = when {
+        s.ping > 0 && s.ping < 9999 -> "${s.ping} ms"
+        s.protocol.isUdp -> "N/A (UDP)"
+        else -> "---"
+    }
+
+    private fun pingColor(s: ServerItem): Int = when {
+        s.ping <= 0 || s.ping >= 9999 -> androidx.core.content.ContextCompat.getColor(requireContext(), R.color.text_tertiary)
+        s.ping < 100 -> 0xFFC4F82A.toInt()
+        s.ping < 300 -> 0xFFFFC107.toInt()
+        else -> 0xFFFF5722.toInt()
+    }
+
+    private fun fastConnect() {
+        val a = activity as? MainActivity ?: return
+        if (a.servers.isEmpty()) {
+            Toast.makeText(context, R.string.toast_add_server_first, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val best = a.servers.filter { it.ping > 0 }.minByOrNull { it.ping } ?: a.servers[0]
+        a.selectServer(best)
+        a.protocol = MainActivity.PROTO_XRAY
+        Toast.makeText(context,
+            getString(R.string.toast_ai_selected, best.displayName()),
+            Toast.LENGTH_SHORT).show()
+        refresh()
+        a.connectStart = System.currentTimeMillis()
+        a.startVpn()
+    }
+
+    private fun showAddDialog() {
+        val input = EditText(requireContext())
+        input.hint = "vless://...  (bir nechta linkni birga qo'yish mumkin)"
+        input.setMinLines(4)
+        input.setMaxLines(8)
+        input.setPadding(30, 30, 30, 30)
+        input.setTextColor(androidx.core.content.ContextCompat
+            .getColor(requireContext(), R.color.text_primary))
+        input.setHintTextColor(androidx.core.content.ContextCompat
+            .getColor(requireContext(), R.color.text_tertiary))
+        AlertDialog.Builder(requireContext())
+            .setTitle("Server qo'shish")
+            .setView(input)
+            .setPositiveButton("Qo'shish") { _, _ ->
+                val text = input.text.toString().trim()
+                if (text.isEmpty()) return@setPositiveButton
+
+                // ═══ Subscription URL? ═══
+                if (text.startsWith("http://") || text.startsWith("https://")) {
+                    val firstLine = text.lines().firstOrNull()?.trim() ?: text
+                    if (firstLine.startsWith("http://") || firstLine.startsWith("https://")) {
+                        loadSubDialog(firstLine)
+                        return@setPositiveButton
+                    }
+                }
+
+                val a = activity as? MainActivity ?: return@setPositiveButton
+
+                val regex = Regex("(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://.*?(?=(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://|\\s|$)")
+                val matches = regex.findAll(text).map { it.value }.toList()
+                if (matches.isEmpty()) {
+                    Toast.makeText(context,
+                        "Link topilmadi. vless:// bilan boshlanishi kerak",
+                        Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                var added = 0
+                for (m in matches) {
+                    val si = ServerLinkParser.parse(m) ?: continue
+                    a.servers.add(si)
+                    added++
+                }
+                if (added > 0) a.currentServer = a.servers.last()
+                ServerStore.save(a, a.servers)
+                Toast.makeText(context, "$added ta qo'shildi",
+                    Toast.LENGTH_SHORT).show()
+                refresh()
+            }
+            .setNegativeButton("Bekor", null)
+            .show()
+    }
+
+    private fun loadSubDialog(url: String) {
+        val c = requireContext()
+        val input = EditText(c).apply {
+            hint = "Nomi (ixtiyoriy)"
+            setTextColor(androidx.core.content.ContextCompat
+                .getColor(c, R.color.text_primary))
+            setHintTextColor(androidx.core.content.ContextCompat
+                .getColor(c, R.color.text_secondary))
+        }
+        AlertDialog.Builder(c)
+            .setTitle("Subscription yuklash")
+            .setMessage(url)
+            .setView(input)
+            .setPositiveButton("Yuklash") { _, _ ->
+                val name = input.text.toString().trim().ifEmpty { null }
+                loadSubscription(url, name)
+            }
+            .setNegativeButton("Bekor", null)
+            .show()
+    }
+
+
+    /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
+    private fun getHwid(): String {
+        val ctx = requireContext()
+        // ANDROID_ID — qurilma uchun barqaror
+        val androidId = try {
+            android.provider.Settings.Secure.getString(
+                ctx.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
+            ) ?: "unknown"
+        } catch (t: Throwable) { "unknown" }
+
+        val model = android.os.Build.MODEL ?: "device"
+        val packageName = ctx.packageName
+
+        // Barqaror hash
+        val raw = "$androidId-$model-$packageName"
+        val hash = java.security.MessageDigest
+            .getInstance("SHA-256")
+            .digest(raw.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+            .take(32)
+
+        return hash
+    }
+
+    private fun loadSubscription(url: String, subName: String?) {
+        val c = requireContext()
+        val a = activity as? MainActivity ?: return
+        Toast.makeText(c, "Yuklanmoqda...", Toast.LENGTH_SHORT).show()
+        Thread {
+            val body = try {
+                val u = java.net.URL(url)
+                val conn = u.openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 15000
+                conn.readTimeout = 15000
+                conn.setRequestProperty("User-Agent", "v2rayTun/3.6.0 (Linux; Android 13; SM-S918B)")
+                conn.setRequestProperty("Accept", "*/*")
+                // HWID (server talab qiladi)
+                conn.setRequestProperty("x-hwid", getHwid())
+                conn.setRequestProperty("x-device-os", "Android")
+                conn.setRequestProperty("x-ver-os", android.os.Build.VERSION.RELEASE ?: "13")
+                conn.setRequestProperty("x-device-model", android.os.Build.MODEL ?: "SM-S918B")
+                conn.setRequestProperty("x-app-version", "3.6.0")
+                // Subscription-specific
+                conn.setRequestProperty("x-sub-request", "1")
+                conn.setRequestProperty("x-ver", "3.6.0")
+                val br = BufferedReader(InputStreamReader(conn.inputStream))
+                val sb = StringBuilder()
+                var line: String?
+                while (br.readLine().also { line = it } != null)
+                    sb.append(line).append("\n")
+                br.close()
+                sb.toString()
+            } catch (t: Throwable) {
+                android.util.Log.e("NurVPN-DBG", "sub fetch: ${t.message}", t)
+                null
+            }
+            if (body == null) {
+                activity?.runOnUiThread {
+                    Toast.makeText(c, "Internet xatosi", Toast.LENGTH_LONG).show()
+                }
+                return@Thread
+            }
+            // ═══ Linklarni ajratish ═══
+            val directLinks = SubscriptionLinkExtractor.extract(body)
+            android.util.Log.i("NurVPN-DBG", "loadSub: directLinks=${directLinks.size}")
+
+            val links = if (directLinks.isNotEmpty()) {
+                directLinks
+            } else {
+                val decoded = decodeBase64Safely(body)
+                val decodedLinks = SubscriptionLinkExtractor.extract(decoded)
+                android.util.Log.i("NurVPN-DBG", "loadSub: decodedLinks=${decodedLinks.size}")
+                decodedLinks
+            }
+
+            android.util.Log.i("NurVPN-DBG", "loadSub: topilgan linklar=${links.size}")
+            if (links.isEmpty()) {
+                activity?.runOnUiThread {
+                    Toast.makeText(c,
+                        "Subscription'da link yo'q",
+                        Toast.LENGTH_LONG).show()
+                }
+                return@Thread
+            }
+
+            // ═══ PLACEHOLDER TEKSHIRUVI ═══
+            val allPlaceholder = links.all { l ->
+                l.contains("00000000-0000-0000-0000-000000000000") ||
+                l.contains("@0.0.0.0:1?")
+            }
+            if (allPlaceholder) {
+                activity?.runOnUiThread {
+                    AlertDialog.Builder(c)
+                        .setTitle("⚠️ Obuna ishlamaydi")
+                        .setMessage(
+                            "Provider qurilmalar limitini oshirgan.\n\n" +
+                            "Yechim:\n" +
+                            "1. Provider botida qurilmalarni reset qiling\n" +
+                            "2. Yoki yangi obuna oling\n" +
+                            "3. Yoki + Qo'shish orqali linklarni qo'lda kiriting")
+                        .setPositiveButton("Tushunarli", null)
+                        .show()
+                }
+                return@Thread
+            }
+            activity?.runOnUiThread {
+                var sub = a.subscriptions.find { it.url == url }
+                if (sub == null) {
+                    sub = Subscription(
+                        "sub_" + System.currentTimeMillis().toString(36),
+                        url, subName ?: "Subscription")
+                    a.subscriptions.add(sub)
+                } else if (!subName.isNullOrEmpty()) sub.name = subName
+                val currentSub = sub ?: return@runOnUiThread
+                currentSub.lastUpdated = System.currentTimeMillis()
+                currentSub.serverCount = links.size
+                a.servers.removeAll { it.subId == currentSub.id }
+                var added = 0
+                for (l in links) {
+                    val si = ServerLinkParser.parse(l, currentSub.id) ?: continue
+                    a.servers.add(si)
+                    added++
+                }
+                SubscriptionStore.save(a, a.subscriptions)
+                ServerStore.save(a, a.servers)
+                Toast.makeText(c, "${currentSub.name}: $added ta yuklandi",
+                    Toast.LENGTH_SHORT).show()
+                refresh()
+            }
+        }.start()
+    }
+
+    private fun showSubDialog() {
+        val c = requireContext()
+        val container = LinearLayout(c).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 30, 40, 10)
+        }
+        val nameEt = EditText(c).apply {
+            hint = "Nomi (ixtiyoriy)"
+            setTextColor(androidx.core.content.ContextCompat
+                .getColor(c, R.color.text_primary))
+            setHintTextColor(androidx.core.content.ContextCompat
+                .getColor(c, R.color.text_secondary))
+        }
+        val urlEt = EditText(c).apply {
+            hint = "https://example.com/sub/xxx"
+            setTextColor(androidx.core.content.ContextCompat
+                .getColor(c, R.color.text_primary))
+            setHintTextColor(androidx.core.content.ContextCompat
+                .getColor(c, R.color.text_secondary))
+        }
+        container.addView(nameEt)
+        container.addView(urlEt)
+        AlertDialog.Builder(c)
+            .setTitle("Subscription qo'shish")
+            .setView(container)
+            .setPositiveButton("Yuklash") { _, _ ->
+                val url = urlEt.text.toString().trim()
+                val name = nameEt.text.toString().trim().ifEmpty { null }
+                if (url.isEmpty()) return@setPositiveButton
+                // Avtomatik https:// qo'shish
+                val fixedUrl = when {
+                    url.startsWith("http://") || url.startsWith("https://") -> url
+                    url.contains(".") && !url.contains("://") -> "https://$url"
+                    else -> {
+                        Toast.makeText(c,
+                            "To'g'ri URL kiriting: https://example.com/sub/xxx",
+                            Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
+                }
+                val a = activity as? MainActivity ?: return@setPositiveButton
+                Toast.makeText(c, "Yuklanmoqda...", Toast.LENGTH_SHORT).show()
+                Thread {
+                    val body = try {
+                        val u = java.net.URL(url)
+                        val conn = u.openConnection() as java.net.HttpURLConnection
+                        conn.connectTimeout = 10000
+                        conn.readTimeout = 10000
+                        val br = BufferedReader(InputStreamReader(conn.inputStream))
+                        val sb = StringBuilder()
+                        var line: String?
+                        while (br.readLine().also { line = it } != null)
+                            sb.append(line).append("\n")
+                        br.close()
+                        sb.toString()
+                    } catch (t: Throwable) {
+                        android.util.Log.e("NurVPN-DBG", "sub fetch: ${t.message}", t)
+                        null
+                    }
+                    if (body == null) {
+                        activity?.runOnUiThread {
+                            Toast.makeText(c, "Internet xatosi", Toast.LENGTH_LONG).show()
+                        }
+                        return@Thread
+                    }
+                    val decoded = try {
+                        String(android.util.Base64.decode(body.trim(),
+                            android.util.Base64.DEFAULT), Charsets.UTF_8)
+                    } catch (ignored: Throwable) { body }
+                    val regex = Regex("(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://.*?(?=(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://|\\s|$)")
+                    val links = regex.findAll(decoded)
+                .map { it.value.trim() }
+                .filter { it.length > 15 }
+                .toList()
+            android.util.Log.i("NurVPN-DBG",
+                "loadSub: topilgan linklar=${links.size}")
+                    if (links.isEmpty()) {
+                        activity?.runOnUiThread {
+                            Toast.makeText(c, "Subscription'da link yo'q",
+                                Toast.LENGTH_LONG).show()
+                        }
+                        return@Thread
+                    }
+                    activity?.runOnUiThread {
+                        var sub = a.subscriptions.find { it.url == url }
+                        if (sub == null) {
+                            sub = Subscription(
+                                "sub_" + System.currentTimeMillis().toString(36),
+                                url, name ?: "Subscription")
+                            a.subscriptions.add(sub)
+                        } else if (!name.isNullOrEmpty()) sub.name = name
+                val currentSub = sub ?: return@runOnUiThread
+                currentSub.lastUpdated = System.currentTimeMillis()
+                currentSub.serverCount = links.size
+                        a.servers.removeAll { it.subId == currentSub.id }
+                        for (l in links) {
+                            val si = ServerLinkParser.parse(l, currentSub.id) ?: continue
+                            val cc = CountryLookup.lookup(si.host)
+                            si.countryCode = cc[0]
+                            si.country = cc[1]
+                            si.protocol = Protocol.fromUri(l)
+                            si.subId = sub.id
+                            a.servers.add(si)
+                        }
+                        SubscriptionStore.save(a, a.subscriptions)
+                        ServerStore.save(a, a.servers)
+                        Toast.makeText(c, "${sub.name}: ${links.size} ta yuklandi",
+                            Toast.LENGTH_SHORT).show()
+                        refresh()
+                                    }
+                }.start()
+            }
+            .setNegativeButton("Bekor", null)
+            .show()
+    }
+
+    private fun pasteFromClipboard() {
+        val cm = requireContext().getSystemService(Context.CLIPBOARD_SERVICE)
+            as? android.content.ClipboardManager ?: return
+        val clip = cm.primaryClip
+        if (clip == null || clip.itemCount == 0) {
+            Toast.makeText(context, "Clipboard bo'sh", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val text = clip.getItemAt(0).text?.toString()?.trim() ?: return
+        android.util.Log.i("NurVPN-DBG", "pasteFromClipboard: uzunlik=${text.length}")
+
+        // ═══ Subscription URL? ═══
+        if (text.startsWith("http://") || text.startsWith("https://")) {
+            val firstLine = text.lines().firstOrNull()?.trim() ?: text
+            if (firstLine.startsWith("http://") || firstLine.startsWith("https://")) {
+                loadSubDialog(firstLine)
+                return
+            }
+        }
+
+        val a = activity as? MainActivity ?: return
+
+        val regex = Regex("(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://.*?(?=(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://|\\s|$)")
+        val matches = regex.findAll(text).map { it.value }.toList()
+        if (matches.isEmpty()) {
+            Toast.makeText(context,
+                "Clipboard'da link yo'q. Link vless:// bilan boshlanadi",
+                Toast.LENGTH_LONG).show()
+            return
+        }
+        var added = 0
+        for (m in matches) {
+            val si = ServerLinkParser.parse(m) ?: continue
+            a.servers.add(si)
+            added++
+        }
+        if (added > 0) a.currentServer = a.servers.last()
+        ServerStore.save(a, a.servers)
+        Toast.makeText(context, "$added ta qo'shildi",
+            Toast.LENGTH_SHORT).show()
+        refresh()
+    }
+
+    private fun runAIAnalysis() {
+        val a = activity as? MainActivity ?: return
+        if (a.servers.isEmpty()) {
+            Toast.makeText(context, R.string.toast_add_server_first, Toast.LENGTH_SHORT).show()
+            return
+        }
+        Toast.makeText(context, "AI tahlil...", Toast.LENGTH_SHORT).show()
+        ai?.selectBest(a.servers, object : AIServerSelector.Listener {
+            override fun onAnalysisStart() {}
+            override fun onServerScored(s: ServerItem, score: Double) {}
+            override fun onAnalysisComplete(ranked: List<AIInsights>) {
+                if (!isAdded) return
+                val a2 = activity as? MainActivity ?: return
+                ServerStore.save(a2, a2.servers)
+                refresh()
+                        showTop3Dialog(ranked.take(3))
+            }
+            override fun onBestSelected(best: ServerItem, insights: AIInsights) {}
+        })
+    }
+
+    private fun showTop3Dialog(top3: List<AIInsights>) {
+        if (top3.isEmpty()) return
+        val medals = listOf("\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49")
+        val sb = StringBuilder()
+        top3.forEachIndexed { i, ins ->
+            val m = medals.getOrElse(i) { "  " }
+            val ping = ins.summary.substringBefore("\u2022").trim()
+            sb.append("$m  ${ins.name}\n")
+            sb.append("      $ping  \u00B7  AI ${"%.0f".format(ins.score)}\n\n")
+        }
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("\uD83E\uDD16 AI Selector \u2014 TOP 3")
+            .setMessage(sb.toString().trimEnd())
+            .setPositiveButton("\uD83E\uDD47 Ulash") { _, _ ->
+                val a = activity as? MainActivity ?: return@setPositiveButton
+                val best = a.servers.find { it.link == top3[0].link }
+                if (best != null) {
+                    a.selectServer(best)
+                    a.protocol = MainActivity.PROTO_XRAY
+                    Toast.makeText(context,
+                        "AI: ${best.displayName()}", Toast.LENGTH_SHORT).show()
+                    refresh()
+                    a.connectStart = System.currentTimeMillis()
+                    a.startVpn()
+                }
+            }
+            .setNegativeButton("Bekor", null)
+            .show()
+    }
+
+    private fun toggleConnection() {
+        val a = activity as? MainActivity ?: return
+        if (a.isRunning) {
+            val curSrv = a.currentServer
+            if (MainActivity.PROTO_XRAY == a.protocol && curSrv != null) {
+                ai?.onDisconnected(curSrv, true)
+            }
+            a.stopVpn()
+            a.connectStart = 0
+        } else {
+            if (MainActivity.PROTO_XRAY == a.protocol &&
+                a.currentServer == null && a.servers.isEmpty()) {
+                Toast.makeText(context, R.string.toast_add_server_first,
+                    Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (MainActivity.PROTO_AWG == a.protocol && a.currentAWG == null) {
+                Toast.makeText(context, R.string.toast_add_awg_first,
+                    Toast.LENGTH_SHORT).show()
+                return
+            }
+            a.startVpn()
+            a.connectStart = System.currentTimeMillis()
+            val curSrv2 = a.currentServer
+            if (MainActivity.PROTO_XRAY == a.protocol && curSrv2 != null) {
+                ai?.onConnected(curSrv2)
+            }
+        }
+        ui.postDelayed({ refresh() }, 600)
+    }
+
+    fun refresh() {
+        if (!isAdded) return
+        val a = activity as? MainActivity ?: return
+        connectBtn ?: return
+
+        if (MainActivity.PROTO_AWG == a.protocol) {
+            val awg = a.currentAWG
+            serverFlag?.text = "🔒"
+            serverName?.text = awg?.name ?: "AWG"
+            pingText?.text = "AWG"
+            pingText?.setTextColor(androidx.core.content.ContextCompat
+                .getColor(requireContext(), R.color.text_tertiary))
+        } else {
+            val srv = a.currentServer
+            serverFlag?.text = srv?.flag() ?: "🌍"
+            serverName?.text = srv?.displayName() ?: getString(R.string.no_server_selected)
+            pingText?.text = if (srv != null) pingLabel(srv) else "---"
+            pingText?.setTextColor(if (srv != null) pingColor(srv)
+                else androidx.core.content.ContextCompat
+                    .getColor(requireContext(), R.color.text_tertiary))
+        }
+
+        awgCount?.text = "${a.awgConfigs.size} ta"
+        rebuildServerCards()
+
+        if (a.isRunning) {
+            statusText?.setText(R.string.status_connected)
+            statusText?.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.accent))
+            connectBtn?.setBackgroundResource(R.drawable.bg_power_on)
+            connectIcon?.setColorFilter(0xFF0A1410.toInt())
+            if (a.connectStart == 0L) a.connectStart = System.currentTimeMillis()
+            startPulse()
+        } else {
+            statusText?.setText(R.string.tap_to_connect)
+            statusText?.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.text_secondary))
+            connectBtn?.setBackgroundResource(R.drawable.bg_power_off)
+            connectIcon?.setColorFilter(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.text_secondary))
+            a.connectStart = 0
+            downText?.text = "0 B/s"
+            upText?.text = "0 B/s"
+            stopPulse()
+        }
+    }
+
+    private fun startPulse() {
+        if (pulseX != null) return
+        pulseX = android.animation.ObjectAnimator.ofFloat(connectBtn, "scaleX", 1f, 1.05f, 1f).apply {
+            duration = 1500L
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            repeatMode = android.animation.ValueAnimator.RESTART
+            start()
+        }
+        pulseY = android.animation.ObjectAnimator.ofFloat(connectBtn, "scaleY", 1f, 1.05f, 1f).apply {
+            duration = 1500L
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            repeatMode = android.animation.ValueAnimator.RESTART
+            start()
+        }
+    }
+
+    private fun stopPulse() {
+        pulseX?.cancel(); pulseX = null
+        pulseY?.cancel(); pulseY = null
+        connectBtn?.scaleX = 1f
+        connectBtn?.scaleY = 1f
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refresh()
+        if (!tickerRunning) { tickerRunning = true; ui.post(ticker) }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        tickerRunning = false
+        ui.removeCallbacks(ticker)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_QR_SCAN &&
+            resultCode == android.app.Activity.RESULT_OK) {
+            val text = data?.getStringExtra(QrScanActivity.EXTRA_RESULT) ?: return
+            handleQrResult(text)
+        }
+    }
+
+    private fun handleQrResult(text: String) {
+        android.util.Log.i("NurVPN-QR", "QR matni uzunligi=${text.length}")
+        android.util.Log.i("NurVPN-QR", "QR matni=${text.take(500)}")
+        val a = activity as? MainActivity ?: return
+
+        // ═══ 1. AWG / WireGuard config? ═══
+        if (text.contains("[Interface]", ignoreCase = true) &&
+            text.contains("[Peer]", ignoreCase = true)) {
+            addAwgFromQr(text)
+            return
+        }
+
+        // ═══ 2. Subscription URL ═══
+        if (text.startsWith("http://") || text.startsWith("https://")) {
+            loadSubDialog(text)
+            return
+        }
+
+        // ═══ 3. Ko'p linkli matn ═══
+        val regex = Regex(
+            "(vless|vmess|trojan|ss|hy2|hysteria2|tuic)://[^\\s]+"
+        )
+        val matches = regex.findAll(text).map { it.value }.toList()
+        if (matches.isEmpty()) {
+            Toast.makeText(context,
+                "QR'da link topilmadi\n\n" +
+                "Qo'llab-quvvatlanadi:\n" +
+                "• vless://, vmess://, hysteria2://\n" +
+                "• AWG config ([Interface] ... [Peer])\n" +
+                "• Subscription URL (https://...)",
+                Toast.LENGTH_LONG).show()
+            return
+        }
+        var added = 0
+        for (m in matches) {
+            val si = ServerLinkParser.parse(m) ?: continue
+            a.servers.add(si)
+            added++
+        }
+        ServerStore.save(a, a.servers)
+        Toast.makeText(context, "$added ta qo'shildi",
+            Toast.LENGTH_SHORT).show()
+        refresh()
+    }
+
+    /** QR dan AWG config qo'shish. */
+    private fun addAwgFromQr(conf: String) {
+        val a = activity as? MainActivity ?: return
+        val r = AWGParser.parse(conf)
+        if (!r.ok) {
+            Toast.makeText(context,
+                "AWG config xato: ${r.error}",
+                Toast.LENGTH_LONG).show()
+            return
+        }
+        val cfg = AWGConfig(conf)
+        cfg.endpoint = r.endpoint
+        cfg.address = r.address
+        cfg.name = "AWG " + r.endpoint
+        a.awgConfigs.add(cfg)
+        AWGStore.save(a, a.awgConfigs)
+        a.selectAWG(cfg)
+        a.protocol = MainActivity.PROTO_AWG
+        AWGEditorBus.init(a.awgConfigs, cfg, MainActivity.PROTO_AWG)
+        Toast.makeText(context,
+            "AWG config qo'shildi\n${r.endpoint}",
+            Toast.LENGTH_SHORT).show()
+        refresh()
+        rebuildServerCards()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        tickerRunning = false
+        ui.removeCallbacksAndMessages(null)
+        stopPulse()
+        connectBtn = null; connectIcon = null
+        statusText = null; serverFlag = null; serverName = null; pingText = null
+        timerText = null; downText = null; upText = null
+        cardsContainer = null; bodyAwg = null
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// 2. ServersFragment
+// ═══════════════════════════════════════════════════════════════
+class ServersFragment : Fragment() {
+
+    private var rv: RecyclerView? = null
+    private var ad: ServerAdapter? = null
+    private var search: EditText? = null
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+    ): View? {
+        val v = inflater.inflate(R.layout.fragment_servers, container, false)
+        rv = v.findViewById(R.id.server_list)
+        search = v.findViewById(R.id.search_input)
+
+        val a = activity as? MainActivity
+        ad = ServerAdapter(this, a)
+        rv?.layoutManager = LinearLayoutManager(context)
+        rv?.setHasFixedSize(true)
+        rv?.adapter = ad
+
+        v.findViewById<FloatingActionButton>(R.id.add_fab)
+            ?.setOnClickListener { showAddDialog() }
+        v.findViewById<FloatingActionButton>(R.id.sub_fab)
+            ?.setOnClickListener { showSubDialog() }
+        v.findViewById<FloatingActionButton>(R.id.ping_fab)
+            ?.setOnClickListener { pingAll() }
+        v.findViewById<FloatingActionButton>(R.id.awg_fab)
+            ?.setOnClickListener { showAWGDialog() }
+
+        search?.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {
+                ad?.filter(s?.toString() ?: "")
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        // ═══ Chip filter ═══
+        v.findViewById<TextView>(R.id.chip_all)?.setOnClickListener {
+            setFilter("all", v)
+        }
+        v.findViewById<TextView>(R.id.chip_vless)?.setOnClickListener {
+            setFilter("vless", v)
+        }
+        v.findViewById<TextView>(R.id.chip_hy2)?.setOnClickListener {
+            setFilter("hy2", v)
+        }
+        v.findViewById<TextView>(R.id.chip_awg)?.setOnClickListener {
+            setFilter("awg", v)
+        }
+        return v
+    }
+
+    private var currentFilter: String = "all"
+
+    private fun setFilter(key: String, root: View) {
+        currentFilter = key
+        val chips = mapOf(
+            "all" to root.findViewById<TextView>(R.id.chip_all),
+            "vless" to root.findViewById<TextView>(R.id.chip_vless),
+            "hy2" to root.findViewById<TextView>(R.id.chip_hy2),
+            "awg" to root.findViewById<TextView>(R.id.chip_awg)
+        )
+        val cOn = androidx.core.content.ContextCompat
+            .getColor(requireContext(), R.color.on_accent)
+        val cOff = androidx.core.content.ContextCompat
+            .getColor(requireContext(), R.color.text_secondary)
+        for ((k, tv) in chips) {
+            tv ?: continue
+            if (k == key) {
+                tv.setBackgroundResource(R.drawable.bg_filter_on)
+                tv.setTextColor(cOn)
+                tv.setTypeface(null, android.graphics.Typeface.BOLD)
+            } else {
+                tv.setBackgroundResource(R.drawable.bg_filter_off)
+                tv.setTextColor(cOff)
+                tv.setTypeface(null, android.graphics.Typeface.NORMAL)
+            }
+        }
+        ad?.setProtoFilter(key)
+    }
+
+    fun refresh() { ad?.notifyDataChanged() }
+
+    fun loadSubFromHeader(url: String, name: String?) {
+        loadSub(url, name)
+    }
+
+    private fun pingAll() {
+        if (!isAdded) return
+        val a = activity as? MainActivity ?: return
+        if (a.servers.isEmpty()) {
+            Toast.makeText(context, R.string.toast_no_servers, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val pingable = a.servers.filter {
+            !SingBoxConfig.isHysteria2Link(it.link)
+        }
+        if (pingable.isEmpty()) {
+            Toast.makeText(context, "Ping qilinadigan server yo'q",
+                Toast.LENGTH_SHORT).show()
+            return
+        }
+        PingTester.testAll(pingable, object : PingTester.Listener {
+            override fun onPingUpdate(item: ServerItem, ping: Int) {
+                ad?.notifyDataSetChanged()
+            }
+            override fun onAllDone() {
+                if (!isAdded) return
+                val a2 = activity as? MainActivity ?: return
+                ServerStore.save(a2, a2.servers)
+                Toast.makeText(context, R.string.toast_ping_done, Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun showAddDialog() {
+        if (!isAdded) return
+        val et = EditText(requireContext())
+        et.hint = "vless://... (bir nechta link)  YOKI  https://sub-url.com/xxx"
+        et.inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                       android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        et.setHorizontallyScrolling(false)
+        et.minLines = 4
+        et.maxLines = 8
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.dialog_add_xray)
+            .setView(et)
+            .setPositiveButton(R.string.dialog_add) { _, _ ->
+                val text = et.text.toString().trim()
+                if (text.isEmpty()) return@setPositiveButton
+                autoDetectAndAdd(text)
+            }
+            .setNegativeButton(R.string.dialog_no, null)
+            .show()
+    }
+
+    private fun autoDetectAndAdd(text: String) {
+        val trimmed = text.trim()
+        // ═══ 1) Subscription URL? ═══
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+            val firstLine = trimmed.lines().firstOrNull()?.trim() ?: trimmed
+            if (firstLine.startsWith("http://") || firstLine.startsWith("https://")) {
+                loadSub(firstLine, null)
+                return
+            }
+        }
+        // ═══ 2) Link(lar) ═══
+        addLink(trimmed)
+    }
+
+    private fun showAWGDialog() {
+        if (!isAdded) return
+        val et = EditText(requireContext())
+        et.hint = "[Interface]\nPrivateKey = ...\nAddress = 10.0.0.2/32"
+        et.minLines = 10
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.dialog_add_awg)
+            .setView(et)
+            .setPositiveButton(R.string.dialog_add) { _, _ ->
+                val conf = et.text.toString().trim()
+                if (conf.isNotEmpty()) addAWG(conf)
+            }
+            .setNegativeButton(R.string.dialog_no, null)
+            .show()
+    }
+
+    private fun addAWG(conf: String) {
+        val a = activity as? MainActivity ?: return
+        val r = AWGParser.parse(conf)
+        if (!r.ok) {
+            Toast.makeText(context, r.error, Toast.LENGTH_LONG).show()
+            return
+        }
+        val cfg = AWGConfig(conf)
+        cfg.endpoint = r.endpoint
+        cfg.address = r.address
+        cfg.name = "AWG " + r.endpoint
+        a.awgConfigs.add(cfg)
+        AWGStore.save(a, a.awgConfigs)
+        a.selectAWG(cfg)
+        a.protocol = MainActivity.PROTO_AWG
+        AWGEditorBus.init(a.awgConfigs, cfg, MainActivity.PROTO_AWG)
+        ad?.notifyDataChanged()
+        Toast.makeText(context, "AWG v${r.version} qo'shildi", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showSubDialog() {
+        if (!isAdded) return
+        val c = requireContext()
+        val container = LinearLayout(c).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 30, 40, 10)
+        }
+        val nameEt = EditText(c).apply {
+            hint = "Nomi (ixtiyoriy)"
+            setTextColor(androidx.core.content.ContextCompat
+                .getColor(c, R.color.text_primary))
+            setHintTextColor(androidx.core.content.ContextCompat
+                .getColor(c, R.color.text_secondary))
+        }
+        val urlEt = EditText(c).apply {
+            hint = "https://example.com/sub/xxx"
+            setTextColor(androidx.core.content.ContextCompat
+                .getColor(c, R.color.text_primary))
+            setHintTextColor(androidx.core.content.ContextCompat
+                .getColor(c, R.color.text_secondary))
+        }
+        container.addView(nameEt)
+        container.addView(urlEt)
+
+        AlertDialog.Builder(c)
+            .setTitle(R.string.dialog_add_sub)
+            .setView(container)
+            .setPositiveButton(R.string.dialog_load) { _, _ ->
+                val url = urlEt.text.toString().trim()
+                val name = nameEt.text.toString().trim().ifEmpty { null }
+                if (url.isEmpty()) {
+                    Toast.makeText(c, "URL bo'sh", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                // ═══ DIRECT NODE LINK? ═══
+                val isDirectNode = url.startsWith("vless://") ||
+                                   url.startsWith("vmess://") ||
+                                   url.startsWith("trojan://") ||
+                                   url.startsWith("ss://") ||
+                                   url.startsWith("hysteria2://") ||
+                                   url.startsWith("hy2://") ||
+                                   url.startsWith("tuic://")
+
+                if (isDirectNode) {
+                    // To'g'ridan-to'g'ri link sifatida qo'shamiz
+                    val a = activity as? MainActivity ?: return@setPositiveButton
+                    val si = ServerLinkParser.parse(url)
+                    if (si == null) {
+                        Toast.makeText(c,
+                            "Link parse qilinmadi: ${url.take(50)}",
+                            Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
+                    a.servers.add(si)
+                    ServerStore.save(a, a.servers)
+                    ad?.notifyDataChanged()
+                    Toast.makeText(c, "1 ta server qo'shildi",
+                        Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                // ═══ SUBSCRIPTION URL ═══
+                val fixedUrl = when {
+                    url.startsWith("http://") || url.startsWith("https://") -> url
+                    url.contains(".") && !url.contains("://") -> "https://$url"
+                    else -> {
+                        Toast.makeText(c,
+                            "Subscription: https://example.com/sub/xxx\n" +
+                            "Yoki: vless://, vmess://, hysteria2://",
+                            Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
+                }
+                loadSub(fixedUrl, name)
+            }
+            .setNegativeButton(R.string.dialog_no, null)
+            .show()
+    }
+
+
+    /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
+    private fun getHwid(): String {
+        val ctx = requireContext()
+        // ANDROID_ID — qurilma uchun barqaror
+        val androidId = try {
+            android.provider.Settings.Secure.getString(
+                ctx.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
+            ) ?: "unknown"
+        } catch (t: Throwable) { "unknown" }
+
+        val model = android.os.Build.MODEL ?: "device"
+        val packageName = ctx.packageName
+
+        // Barqaror hash
+        val raw = "$androidId-$model-$packageName"
+        val hash = java.security.MessageDigest
+            .getInstance("SHA-256")
+            .digest(raw.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+            .take(32)
+
+        return hash
+    }
+
+    private fun loadSub(url: String, subName: String?) {
+        Toast.makeText(context, "Yuklanmoqda...", Toast.LENGTH_SHORT).show()
+        Thread {
+            android.util.Log.i("NurVPN-DBG", "loadSub: URL=$url")
+            val body = fetchSub(url)
+            android.util.Log.i("NurVPN-DBG", "loadSub: body uzunligi=${body.length}")
+            if (body.isEmpty()) {
+                activity?.runOnUiThread {
+                    Toast.makeText(context,
+                        "Server javob bermadi.\nURL yoki internetni tekshiring",
+                        Toast.LENGTH_LONG).show()
+                }
+                return@Thread
+            }
+
+            // ═══ Linklarni ajratish ═══
+            val directLinks = SubscriptionLinkExtractor.extract(body)
+            android.util.Log.i("NurVPN-DBG", "loadSub: directLinks=${directLinks.size}")
+
+            val links = if (directLinks.isNotEmpty()) {
+                directLinks
+            } else {
+                val decoded = decodeBase64Safely(body)
+                val decodedLinks = SubscriptionLinkExtractor.extract(decoded)
+                android.util.Log.i("NurVPN-DBG", "loadSub: decodedLinks=${decodedLinks.size}")
+                decodedLinks
+            }
+
+            android.util.Log.i("NurVPN-DBG", "loadSub: topilgan linklar=${links.size}")
+            if (!isAdded) return@Thread
+            activity?.runOnUiThread {
+                val a = activity as? MainActivity ?: return@runOnUiThread
+
+                // Subscription yaratish yoki mavjudni topish
+                var sub = a.subscriptions.find { it.url == url }
+                if (sub == null) {
+                    val id = "sub_" + System.currentTimeMillis().toString(36)
+                    sub = Subscription(id, url, subName ?: extractSubTitle(url))
+                    a.subscriptions.add(sub)
+                } else if (!subName.isNullOrEmpty()) {
+                    sub.name = subName
+                }
+                val currentSub = sub ?: return@runOnUiThread
+                currentSub.lastUpdated = System.currentTimeMillis()
+                currentSub.serverCount = links.size
+
+                // Eski serverlarni olib tashlash
+                a.servers.removeAll { it.subId == currentSub.id }
+
+                var added = 0
+                for (l in links) {
+                    val si = ServerLinkParser.parse(l, currentSub.id) ?: continue
+                    a.servers.add(si)
+                    added++
+                }
+                SubscriptionStore.save(a, a.subscriptions)
+                ServerStore.save(a, a.servers)
+                ad?.notifyDataChanged()
+                Toast.makeText(context,
+                    "${currentSub.name}: $added ta yuklandi",
+                    Toast.LENGTH_SHORT).show()
+            }
+        }.start()
+    }
+
+    private fun extractSubTitle(url: String): String {
+        // URL'dan qisqa nom chiqarish: sub.example.com/path -> "sub"
+        return try {
+            val host = java.net.URL(url).host
+            val parts = host.split(".")
+            when {
+                parts.size >= 2 && parts[0].length < 4 -> parts[1]
+                parts.isNotEmpty() -> parts[0]
+                else -> "Subscription"
+            }.replaceFirstChar { it.uppercase() }
+        } catch (t: Throwable) { "Subscription" }
+    }
+
+    private fun fetchSub(urlStr: String): String {
+        android.util.Log.i("NurVPN-DBG", "fetchSub: boshlanishi URL=$urlStr")
+        return try {
+            val u = java.net.URL(urlStr)
+            val c = u.openConnection() as java.net.HttpURLConnection
+            c.instanceFollowRedirects = true
+            c.connectTimeout = 15000
+            c.readTimeout = 15000
+            c.setRequestProperty("User-Agent", "v2rayTun/3.6.0 (Linux; Android 13; SM-S918B)")
+            c.setRequestProperty("Accept", "*/*")
+            c.setRequestProperty("Accept-Encoding", "identity")
+            c.setRequestProperty("x-hwid", getHwid())
+            c.setRequestProperty("x-device-os", "Android")
+            c.setRequestProperty("x-ver-os", android.os.Build.VERSION.RELEASE ?: "13")
+            c.setRequestProperty("x-device-model", android.os.Build.MODEL ?: "SM-S918B")
+            c.setRequestProperty("x-app-version", "3.6.0")
+            c.setRequestProperty("x-sub-request", "1")
+            c.setRequestProperty("x-ver", "3.6.0")
+
+            c.connect()
+            val code = c.responseCode
+            val encoding = (c.contentEncoding ?: "").lowercase()
+            android.util.Log.i("NurVPN-DBG",
+                "HTTP code=$code, encoding=$encoding, contentLength=${c.contentLength}, contentType=${c.contentType}")
+
+            if (code !in 200..299) {
+                android.util.Log.e("NurVPN-DBG", "HTTP xato: $code")
+                c.disconnect()
+                return ""
+            }
+
+            val compressedBytes = c.inputStream.use { it.readBytes() }
+            val bodyBytes = when {
+                encoding.contains("gzip") -> java.util.zip.GZIPInputStream(
+                    java.io.ByteArrayInputStream(compressedBytes)
+                ).use { it.readBytes() }
+                encoding.contains("deflate") -> java.util.zip.InflaterInputStream(
+                    java.io.ByteArrayInputStream(compressedBytes)
+                ).use { it.readBytes() }
+                else -> compressedBytes
+            }
+            val body = String(bodyBytes, Charsets.UTF_8)
+            android.util.Log.i("NurVPN-DBG", "fetchSub: body uzunligi=${bodyBytes.size}")
+            c.disconnect()
+            body
+        } catch (t: Throwable) {
+            android.util.Log.e("NurVPN-DBG", "fetchSub XATO: ${t.message}", t)
+            ""
+        }
+    }
+
+
+    private fun addLink(text: String) {
+        android.util.Log.i("NurVPN-DBG", "addLink: text uzunligi=${text.length}")
+        android.util.Log.i("NurVPN-DBG", "addLink: birinchi 200 belgi=${text.take(200)}")
+        val a = activity as? MainActivity ?: return
+        val regex = Regex("(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://.*?(?=(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://|\\s|$)")
+        val matches = regex.findAll(text).map { it.value }.toList()
+        if (matches.isEmpty()) {
+            Toast.makeText(context, R.string.toast_invalid_link,
+                Toast.LENGTH_SHORT).show()
+            return
+        }
+        var added = 0
+        for (link in matches) {
+            android.util.Log.i("NurVPN-DBG", "addLink topdi: ${link.take(80)}")
+            val si = parseServer(link)
+            if (si == null) {
+                android.util.Log.w("NurVPN-DBG", "addLink parseServer null qaytardi")
+                continue
+            }
+            a.servers.add(si)
+            added++
+        }
+        ServerStore.save(a, a.servers)
+        ad?.notifyDataChanged()
+        android.util.Log.i("NurVPN-DBG", "addLink natija: $added ta qo'shildi (jami: ${a.servers.size})")
+        Toast.makeText(context, "$added ta qo'shildi", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun parseServer(link: String?, subId: String? = null): ServerItem? {
+        if (link.isNullOrEmpty()) return null
+        if (link.length > 8192) return null
+        if (link.contains("\n") || link.contains("\r")) return null
+        return ServerLinkParser.parse(link, subId)
+    }
+
+    // ───────── ADAPTER (sectioned) ─────────
+
+    // Har bir qator: sarlavha yoki server
+    private sealed class Row {
+        companion object {
+            const val AWG_HEADER_ID = "__awg__"
+        }
+        class Header(
+            val subId: String?,
+            val name: String,
+            val count: Int,
+            val isAwg: Boolean
+        ) : Row()
+        class Item(val data: Any) : Row()
+    }
+
+    private inner class ServerAdapter(
+        private val frag: ServersFragment,
+        private val act: MainActivity?
+    ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+        private val rows = ArrayList<Row>()
+        private var currentQuery = ""
+        private var protoFilter = "all"
+
+        private val TYPE_HEADER = 0
+        private val TYPE_ITEM = 1
+
+        init { rebuild() }
+
+        fun rebuild() {
+            rows.clear()
+            val a = act ?: return
+
+            // Filter protokol bo'yicha
+            val allServers = a.servers.filter { si ->
+                val okProto = when (protoFilter) {
+                    "vless" -> si.protocol == Protocol.VLESS_REALITY
+                    "hy2" -> si.protocol == Protocol.HYSTERIA2
+                    "awg" -> false  // AWG alohida
+                    else -> true
+                }
+                okProto && matchesQuery(si.displayName())
+            }
+
+            val awgAll = if (protoFilter == "vless" || protoFilter == "hy2") {
+                emptyList<AWGConfig>()
+            } else a.awgConfigs.filter { matchesQuery(it.name ?: "AWG") }
+
+            val grouped = LinkedHashMap<String?, MutableList<ServerItem>>()
+            for (si in allServers) {
+                val key = si.subId
+                grouped.getOrPut(key) { ArrayList() }.add(si)
+            }
+
+            for ((subId, list) in grouped) {
+                val sub = if (subId != null) a.subscriptions.find { it.id == subId } else null
+                val title = sub?.name ?: "Qo'lda qo'shilgan"
+                val icon = if (sub != null) "📡" else "🔧"
+                rows.add(Row.Header(subId, "$icon $title", list.size, false))
+                for (si in list) rows.add(Row.Item(si))
+            }
+
+            // 2) AWG bo'limi (oxirida)
+            if (awgAll.isNotEmpty()) {
+                rows.add(Row.Header(Row.AWG_HEADER_ID, "🛡 AWG Config", awgAll.size, true))
+                for (awg in awgAll) rows.add(Row.Item(awg))
+            }
+
+            notifyDataSetChanged()
+        }
+
+        private fun matchesQuery(name: String?): Boolean {
+            if (currentQuery.isEmpty()) return true
+            return name?.lowercase()?.contains(currentQuery.lowercase()) == true
+        }
+
+        fun filter(q: String) {
+            currentQuery = q
+            rebuild()
+        }
+
+        fun setProtoFilter(key: String) {
+            protoFilter = key
+            rebuild()
+        }
+
+        fun notifyDataChanged() { rebuild() }
+
+        override fun getItemViewType(position: Int): Int =
+            if (rows[position] is Row.Header) TYPE_HEADER else TYPE_ITEM
+
+        @NonNull
+        override fun onCreateViewHolder(@NonNull p: ViewGroup, v: Int): RecyclerView.ViewHolder {
+            return if (v == TYPE_HEADER) {
+                HeaderVH(LayoutInflater.from(p.context)
+                    .inflate(R.layout.item_section_header, p, false))
+            } else {
+                ItemVH(LayoutInflater.from(p.context)
+                    .inflate(R.layout.item_server, p, false))
+            }
+        }
+
+        override fun onBindViewHolder(@NonNull h: RecyclerView.ViewHolder, pos: Int) {
+            when (val row = rows[pos]) {
+                is Row.Header -> (h as HeaderVH).bind(row)
+                is Row.Item -> {
+                    val vh = h as ItemVH
+                    when (val data = row.data) {
+                        is ServerItem -> bindServer(vh, data)
+                        is AWGConfig -> bindAWG(vh, data)
+                    }
+                }
+            }
+        }
+
+        override fun getItemCount(): Int = rows.size
+
+        private fun bindServer(h: ItemVH, s: ServerItem) {
+            h.flag.text = s.flag()
+            h.name.text = s.displayName()
+            h.addr.text = (s.host ?: "?") + (if (s.port > 0) ":${s.port}" else "")
+
+            // Protocol chip
+            if (h.aiScore != null) {
+                h.aiScore.visibility = View.VISIBLE
+                when (s.protocol) {
+                    Protocol.VLESS_REALITY -> {
+                        h.aiScore.text = "VLESS"
+                        h.aiScore.setTextColor(0xFF4A9EFF.toInt())
+                    }
+                    Protocol.VMESS -> {
+                        h.aiScore.text = "VMESS"
+                        h.aiScore.setTextColor(0xFF4A9EFF.toInt())
+                    }
+                    Protocol.TROJAN -> {
+                        h.aiScore.text = "TROJAN"
+                        h.aiScore.setTextColor(0xFF4A9EFF.toInt())
+                    }
+                    Protocol.HYSTERIA2 -> {
+                        h.aiScore.text = "HY2"
+                        h.aiScore.setTextColor(0xFF9B59B6.toInt())
+                    }
+                    Protocol.TUIC -> {
+                        h.aiScore.text = "TUIC"
+                        h.aiScore.setTextColor(0xFFE91E63.toInt())
+                    }
+                    Protocol.SS_2022 -> {
+                        h.aiScore.text = "SS"
+                        h.aiScore.setTextColor(0xFFFFC107.toInt())
+                    }
+                }
+            }
+
+            // Ping
+            when {
+                s.protocol.isUdp && s.ping < 0 -> {
+                    h.ping.text = "N/A (UDP)"
+                    h.ping.setTextColor(androidx.core.content.ContextCompat.getColor(frag.requireContext(), R.color.text_secondary))
+                }
+                s.ping < 0 -> {
+                    h.ping.text = "---"
+                    h.ping.setTextColor(androidx.core.content.ContextCompat.getColor(frag.requireContext(), R.color.text_secondary))
+                }
+                s.ping >= 9999 -> {
+                    h.ping.text = "✕"
+                    h.ping.setTextColor(0xFFFF5722.toInt())
+                }
+                s.ping < 100 -> {
+                    h.ping.text = "${s.ping}ms"
+                    h.ping.setTextColor(androidx.core.content.ContextCompat.getColor(frag.requireContext(), R.color.accent))
+                }
+                s.ping < 300 -> {
+                    h.ping.text = "${s.ping}ms"
+                    h.ping.setTextColor(0xFFFFC107.toInt())
+                }
+                else -> {
+                    h.ping.text = "${s.ping}ms"
+                    h.ping.setTextColor(0xFFFF5722.toInt())
+                }
+            }
+
+            val selected = act?.currentServer?.link == s.link &&
+                MainActivity.PROTO_XRAY == act?.protocol
+            h.itemView.setBackgroundResource(
+                if (selected) R.drawable.item_selected_bg else R.drawable.item_bg)
+
+            h.itemView.setOnClickListener {
+                act?.let {
+                    it.selectServer(s)
+                    it.protocol = MainActivity.PROTO_XRAY
+                }
+                notifyDataSetChanged()
+                frag.refresh()
+            }
+            h.itemView.setOnLongClickListener { showMenu(s); true }
+        }
+
+        private fun bindAWG(h: ItemVH, awg: AWGConfig) {
+            h.flag.text = "🔒"
+            h.name.text = awg.name ?: "AWG"
+            h.addr.text = awg.endpoint ?: ""
+            h.ping.text = "AWG"
+            h.ping.setTextColor(0xFF6C5CE7.toInt())
+            h.aiScore?.visibility = View.GONE
+
+            val selected = act?.currentAWG?.rawConf == awg.rawConf &&
+                MainActivity.PROTO_AWG == act?.protocol
+            h.itemView.setBackgroundResource(
+                if (selected) R.drawable.item_selected_bg else R.drawable.item_bg)
+
+            h.itemView.setOnClickListener {
+                act?.let {
+                    it.selectAWG(awg)
+                    it.protocol = MainActivity.PROTO_AWG
+                    AWGEditorBus.init(it.awgConfigs, awg, MainActivity.PROTO_AWG)
+                }
+                notifyDataSetChanged()
+                frag.refresh()
+            }
+            h.itemView.setOnLongClickListener { showMenu(awg); true }
+        }
+
+        // ═══════ ViewHolders ═══════
+
+        inner class HeaderVH(v: View) : RecyclerView.ViewHolder(v) {
+            val icon: TextView = v.findViewById(R.id.sec_icon)
+            val title: TextView = v.findViewById(R.id.sec_title)
+            val count: TextView = v.findViewById(R.id.sec_count)
+            val action: TextView = v.findViewById(R.id.sec_action)
+
+            fun bind(row: Row.Header) {
+                val parts = row.name.split(" ", limit = 2)
+                icon.text = parts.getOrElse(0) { "📡" }
+                title.text = parts.getOrElse(1) { row.name }
+                count.text = "${row.count} ta"
+                action.text = if (row.isAwg) "" else "↻"
+                action.setOnClickListener {
+                    if (row.subId != null && row.subId != Row.AWG_HEADER_ID) {
+                        val sub = act?.subscriptions?.find { it.id == row.subId }
+                        if (sub != null) {
+                            frag.loadSubFromHeader(sub.url, sub.name)
+                        }
+                    }
+                }
+                // Long-press → subscription menyusi
+                itemView.setOnLongClickListener {
+                    if (row.subId != null && row.subId != Row.AWG_HEADER_ID) {
+                        showSubMenu(row.subId, row.name)
+                    }
+                    true
+                }
+            }
+        }
+
+        private fun showSubMenu(subId: String, name: String) {
+            val c = frag.context ?: return
+            val sub = act?.subscriptions?.find { it.id == subId } ?: return
+            val items = arrayOf(
+                "\uD83D\uDD04  Yangilash",
+                "\uD83D\uDCD1  URL nusxalash",
+                "\uD83D\uDDD1  Subscription'ni o'chirish"
+            )
+            AlertDialog.Builder(c)
+                .setTitle(name)
+                .setItems(items) { _, which ->
+                    when (which) {
+                        0 -> frag.loadSubFromHeader(sub.url, sub.name)
+                        1 -> {
+                            val cm = c.getSystemService(Context.CLIPBOARD_SERVICE)
+                                as? android.content.ClipboardManager ?: return@setItems
+                            cm.setPrimaryClip(android.content.ClipData
+                                .newPlainText("Sub URL", sub.url))
+                            Toast.makeText(c, "URL nusxalandi",
+                                Toast.LENGTH_SHORT).show()
+                        }
+                        2 -> confirmDeleteSub(sub)
+                    }
+                }
+                .show()
+        }
+
+        private fun confirmDeleteSub(sub: Subscription) {
+            val c = frag.context ?: return
+            val serverCount = act?.servers?.count { it.subId == sub.id } ?: 0
+            AlertDialog.Builder(c)
+                .setTitle("🗑 Subscription'ni o'chirish")
+                .setMessage("${sub.name}\n\n" +
+                    "Bu subscription va unga tegishli $serverCount ta server " +
+                    "o'chiriladi. Davom etilsinmi?")
+                .setPositiveButton("Ha, o'chirish") { _, _ ->
+                    act?.let { a ->
+                        a.servers.removeAll { it.subId == sub.id }
+                        ServerStore.save(a, a.servers)
+                        a.subscriptions.remove(sub)
+                        SubscriptionStore.save(a, a.subscriptions)
+                    }
+                    rebuild()
+                    frag.refresh()
+                    Toast.makeText(c, "O'chirildi", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Bekor", null)
+                .show()
+        }
+
+        private fun confirmDeleteAllManual() {
+            val c = frag.context ?: return
+            val manual = act?.servers?.filter { it.subId == null } ?: return
+            if (manual.isEmpty()) {
+                Toast.makeText(c, "Qo'lda qo'shilgan server yo'q",
+                    Toast.LENGTH_SHORT).show()
+                return
+            }
+            AlertDialog.Builder(c)
+                .setTitle("🗑 Barcha qo'lda qo'shilganlarni o'chirish")
+                .setMessage("${manual.size} ta server o'chiriladi. Davom etilsinmi?")
+                .setPositiveButton("Ha, o'chirish") { _, _ ->
+                    act?.let { a ->
+                        a.servers.removeAll { it.subId == null }
+                        ServerStore.save(a, a.servers)
+                    }
+                    rebuild()
+                    frag.refresh()
+                    Toast.makeText(c, "O'chirildi", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Bekor", null)
+                .show()
+        }
+
+        inner class ItemVH(v: View) : RecyclerView.ViewHolder(v) {
+            val flag: TextView = v.findViewById(R.id.flag)
+            val name: TextView = v.findViewById(R.id.name)
+            val addr: TextView = v.findViewById(R.id.addr)
+            val ping: TextView = v.findViewById(R.id.ping)
+            val aiScore: TextView? = v.findViewById(R.id.ai_score)
+            val fav: ImageView? = v.findViewById(R.id.fav)
+        }
+
+        // ═══════ ShowMenu (long-press) ═══════
+
+        private fun showMenu(target: Any) {
+            if (!frag.isAdded) return
+            val c = frag.context ?: return
+            val items = ArrayList<String>()
+            val actions = ArrayList<() -> Unit>()
+
+            if (target is ServerItem) {
+                items.add("🚀 Ulash")
+                actions.add {
+                    act?.let {
+                        it.selectServer(target)
+                        it.protocol = MainActivity.PROTO_XRAY
+                        Toast.makeText(c, target.displayName(), Toast.LENGTH_SHORT).show()
+                    }
+                    notifyDataSetChanged()
+                    frag.refresh()
+                }
+                items.add("✏️ Nomini tahrirlash")
+                actions.add { editServer(target) }
+                items.add("📋 Link nusxalash")
+                actions.add { copyToClipboard(target.link, "Link") }
+                items.add("📤 Ulashish")
+                actions.add { shareLink(target.link, target.displayName()) }
+            } else if (target is AWGConfig) {
+                items.add("🚀 Ulash")
+                actions.add {
+                    act?.let {
+                        it.selectAWG(target)
+                        it.protocol = MainActivity.PROTO_AWG
+                        AWGEditorBus.init(it.awgConfigs, target, MainActivity.PROTO_AWG)
+                        Toast.makeText(c, target.name ?: "AWG", Toast.LENGTH_SHORT).show()
+                    }
+                    notifyDataSetChanged()
+                    frag.refresh()
+                }
+                items.add("✏️ Tahrirlash")
+                val idx = act?.awgConfigs?.indexOf(target) ?: -1
+                actions.add {
+                    if (idx >= 0 && frag.isAdded) {
+                        val i = Intent(c, AWGEditorActivity::class.java)
+                        i.putExtra(AWGEditorActivity.EXTRA_INDEX, idx)
+                        i.putExtra(AWGEditorActivity.EXTRA_RAW, target.rawConf)
+                        frag.startActivity(i)
+                    }
+                }
+                items.add("📋 Config nusxalash")
+                actions.add { copyToClipboard(target.rawConf ?: "", "AWG config") }
+                items.add("🏷 Nomini o'zgartirish")
+                actions.add { editAwgName(target) }
+            }
+
+            items.add("🗑 O'chirish")
+            actions.add { confirmDelete(target) }
+
+            AlertDialog.Builder(c)
+                .setTitle(if (target is ServerItem) target.displayName()
+                          else (target as AWGConfig).name)
+                .setItems(items.toTypedArray()) { _, which ->
+                    if (which in actions.indices) actions[which]()
+                }
+                .show()
+        }
+
+        private fun copyToClipboard(text: String, label: String) {
+            if (text.isEmpty()) return
+            val c = frag.context ?: return
+            val cm = c.getSystemService(Context.CLIPBOARD_SERVICE)
+                as? android.content.ClipboardManager ?: return
+            cm.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
+            Toast.makeText(c, "$label nusxalandi", Toast.LENGTH_SHORT).show()
+        }
+
+        private fun shareLink(link: String, name: String) {
+            val c = frag.context ?: return
+            val i = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, name)
+                putExtra(Intent.EXTRA_TEXT, link)
+            }
+            c.startActivity(Intent.createChooser(i, "Ulashish"))
+        }
+
+        private fun editServer(s: ServerItem) {
+            if (!frag.isAdded) return
+            val c = frag.context ?: return
+            val container = LinearLayout(c).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(40, 30, 40, 10)
+            }
+            val nameIn = EditText(c).apply {
+                hint = "Nom (remark)"
+                setText(s.remark ?: s.host ?: "")
+                setTextColor(0xFFFFFFFF.toInt())
+                setHintTextColor(androidx.core.content.ContextCompat.getColor(c, R.color.text_secondary))
+            }
+            val hostIn = EditText(c).apply {
+                hint = "Host"
+                setText(s.host ?: "")
+                setTextColor(0xFFFFFFFF.toInt())
+                setHintTextColor(androidx.core.content.ContextCompat.getColor(c, R.color.text_secondary))
+            }
+            val portIn = EditText(c).apply {
+                hint = "Port"
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                setText(s.port.toString())
+                setTextColor(0xFFFFFFFF.toInt())
+                setHintTextColor(androidx.core.content.ContextCompat.getColor(c, R.color.text_secondary))
+            }
+            container.addView(nameIn)
+            container.addView(hostIn)
+            container.addView(portIn)
+            AlertDialog.Builder(c)
+                .setTitle("✏️ Tahrirlash")
+                .setView(container)
+                .setPositiveButton("Saqlash") { _, _ ->
+                    s.remark = nameIn.text.toString().trim().ifEmpty { null }
+                    s.host = hostIn.text.toString().trim().ifEmpty { null }
+                    s.port = portIn.text.toString().toIntOrNull() ?: 0
+                    act?.let { ServerStore.save(it, it.servers) }
+                    notifyDataChanged()
+                    frag.refresh()
+                    Toast.makeText(c, "Saqlandi", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Bekor", null)
+                .show()
+        }
+
+        private fun editAwgName(awg: AWGConfig) {
+            if (!frag.isAdded) return
+            val c = frag.context ?: return
+            val input = EditText(c).apply {
+                hint = "AWG nomi"
+                setText(awg.name ?: "")
+                setTextColor(0xFFFFFFFF.toInt())
+                setHintTextColor(androidx.core.content.ContextCompat.getColor(c, R.color.text_secondary))
+            }
+            AlertDialog.Builder(c)
+                .setTitle("🏷 Nomini o'zgartirish")
+                .setView(input)
+                .setPositiveButton("Saqlash") { _, _ ->
+                    awg.name = input.text.toString().trim().ifEmpty { null }
+                    act?.let { AWGStore.save(it, it.awgConfigs) }
+                    notifyDataChanged()
+                    frag.refresh()
+                }
+                .setNegativeButton("Bekor", null)
+                .show()
+        }
+
+        private fun confirmDelete(target: Any) {
+            if (!frag.isAdded) return
+            val c = frag.context ?: return
+            AlertDialog.Builder(c)
+                .setTitle(R.string.dialog_delete)
+                .setPositiveButton(R.string.dialog_yes) { _, _ ->
+                    act?.let { a ->
+                        when (target) {
+                            is ServerItem -> {
+                                a.servers.remove(target)
+                                if (a.currentServer === target) {
+                                    a.currentServer =
+                                        if (a.servers.isEmpty()) null
+                                        else a.servers[0]
+                                    val newCur = a.currentServer
+                                    if (newCur != null) a.selectServer(newCur)
+                                    else a.prefs.edit().remove("current_link").apply()
+                                }
+                                ServerStore.save(a, a.servers)
+                            }
+                            is AWGConfig -> {
+                                a.awgConfigs.remove(target)
+                                if (a.currentAWG === target) {
+                                    a.currentAWG =
+                                        if (a.awgConfigs.isEmpty()) null
+                                        else a.awgConfigs[0]
+                                    val newAwg = a.currentAWG
+                                    if (newAwg != null) a.selectAWG(newAwg)
+                                    else a.prefs.edit().remove("current_awg").apply()
+                                }
+                                AWGStore.save(a, a.awgConfigs)
+                                AWGEditorBus.init(a.awgConfigs, a.currentAWG, a.protocol)
+                            }
+                        }
+                    }
+                    notifyDataChanged()
+                    frag.refresh()
+                }
+                .setNegativeButton(R.string.dialog_no, null)
+                .show()
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 3. SettingsFragment
+// ═══════════════════════════════════════════════════════════════
+class SettingsFragment : Fragment() {
+
+    private var themeGroup: android.widget.RadioGroup? = null
+    private var langGroup: android.widget.RadioGroup? = null
+    private var protoGroup: android.widget.RadioGroup? = null
+    private var splitModeGroup: android.widget.RadioGroup? = null
+    private var dnsInput: EditText? = null
+    private var killSwitch: MaterialSwitch? = null
+    private var ipv6Switch: MaterialSwitch? = null
+    private var dnsLeakSwitch: MaterialSwitch? = null
+    private var leakResultBox: android.widget.LinearLayout? = null
+    private var binding = false
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+    ): View? {
+        val v = inflater.inflate(R.layout.fragment_settings, container, false)
+        if (!isAdded) return v
+
+        themeGroup = v.findViewById(R.id.theme_group)
+        langGroup = v.findViewById(R.id.lang_group)
+        protoGroup = v.findViewById(R.id.proto_group)
+        splitModeGroup = v.findViewById(R.id.split_mode_group)
+        dnsInput = v.findViewById(R.id.dns_input)
+        killSwitch = v.findViewById(R.id.kill_switch)
+        ipv6Switch = v.findViewById(R.id.ipv6_switch)
+        dnsLeakSwitch = v.findViewById(R.id.dns_leak_switch)
+        leakResultBox = v.findViewById(R.id.leak_result)
+
+        val a = activity as? MainActivity ?: return v
+        val ctx = requireContext()
+
+        binding = true
+        val tm = ThemeHelper.getThemeMode(ctx)
+        val tid = when (tm) {
+            "light" -> R.id.theme_light
+            "dark" -> R.id.theme_dark
+            else -> R.id.theme_system
+        }
+        themeGroup?.check(tid)
+
+        val lt = ThemeHelper.getLanguage(ctx)
+        val lid = when (lt) {
+            "uz" -> R.id.lang_uz
+            "ru" -> R.id.lang_ru
+            "en" -> R.id.lang_en
+            else -> R.id.lang_system
+        }
+        langGroup?.check(lid)
+
+        dnsInput?.setText(a.prefs.getString("dns", "1.1.1.1"))
+
+        val pid = if (MainActivity.PROTO_AWG == a.protocol)
+            R.id.proto_awg else R.id.proto_xray
+        protoGroup?.check(pid)
+
+        killSwitch?.isChecked = a.prefs.getBoolean("kill_switch", false)
+        ipv6Switch?.isChecked = IPv6Blocker.isBlocked(ctx)
+        dnsLeakSwitch?.isChecked = DNSLeakProtection.isEnabled(ctx)
+
+        val splitMode = SplitTunnelStore.getMode(ctx)
+        val splitId = when (splitMode) {
+            SplitTunnelStore.MODE_WHITELIST -> R.id.split_whitelist
+            SplitTunnelStore.MODE_BLACKLIST -> R.id.split_blacklist
+            else -> R.id.split_all
+        }
+        splitModeGroup?.check(splitId)
+
+        val ver = v.findViewById<TextView>(R.id.about_version)
+        if (ver != null) {
+            try {
+                val vn = ctx.packageManager
+                    .getPackageInfo(ctx.packageName, 0).versionName
+                ver.text = getString(R.string.settings_version) + " " + vn
+            } catch (ignored: Throwable) {}
+        }
+        binding = false
+
+        themeGroup?.setOnCheckedChangeListener { _, id ->
+            if (binding) return@setOnCheckedChangeListener
+            val mode = when (id) {
+                R.id.theme_light -> "light"
+                R.id.theme_dark -> "dark"
+                else -> "system"
+            }
+            ThemeHelper.setThemeMode(requireContext(), mode)
+        }
+
+        langGroup?.setOnCheckedChangeListener { _, id ->
+            if (binding) return@setOnCheckedChangeListener
+            val tag = when (id) {
+                R.id.lang_uz -> "uz"
+                R.id.lang_ru -> "ru"
+                R.id.lang_en -> "en"
+                else -> ""
+            }
+            ThemeHelper.setLanguage(requireContext(), tag)
+            val list = if (tag.isEmpty()) LocaleListCompat.getEmptyLocaleList()
+                       else LocaleListCompat.forLanguageTags(tag)
+            AppCompatDelegate.setApplicationLocales(list)
+            activity?.recreate()
+        }
+
+        protoGroup?.setOnCheckedChangeListener { _, id ->
+            if (binding) return@setOnCheckedChangeListener
+            a.protocol = if (id == R.id.proto_awg)
+                MainActivity.PROTO_AWG else MainActivity.PROTO_XRAY
+        }
+
+        splitModeGroup?.setOnCheckedChangeListener { _, id ->
+            if (binding) return@setOnCheckedChangeListener
+            val mode = when (id) {
+                R.id.split_whitelist -> SplitTunnelStore.MODE_WHITELIST
+                R.id.split_blacklist -> SplitTunnelStore.MODE_BLACKLIST
+                else -> SplitTunnelStore.MODE_ALL
+            }
+            SplitTunnelStore.setMode(requireContext(), mode)
+        }
+
+        dnsInput?.setOnFocusChangeListener { _, has ->
+            if (!has) {
+                val d = dnsInput?.text?.toString()?.trim().orEmpty()
+                if (d.isNotEmpty()) a.prefs.edit().putString("dns", d).apply()
+            }
+        }
+        // DNS dropdown — uzoq bosish orqali
+        dnsInput?.setOnLongClickListener {
+            showDnsDialog(a)
+            true
+        }
+
+        killSwitch?.setOnCheckedChangeListener { _, ch ->
+            if (binding) return@setOnCheckedChangeListener
+            a.prefs.edit().putBoolean("kill_switch", ch).apply()
+        }
+
+        ipv6Switch?.setOnCheckedChangeListener { _, ch ->
+            if (binding) return@setOnCheckedChangeListener
+            IPv6Blocker.setBlocked(requireContext(), ch)
+        }
+
+        dnsLeakSwitch?.setOnCheckedChangeListener { _, ch ->
+            if (binding) return@setOnCheckedChangeListener
+            DNSLeakProtection.setEnabled(requireContext(), ch)
+        }
+
+        v.findViewById<Button>(R.id.leak_test_btn)
+            ?.setOnClickListener { runLeakTest() }
+        v.findViewById<Button>(R.id.split_select_btn)
+            ?.setOnClickListener {
+                startActivity(Intent(requireContext(),
+                    SplitAppsActivity::class.java))
+            }
+        v.findViewById<Button>(R.id.awg_editor_btn)
+            ?.setOnClickListener {
+                if (AWGEditorBus.configs.isEmpty()) {
+                    Toast.makeText(requireContext(), "AWG config yo'q",
+                        Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val i = Intent(requireContext(), AWGEditorActivity::class.java)
+                i.putExtra(AWGEditorActivity.EXTRA_INDEX, 0)
+                i.putExtra(AWGEditorActivity.EXTRA_RAW,
+                    AWGEditorBus.configs[0].rawConf)
+                startActivity(i)
+            }
+
+        v.findViewById<Button>(R.id.ai_reset)?.setOnClickListener {
+            MetricsStore.clear(requireContext())
+            Toast.makeText(requireContext(), R.string.toast_metrics_reset,
+                Toast.LENGTH_SHORT).show()
+        }
+        v.findViewById<Button>(R.id.ai_export)?.setOnClickListener {
+            exportMetrics()
+        }
+        return v
+    }
+
+    private fun showDnsDialog(a: MainActivity) {
+        val dnsList = arrayOf(
+            "1.1.1.1 (Cloudflare)",
+            "1.0.0.1 (Cloudflare 2)",
+            "8.8.8.8 (Google)",
+            "8.8.4.4 (Google 2)",
+            "9.9.9.9 (Quad9)",
+            "77.88.8.8 (Yandex)",
+            "223.5.5.5 (AliDNS)",
+            "Qo'lda kiritish…"
+        )
+        val values = arrayOf(
+            "1.1.1.1", "1.0.0.1",
+            "8.8.8.8", "8.8.4.4",
+            "9.9.9.9", "77.88.8.8",
+            "223.5.5.5", "__custom__"
+        )
+        val current = a.prefs.getString("dns", "1.1.1.1") ?: "1.1.1.1"
+        val idx = values.indexOf(current).coerceAtLeast(0)
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(getString(R.string.settings_dns))
+            .setSingleChoiceItems(dnsList, idx) { dialog, which ->
+                if (values[which] == "__custom__") {
+                    dialog.dismiss()
+                    val et = EditText(requireContext())
+                    et.setText(current)
+                    et.hint = "1.1.1.1"
+                    AlertDialog.Builder(requireContext())
+                        .setTitle(R.string.settings_dns)
+                        .setView(et)
+                        .setPositiveButton(R.string.dialog_yes) { _, _ ->
+                            val d = et.text.toString().trim()
+                            if (d.isNotEmpty()) {
+                                a.prefs.edit().putString("dns", d).apply()
+                                dnsInput?.setText(d)
+                            }
+                        }
+                        .setNegativeButton(R.string.dialog_no, null)
+                        .show()
+                } else {
+                    a.prefs.edit().putString("dns", values[which]).apply()
+                    dnsInput?.setText(values[which])
+                    dialog.dismiss()
+                }
+            }
+            .setNegativeButton(R.string.dialog_no, null)
+            .show()
+    }
+
+    private fun runLeakTest() {
+        if (!isAdded) return
+        leakResultBox?.visibility = View.VISIBLE
+        val rootView = view ?: return
+        rootView.findViewById<TextView>(R.id.leak_ipv4)?.text = "IPv4: ..."
+        rootView.findViewById<TextView>(R.id.leak_ipv6)?.text = "IPv6: ..."
+        rootView.findViewById<TextView>(R.id.leak_dns)?.text = "DNS: ..."
+
+        LeakTester.test { r ->
+            if (!isAdded) return@test
+            activity?.runOnUiThread {
+                val v2 = view ?: return@runOnUiThread
+                v2.findViewById<TextView>(R.id.leak_ipv4)?.text =
+                    "IPv4: ${r.ipv4}" + if (r.ipv4Ok) " ✅" else " ⚠️"
+                v2.findViewById<TextView>(R.id.leak_ipv6)?.text =
+                    "IPv6: ${r.ipv6}" + if (r.ipv6Ok) " ✅" else " ❌"
+                v2.findViewById<TextView>(R.id.leak_dns)?.text =
+                    "DNS: ${r.dns}" + if (r.dnsOk) " ✅" else " ⚠️"
+            }
+        }
+    }
+
+    private fun exportMetrics() {
+        try {
+            val ctx = requireContext()
+            val dir = ctx.getExternalFilesDir(null) ?: return
+            val out = File(dir, "nurvpn_metrics_" +
+                System.currentTimeMillis() + ".json")
+            FileWriter(out).use { it.write(MetricsStore.exportJson(ctx)) }
+            Toast.makeText(ctx,
+                getString(R.string.toast_exported, out.absolutePath),
+                Toast.LENGTH_LONG).show()
+        } catch (t: Throwable) {
+            Toast.makeText(requireContext(), "Export: ${t.message}",
+                Toast.LENGTH_LONG).show()
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 4. AWGEditorActivity
+// ═══════════════════════════════════════════════════════════════
+class AWGEditorActivity : AppCompatActivity() {
+
+    companion object {
+        const val EXTRA_INDEX = "awg_index"
+        const val EXTRA_RAW = "awg_raw"
+    }
+
+    private lateinit var hostEt: EditText
+    private lateinit var portEt: EditText
+    private lateinit var jcEt: EditText
+    private lateinit var jminEt: EditText
+    private lateinit var jmaxEt: EditText
+    private lateinit var mtuEt: EditText
+    private lateinit var keepEt: EditText
+    private lateinit var dnsEt: EditText
+    private var preview: TextView? = null
+    private var originalRaw = ""
+    private var index = -1
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_awg_editor)
+
+        hostEt = findViewById(R.id.edit_host)
+        portEt = findViewById(R.id.edit_port)
+        jcEt = findViewById(R.id.edit_jc)
+        jminEt = findViewById(R.id.edit_jmin)
+        jmaxEt = findViewById(R.id.edit_jmax)
+        mtuEt = findViewById(R.id.edit_mtu)
+        keepEt = findViewById(R.id.edit_keepalive)
+        dnsEt = findViewById(R.id.edit_dns)
+        preview = findViewById(R.id.preview)
+
+        if (AWGEditorBus.configs.isEmpty()) {
+            Toast.makeText(this, "AWG config yo'q", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+        index = intent.getIntExtra(EXTRA_INDEX, 0)
+        if (index < 0 || index >= AWGEditorBus.configs.size) index = 0
+        originalRaw = intent.getStringExtra(EXTRA_RAW)
+            ?: AWGEditorBus.configs[index].rawConf ?: ""
+
+        fillFields()
+
+        findViewById<Button>(R.id.preset_443)
+            ?.setOnClickListener { applyRawToFields(AWGEditor.applyPort443(originalRaw)) }
+        findViewById<Button>(R.id.preset_beeline)
+            ?.setOnClickListener { applyRawToFields(AWGEditor.applyBeelinePreset(originalRaw)) }
+        findViewById<Button>(R.id.preset_mts)
+            ?.setOnClickListener { applyRawToFields(AWGEditor.applyMtsPreset(originalRaw)) }
+        findViewById<Button>(R.id.preset_reset)
+            ?.setOnClickListener { applyRawToFields(originalRaw) }
+
+        findViewById<Button>(R.id.btn_cancel)?.setOnClickListener { finish() }
+        findViewById<Button>(R.id.btn_save)?.setOnClickListener { saveAndReconnect() }
+
+        val w = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {
+                updatePreview()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        }
+        hostEt.addTextChangedListener(w)
+        portEt.addTextChangedListener(w)
+        jcEt.addTextChangedListener(w)
+        jminEt.addTextChangedListener(w)
+        jmaxEt.addTextChangedListener(w)
+        mtuEt.addTextChangedListener(w)
+        keepEt.addTextChangedListener(w)
+        dnsEt.addTextChangedListener(w)
+        updatePreview()
+    }
+
+    private fun fillFields() {
+        val d = AWGEditor.parse(originalRaw)
+        hostEt.setText(d.host)
+        portEt.setText((if (d.port > 0) d.port else 443).toString())
+        jcEt.setText(d.jc.toString())
+        jminEt.setText(d.jmin.toString())
+        jmaxEt.setText(d.jmax.toString())
+        mtuEt.setText(d.mtu.toString())
+        keepEt.setText(d.keepalive.toString())
+        dnsEt.setText(d.dns)
+    }
+
+    private fun applyRawToFields(raw: String) {
+        val d = AWGEditor.parse(raw)
+        originalRaw = raw
+        hostEt.setText(d.host)
+        portEt.setText((if (d.port > 0) d.port else 443).toString())
+        jcEt.setText(d.jc.toString())
+        jminEt.setText(d.jmin.toString())
+        jmaxEt.setText(d.jmax.toString())
+        mtuEt.setText(d.mtu.toString())
+        keepEt.setText(d.keepalive.toString())
+        dnsEt.setText(d.dns)
+        updatePreview()
+    }
+
+    private fun safeInt(et: EditText, def: Int): Int =
+        try {
+            val s = et.text.toString().trim()
+            if (s.isEmpty()) def else s.toInt()
+        } catch (e: Exception) { def }
+
+    private fun collect(): AWGEditor.Data {
+        val d = AWGEditor.Data()
+        d.host = hostEt.text.toString().trim()
+        d.port = safeInt(portEt, 443)
+        d.jc = safeInt(jcEt, 4)
+        d.jmin = safeInt(jminEt, 40)
+        d.jmax = safeInt(jmaxEt, 70)
+        d.mtu = safeInt(mtuEt, 1280)
+        d.keepalive = safeInt(keepEt, 25)
+        d.dns = dnsEt.text.toString().trim()
+        return d
+    }
+
+    private fun buildResult(): String = AWGEditor.applyAll(originalRaw, collect())
+
+    private fun updatePreview() {
+        val p = preview ?: return
+        val r = buildResult()
+        p.text = if (r.length > 400) r.substring(0, 400) + "..." else r
+    }
+
+    private fun saveAndReconnect() {
+        val d = collect()
+        if (d.host.isEmpty()) {
+            Toast.makeText(this, R.string.editor_empty_host,
+                Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (d.port < 1 || d.port > 65535) {
+            Toast.makeText(this, R.string.editor_invalid_port,
+                Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (index < 0 || index >= AWGEditorBus.configs.size) return
+        val cfg = AWGEditorBus.configs[index]
+        cfg.rawConf = buildResult()
+        AWGStore.save(this, AWGEditorBus.configs)
+        Toast.makeText(this, R.string.editor_saved, Toast.LENGTH_SHORT).show()
+        finish()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 5. SplitAppsActivity
+// ═══════════════════════════════════════════════════════════════
+class SplitAppsActivity : AppCompatActivity() {
+
+    private var rv: RecyclerView? = null
+    private var search: EditText? = null
+    private var count: TextView? = null
+    private var ad: Adapter? = null
+    private var all: List<AppInfo> = ArrayList()
+    private val selected = HashSet<String>()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.fragment_split_apps)
+
+        rv = findViewById(R.id.app_list)
+        search = findViewById(R.id.search)
+        count = findViewById(R.id.count)
+
+        selected.clear()
+        selected.addAll(SplitTunnelStore.getApps(this))
+
+        findViewById<ImageButton>(R.id.back_btn)?.setOnClickListener { finish() }
+        findViewById<Button>(R.id.save_btn)?.setOnClickListener {
+            SplitTunnelStore.setApps(this, selected)
+            Toast.makeText(this, R.string.split_save, Toast.LENGTH_SHORT).show()
+            finish()
+        }
+
+        ad = Adapter()
+        rv?.layoutManager = LinearLayoutManager(this)
+        rv?.adapter = ad
+
+        search?.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {
+                ad?.filter(s?.toString() ?: "")
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        AppListLoader.loadAsync(this) { list ->
+            all = list ?: ArrayList()
+            for (ai in all) ai.selected = selected.contains(ai.packageName)
+            runOnUiThread {
+                ad?.rebuild()
+                updateCount()
+            }
+        }
+    }
+
+    private fun updateCount() {
+        count?.text = getString(R.string.split_apps_count, selected.size)
+    }
+
+    private inner class Adapter : RecyclerView.Adapter<Adapter.VH>() {
+        private val shown = ArrayList<AppInfo>()
+
+        fun rebuild() {
+            shown.clear()
+            shown.addAll(all)
+            notifyDataSetChanged()
+            updateCount()
+        }
+
+        fun filter(q: String) {
+            shown.clear()
+            val query = q.trim()
+            if (query.isEmpty()) shown.addAll(all)
+            else {
+                val s = query.lowercase(Locale.US)
+                for (ai in all) {
+                    if (ai.label.lowercase(Locale.US).contains(s) ||
+                        ai.packageName.lowercase(Locale.US).contains(s)) {
+                        shown.add(ai)
+                    }
+                }
+            }
+            notifyDataSetChanged()
+        }
+
+        @NonNull
+        override fun onCreateViewHolder(@NonNull p: ViewGroup, v: Int): VH {
+            val item = LayoutInflater.from(p.context)
+                .inflate(R.layout.item_app, p, false)
+            return VH(item)
+        }
+
+        override fun onBindViewHolder(@NonNull h: VH, pos: Int) {
+            val ai = shown[pos]
+            h.label.text = ai.label
+            h.pkg.text = ai.packageName
+            if (ai.icon != null) h.icon.setImageDrawable(ai.icon)
+            else h.icon.setImageResource(android.R.drawable.sym_def_app_icon)
+            h.check.isChecked = selected.contains(ai.packageName)
+
+            val toggle = View.OnClickListener {
+                if (selected.contains(ai.packageName)) {
+                    selected.remove(ai.packageName)
+                    h.check.isChecked = false
+                } else {
+                    selected.add(ai.packageName)
+                    h.check.isChecked = true
+                }
+                updateCount()
+            }
+            h.itemView.setOnClickListener(toggle)
+            h.check.setOnClickListener(toggle)
+        }
+
+        override fun getItemCount(): Int = shown.size
+
+        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
+            val icon: ImageView = v.findViewById(R.id.app_icon)
+            val label: TextView = v.findViewById(R.id.app_label)
+            val pkg: TextView = v.findViewById(R.id.app_pkg)
+            val check: CheckBox = v.findViewById(R.id.app_check)
+        }
+    }
+}

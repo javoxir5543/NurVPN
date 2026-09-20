@@ -1,0 +1,79 @@
+openjdk version "17.0.20" 2026-07-21
+OpenJDK Runtime Environment (build 17.0.20+8-1-24.04-Ubuntu)
+OpenJDK 64-Bit Server VM (build 17.0.20+8-1-24.04-Ubuntu, mixed mode, sharing)
+Downloading https://services.gradle.org/distributions/gradle-8.2-bin.zip
+..........................................................................................................................
+Unzipping /home/pc/.gradle/wrapper/dists/gradle-8.2-bin/bbg7u40eoinfdyxsxr3z4i7ta/gradle-8.2-bin.zip to /home/pc/.gradle/wrapper/dists/gradle-8.2-bin/bbg7u40eoinfdyxsxr3z4i7ta
+Set executable permissions for: /home/pc/.gradle/wrapper/dists/gradle-8.2-bin/bbg7u40eoinfdyxsxr3z4i7ta/gradle-8.2/bin/gradle
+Starting a Gradle Daemon (subsequent builds will be faster)
+> Task :app:clean UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:checkDebugAarMetadata
+> Task :app:generateDebugResValues
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+> Task :app:mergeDebugResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:compressDebugAssets
+> Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugNativeLibs NO-SOURCE
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeExtDexDebug
+> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:processDebugResources
+> Task :app:compileDebugKotlin
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNAllInOne.kt:144:36 Smart cast to 'ServerItem' is impossible, because 'a.currentServer' is a mutable property that could have been changed by this time
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNAllInOne.kt:165:33 Smart cast to 'ServerItem' is impossible, because 'a.currentServer' is a mutable property that could have been changed by this time
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNAllInOne.kt:214:17 Operator '==' cannot be applied to 'Long' and 'Int'
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNAllInOne.kt:595:46 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type MainActivity?
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNAllInOne.kt:655:56 Smart cast to 'ServerItem' is impossible, because 'a.currentServer' is a mutable property that could have been changed by this time
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNAllInOne.kt:668:53 Smart cast to 'AWGConfig' is impossible, because 'a.currentAWG' is a mutable property that could have been changed by this time
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNCore.kt:122:38 Smart cast to 'String' is impossible, because 'si.host' is a mutable property that could have been changed by this time
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNCore.kt:335:44 Smart cast to 'String' is impossible, because 'si.host' is a mutable property that could have been changed by this time
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNCore.kt:1009:5 JvmField cannot be applied to lateinit property
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNCore.kt:1174:46 Unresolved reference: stat_sys_vpn
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNCore.kt:1263:9 None of the following functions can be called with the arguments supplied: 
+public open fun protect(p0: DatagramSocket!): Boolean defined in com.nurvpn.app.NurVpnService
+public open fun protect(p0: Socket!): Boolean defined in com.nurvpn.app.NurVpnService
+public open fun protect(p0: Int): Boolean defined in com.nurvpn.app.NurVpnService
+e: file:///home/pc/NurVPN/app/src/main/java/com/nurvpn/app/NurVPNCore.kt:1294:9 None of the following functions can be called with the arguments supplied: 
+public open fun protect(p0: DatagramSocket!): Boolean defined in com.nurvpn.app.NurVpnService
+public open fun protect(p0: Socket!): Boolean defined in com.nurvpn.app.NurVpnService
+public open fun protect(p0: Int): Boolean defined in com.nurvpn.app.NurVpnService
+
+> Task :app:compileDebugKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 50m 45s
+27 actionable tasks: 26 executed, 1 up-to-date
