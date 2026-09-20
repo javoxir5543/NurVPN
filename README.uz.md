@@ -59,6 +59,12 @@
 
     git clone https://github.com/javoxir5543/NurVPN.git
     cd NurVPN
+
+**2. local.properties yaratish (SDK yoi):**
+```
+sdk.dir=/path/to/Android/Sdk
+```
+**Yoki** — Android Studioda ochish (avtomatik yaratadi)
     chmod +x scripts/get-libbox.sh
     ./scripts/get-libbox.sh
     ./gradlew assembleRelease
