@@ -783,7 +783,7 @@ class HomeFragment : Fragment() {
             setTypeface(null, android.graphics.Typeface.BOLD)
         }
         val countTv = TextView(ctx).apply {
-            text = "$count ta"
+            text = ctx.getString(R.string.text_count_ta, count)
             setTextColor(colorTertiary)
             textSize = 12f
         }
@@ -2860,7 +2860,7 @@ class ServersFragment : Fragment() {
                 val parts = row.name.split(" ", limit = 2)
                 icon.text = parts.getOrElse(0) { "📡" }
                 title.text = parts.getOrElse(1) { row.name }
-                count.text = "${row.count} ta"
+                count.text = itemView.context.getString(R.string.text_count_ta, row.count)
 
                 // ⬆️/⬇️ arrow
                 val arrowView = itemView.findViewById<TextView>(R.id.sec_arrow)

@@ -145,7 +145,7 @@
     <string name="text_awg_label">AWG</string>
     <string name="text_na">Н/Д</string>
     <string name="text_dash">—</string>
-    <string name="text_count_ta">%1$d</string>
+    <string name="text_count_ta">%1$d шт.</string>
 
     <string name="hint_vless_links">vless://...  (несколько ссылок можно вместе)</string>
     <string name="hint_mixed_links">vless://... (несколько)  ИЛИ  https://sub-url.com/xxx</string>

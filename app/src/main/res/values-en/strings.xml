@@ -145,7 +145,7 @@
     <string name="text_awg_label">AWG</string>
     <string name="text_na">N/A</string>
     <string name="text_dash">—</string>
-    <string name="text_count_ta">%1$d</string>
+    <string name="text_count_ta">%1$d pcs</string>
 
     <string name="hint_vless_links">vless://...  (multiple links allowed)</string>
     <string name="hint_mixed_links">vless://... (multiple)  OR  https://sub-url.com/xxx</string>
