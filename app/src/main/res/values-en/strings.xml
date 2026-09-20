@@ -245,7 +245,7 @@
     <string name="os_warp1_desc">AmneziaWG (WARP). 162.159.192.38:1074. Fastest.</string>
     <string name="os_warp2_name">WARP Cloudflare #2</string>
     <string name="os_warp2_desc">AmneziaWG (WARP). engage.cloudflareclient.com:864.</string>
-    <string name="os_warp3_name">WARP Cloudflare #3 (MTU 1360)</string>
+    <string name="os_warp3_name">WARP Cloudflare #3 (MTU 1380)</string>
     <string name="os_warp3_desc">AmneziaWG (WARP). 188.114.99.157:1074. Large MTU.</string>
     <string name="notif_action_pause">Pause</string>
     <string name="notif_action_resume">Resume</string>
