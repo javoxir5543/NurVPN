@@ -60,11 +60,6 @@
     git clone https://github.com/javoxir5543/NurVPN.git
     cd NurVPN
 
-**2. Create local.properties (SDK path):**
-```
-sdk.dir=/path/to/Android/Sdk
-```
-**Or** — open in Android Studio (auto-created)
     chmod +x scripts/get-libbox.sh
     ./scripts/get-libbox.sh
     ./gradlew assembleRelease
