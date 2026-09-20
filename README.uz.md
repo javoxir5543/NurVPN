@@ -33,6 +33,19 @@
 
 ---
 
+
+## 📸 Skrinshotlar
+
+| Home | Servers | Settings |
+|:---:|:---:|:---:|
+| ![Home](docs/screenshots/01_home.jpg) | ![Servers](docs/screenshots/02_servers.jpg) | ![Settings](docs/screenshots/03_settings.jpg) |
+
+| Security | Open Sources | More Sources |
+|:---:|:---:|:---:|
+| ![Security](docs/screenshots/04_security.jpg) | ![Sources](docs/screenshots/05_sources.jpg) | ![More](docs/screenshots/06_sources2.jpg) |
+
+---
+
 ## O'rnatish
 
 ### APK yuklab olish
