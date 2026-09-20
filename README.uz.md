@@ -59,6 +59,8 @@
 
     git clone https://github.com/javoxir5543/NurVPN.git
     cd NurVPN
+    chmod +x scripts/get-libbox.sh
+    ./scripts/get-libbox.sh
     ./gradlew assembleRelease
 
 ---
