@@ -1,66 +1,56 @@
 #!/bin/bash
 set -e
 
-# ═══════════════════════════════════════════════════
-#  libbox.aar yuklovchi (sing-box Android kutubxonasi)
-# ═══════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════
+#  libbox.aar yuklovchi
+#  NurVPN custom build (with_clash_api SIZ)
+# ═══════════════════════════════════════════════════════
 
-VERSION="${1:-v1.10.7}"
-ARCH="${2:-arm64}"
-DEST="$HOME/NurVPN/app/libs/libbox.aar"
-
-# URL tayyorlash
-VER_NUM="${VERSION#v}"
-URL="https://github.com/SagerNet/sing-box/releases/download/${VERSION}/libbox-${VER_NUM}-android-${ARCH}.aar"
-
-echo "════════════════════════════════════════════════"
-echo "  libbox.aar yuklanmoqda"
-echo "════════════════════════════════════════════════"
-echo "  Versiya: $VERSION"
-echo "  Arch:    $ARCH"
-echo "  URL:     $URL"
-echo "  Manzil:  $DEST"
-echo "════════════════════════════════════════════════"
-echo ""
-
-# Papka yaratish
+DEST="$(cd "$(dirname "$0")/.." && pwd)/app/libs/libbox.aar"
 mkdir -p "$(dirname "$DEST")"
 
-# Yuklab olish
-if command -v wget >/dev/null 2>&1; then
-    wget --progress=bar:force:noscroll -O "$DEST" "$URL"
-elif command -v curl >/dev/null 2>&1; then
-    curl -L --progress-bar -o "$DEST" "$URL"
-else
-    echo "❌ wget ham, curl ham topilmadi"
-    exit 1
-fi
+echo "════════════════════════════════════════════════════════"
+echo "  libbox.aar yuklanmoqda (~112 MB)"
+echo "════════════════════════════════════════════════════════"
+echo ""
 
-# Tekshirish
-if [ ! -f "$DEST" ]; then
-    echo "❌ Yuklab bo'lmadi"
-    exit 1
-fi
+# ═══ Manbalar (ko'p marta urinish) ═══
+URLS=(
+    # 1. archive.org (asosiy)
+    "https://archive.org/download/libbox/libbox.aar"
+    # 2. archive.org (item sahifasi orqali)
+    "https://archive.org/download/libbox/libbox.aar?download=1"
+    # 3. GitHub Releases (agar bo'lsa)
+    "https://github.com/javoxir5543/NurVPN/releases/download/v1.1.0/libbox.aar"
+)
 
-SIZE=$(stat -c%s "$DEST")
-if [ "$SIZE" -lt 1000000 ]; then
-    echo "⚠️  Fayl juda kichik ($SIZE bayt). Balki 404."
-    echo "Fayl ichida:"
-    head -5 "$DEST"
-    echo ""
-    echo "⚠️  Bu versiya uchun libbox.aar mavjud emas."
-    echo "Boshqa versiyani sinab ko'ring:"
-    echo "  $0 v1.10.6"
-    echo "  $0 v1.11.15"
-    echo "  $0 v1.12.0"
-    exit 1
-fi
+# ═══ Har bir manbadan urinish ═══
+for url in "${URLS[@]}"; do
+    echo "▶ Urinish: ${url:0:80}..."
+    if curl -fL --connect-timeout 15 --max-time 600 \
+         --retry 3 --retry-delay 5 \
+         "$url" -o "$DEST" 2>/dev/null; then
+        size=$(du -h "$DEST" | cut -f1)
+        echo "✅ Muvaffaqiyat: $size"
+        echo ""
+        echo "════════════════════════════════════════════════════════"
+        echo "  Fayl: $DEST"
+        echo "  Hajm: $size"
+        echo "════════════════════════════════════════════════════════"
+        exit 0
+    fi
+    echo "   ❌ Ishlamadi, keyingi manbaga o'tamiz"
+    rm -f "$DEST"
+done
 
 echo ""
-echo "════════════════════════════════════════════════"
-echo "✅ Muvaffaqiyatli yuklandi"
-echo "════════════════════════════════════════════════"
-ls -lh "$DEST"
-file "$DEST"
+echo "════════════════════════════════════════════════════════"
+echo "  ❌ Barcha manbalar ishlamadi"
+echo "════════════════════════════════════════════════════════"
 echo ""
-echo "Keyingi qadam: build.gradle'ga qo'shish (men bajaraman)"
+echo "Qo'lda yuklash:"
+echo "  1. https://archive.org/download/libbox/libbox.aar"
+echo "  2. app/libs/ papkasiga qo'ying"
+echo "  3. ./gradlew assembleRelease"
+echo ""
+exit 1
