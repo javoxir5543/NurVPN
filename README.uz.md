@@ -10,7 +10,7 @@
 
 ---
 
-> **Eslatma:** Men **professional dasturchi emasman**. Bu loyiha **DeepSeek AI** (va boshqa AI yordamchilar) yordamida **o'rganish va shaxsiy foydalanish** uchun yaratilgan. Kodda xatolar yoki optimal bo'lmagan yechimlar bo'lishi mumkin. Pull request va yaxshilanishlar xush kelibsiz!
+> **Eslatma:** Men **umuman dasturchi emasman** — bu sohaga **qiziqishim bor**. Bu loyiha **DeepSeek AI** (va boshqa AI yordamchilar) yordamida **o'rganish va shaxsiy foydalanish** uchun yaratilgan. Kodda xatolar yoki optimal bo'lmagan yechimlar bo'lishi mumkin. Pull request va yaxshilanishlar xush kelibsiz!
 
 ---
 
