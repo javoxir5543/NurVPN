@@ -118,19 +118,19 @@
     <string name="toast_awg_no_config">Нет AWG конфига</string>
     <string name="toast_export_error">Экспорт: %1$s</string>
     <string name="toast_qr_empty">QR пустой</string>
-    <string name="toast_qr_no_format">QR не распознан\n\nПоддерживается:\n• vless://, vmess://, hysteria2://\n• AWG config ([Interface] ... [Peer])\n• Subscription URL (https://...)</string>
-    <string name="toast_portal_code">Это код активации Portal WG: %1$s\n\nТребуется API интеграция.\nПока получите конфиг из портального приложения.</string>
+    <string name="toast_qr_no_format">QR не распознан&#10;&#10;Поддерживается:&#10;• vless://, vmess://, hysteria2://&#10;• AWG config ([Interface] ... [Peer])&#10;• Subscription URL (https://...)</string>
+    <string name="toast_portal_code">Это код активации Portal WG: %1$s&#10;&#10;Требуется API интеграция.&#10;Пока получите конфиг из портального приложения.</string>
 
     <string name="dialog_add_server">Добавить сервер</string>
     <string name="dialog_sub_load">Загрузить подписку</string>
     <string name="dialog_sub_add">Добавить подписку</string>
     <string name="dialog_sub_failed">⚠️ Подписка не работает</string>
-    <string name="dialog_sub_failed_msg">Провайдер превысил лимит устройств.\n\nРешение:\n1. Сбросьте устройства в боте провайдера\n2. Или получите новую подписку\n3. Или добавьте ссылки вручную через + Добавить</string>
+    <string name="dialog_sub_failed_msg">Провайдер превысил лимит устройств.&#10;&#10;Решение:&#10;1. Сбросьте устройства в боте провайдера&#10;2. Или получите новую подписку&#10;3. Или добавьте ссылки вручную через + Добавить</string>
     <string name="dialog_understand">Понятно</string>
     <string name="dialog_ai_top3">🤖 AI Selector — ТОП 3</string>
     <string name="dialog_ai_connect">🥇 Подключить</string>
     <string name="dialog_sub_delete">🗑 Удалить подписку</string>
-    <string name="dialog_sub_delete_msg">%1$s\n\n%2$d серверов будет удалено. Продолжить?</string>
+    <string name="dialog_sub_delete_msg">%1$s&#10;&#10;%2$d серверов будет удалено. Продолжить?</string>
     <string name="dialog_delete_yes">Да, удалить</string>
     <string name="dialog_manual_delete">🗑 Удалить все добавленные вручную</string>
     <string name="dialog_manual_delete_msg">%1$d серверов будет удалено. Продолжить?</string>
@@ -151,7 +151,7 @@
     <string name="hint_mixed_links">vless://... (несколько)  ИЛИ  https://sub-url.com/xxx</string>
     <string name="hint_name_optional">Название (необязательно)</string>
     <string name="hint_sub_url">https://example.com/sub/xxx</string>
-    <string name="hint_awg_config">[Interface]\nPrivateKey = ...\nAddress = 10.0.0.2/32</string>
+    <string name="hint_awg_config">[Interface]&#10;PrivateKey = ...&#10;Address = 10.0.0.2/32</string>
     <string name="hint_name">Название (remark)</string>
     <string name="hint_host">Host</string>
     <string name="hint_port">Порт</string>
@@ -184,7 +184,7 @@
     <string name="settings_open_sources">Открытые источники</string>
     <string name="open_source_hint">Включите одну из бесплатных подписок ниже — серверы загрузятся автоматически.</string>
     <string name="no_subscription_title">Подписка не найдена</string>
-    <string name="no_subscription_message">У вас пока нет подписки или ключа.\n\nПерейдите в Настройки \u2192 Открытые источники и включите подписку.</string>
+    <string name="no_subscription_message">У вас пока нет подписки или ключа.&#10;&#10;Перейдите в Настройки &#x2192; Открытые источники и включите подписку.</string>
     <string name="go_to_settings">Перейти в настройки</string>
     <string name="delete">Удалить</string>
     <string name="open_source_delete_title">Удалить %s</string>
@@ -255,4 +255,21 @@
     <string name="tile_subtitle_on">Подключено</string>
     <string name="tile_subtitle_off">Отключено</string>
     <string name="text_expand_to_view">%d серверов — нажмите чтобы раскрыть</string>
+
+    <!-- i18n patch -->
+    <string name="toast_notification_denied">Разрешение на уведомления не выдано</string>
+    <string name="toast_error_prefix">Ошибка: %1$s</string>
+    <string name="toast_reconnecting">Переподключение: %1$s</string>
+    <string name="reason_new_server">Новый сервер: %1$s</string>
+    <string name="reason_awg">AWG: %1$s</string>
+    <string name="error_no_server">Сервер не выбран</string>
+    <string name="toast_link_not_found">Ссылка не найдена. Должна начинаться с vless://</string>
+    <string name="toast_clipboard_no_link">В буфере нет ссылки. Ссылка начинается с vless://</string>
+    <string name="toast_no_endpoint">Endpoint отсутствует</string>
+    <string name="toast_awg_config_error">Ошибка AWG конфига: %1$s</string>
+    <string name="toast_awg_added_endpoint">AWG конфиг добавлен&#10;%1$s</string>
+    <string name="toast_invalid_sub_url">Введите правильный URL: https://example.com/sub/xxx</string>
+    <string name="toast_invalid_sub_or_link">Подписка: https://example.com/sub/xxx&#10;Или: vless://, vmess://, hysteria2://</string>
+    <string name="toast_server_no_response">Сервер не ответил.&#10;Проверьте URL или интернет</string>
+
 </resources>

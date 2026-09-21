@@ -118,19 +118,19 @@
     <string name="toast_awg_no_config">No AWG config</string>
     <string name="toast_export_error">Export: %1$s</string>
     <string name="toast_qr_empty">QR empty</string>
-    <string name="toast_qr_no_format">QR not recognized\n\nSupported:\n• vless://, vmess://, hysteria2://\n• AWG config ([Interface] ... [Peer])\n• Subscription URL (https://...)</string>
-    <string name="toast_portal_code">This is a Portal WG activation code: %1$s\n\nAPI integration required.\nFor now get config from the portal app.</string>
+    <string name="toast_qr_no_format">QR not recognized&#10;&#10;Supported:&#10;• vless://, vmess://, hysteria2://&#10;• AWG config ([Interface] ... [Peer])&#10;• Subscription URL (https://...)</string>
+    <string name="toast_portal_code">This is a Portal WG activation code: %1$s&#10;&#10;API integration required.&#10;For now get config from the portal app.</string>
 
     <string name="dialog_add_server">Add server</string>
     <string name="dialog_sub_load">Load subscription</string>
     <string name="dialog_sub_add">Add subscription</string>
     <string name="dialog_sub_failed">⚠️ Subscription not working</string>
-    <string name="dialog_sub_failed_msg">Provider exceeded device limit.\n\nSolution:\n1. Reset devices in provider bot\n2. Or get a new subscription\n3. Or add links manually via + Add</string>
+    <string name="dialog_sub_failed_msg">Provider exceeded device limit.&#10;&#10;Solution:&#10;1. Reset devices in provider bot&#10;2. Or get a new subscription&#10;3. Or add links manually via + Add</string>
     <string name="dialog_understand">Got it</string>
     <string name="dialog_ai_top3">🤖 AI Selector — TOP 3</string>
     <string name="dialog_ai_connect">🥇 Connect</string>
     <string name="dialog_sub_delete">🗑 Delete subscription</string>
-    <string name="dialog_sub_delete_msg">%1$s\n\n%2$d servers will be deleted. Continue?</string>
+    <string name="dialog_sub_delete_msg">%1$s&#10;&#10;%2$d servers will be deleted. Continue?</string>
     <string name="dialog_delete_yes">Yes, delete</string>
     <string name="dialog_manual_delete">🗑 Delete all manually added</string>
     <string name="dialog_manual_delete_msg">%1$d servers will be deleted. Continue?</string>
@@ -151,7 +151,7 @@
     <string name="hint_mixed_links">vless://... (multiple)  OR  https://sub-url.com/xxx</string>
     <string name="hint_name_optional">Name (optional)</string>
     <string name="hint_sub_url">https://example.com/sub/xxx</string>
-    <string name="hint_awg_config">[Interface]\nPrivateKey = ...\nAddress = 10.0.0.2/32</string>
+    <string name="hint_awg_config">[Interface]&#10;PrivateKey = ...&#10;Address = 10.0.0.2/32</string>
     <string name="hint_name">Name (remark)</string>
     <string name="hint_host">Host</string>
     <string name="hint_port">Port</string>
@@ -184,7 +184,7 @@
     <string name="settings_open_sources">Open sources</string>
     <string name="open_source_hint">Enable one of the free subscriptions below — servers will load automatically.</string>
     <string name="no_subscription_title">No subscription found</string>
-    <string name="no_subscription_message">You don\'t have any subscription or key yet.\n\nGo to Settings \u2192 Open sources and enable a subscription.</string>
+    <string name="no_subscription_message">You don\'t have any subscription or key yet.&#10;&#10;Go to Settings &#x2192; Open sources and enable a subscription.</string>
     <string name="go_to_settings">Go to settings</string>
     <string name="delete">Delete</string>
     <string name="open_source_delete_title">Delete %s</string>
@@ -255,4 +255,21 @@
     <string name="tile_subtitle_on">Connected</string>
     <string name="tile_subtitle_off">Disconnected</string>
     <string name="text_expand_to_view">%d servers — tap to expand</string>
+
+    <!-- i18n patch -->
+    <string name="toast_notification_denied">Notification permission not granted</string>
+    <string name="toast_error_prefix">Error: %1$s</string>
+    <string name="toast_reconnecting">Reconnecting: %1$s</string>
+    <string name="reason_new_server">New server: %1$s</string>
+    <string name="reason_awg">AWG: %1$s</string>
+    <string name="error_no_server">No server selected</string>
+    <string name="toast_link_not_found">Link not found. Must start with vless://</string>
+    <string name="toast_clipboard_no_link">No link in clipboard. Link starts with vless://</string>
+    <string name="toast_no_endpoint">Endpoint missing</string>
+    <string name="toast_awg_config_error">AWG config error: %1$s</string>
+    <string name="toast_awg_added_endpoint">AWG config added&#10;%1$s</string>
+    <string name="toast_invalid_sub_url">Enter valid URL: https://example.com/sub/xxx</string>
+    <string name="toast_invalid_sub_or_link">Subscription: https://example.com/sub/xxx&#10;Or: vless://, vmess://, hysteria2://</string>
+    <string name="toast_server_no_response">Server did not respond.&#10;Check URL or internet</string>
+
 </resources>

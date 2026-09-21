@@ -119,20 +119,20 @@
     <string name="toast_awg_no_config">AWG config yo\'q</string>
     <string name="toast_export_error">Eksport: %1$s</string>
     <string name="toast_qr_empty">QR bo\'sh</string>
-    <string name="toast_qr_no_format">QR\'da tanilgan format topilmadi\n\nQo\'llab-quvvatlanadi:\n• vless://, vmess://, hysteria2://\n• AWG config ([Interface] ... [Peer])\n• Subscription URL (https://...)</string>
-    <string name="toast_portal_code">Bu Portal WG aktivatsiya kodi: %1$s\n\nPortal API integratsiyasi kerak.\nHozircha portal ilovasidan config oling.</string>
+    <string name="toast_qr_no_format">QR\'da tanilgan format topilmadi&#10;&#10;Qo\'llab-quvvatlanadi:&#10;• vless://, vmess://, hysteria2://&#10;• AWG config ([Interface] ... [Peer])&#10;• Subscription URL (https://...)</string>
+    <string name="toast_portal_code">Bu Portal WG aktivatsiya kodi: %1$s&#10;&#10;Portal API integratsiyasi kerak.&#10;Hozircha portal ilovasidan config oling.</string>
 
     <!-- Dialog -->
     <string name="dialog_add_server">Server qo\'shish</string>
     <string name="dialog_sub_load">Obuna yuklash</string>
     <string name="dialog_sub_add">Obuna qo\'shish</string>
     <string name="dialog_sub_failed">⚠️ Obuna ishlamaydi</string>
-    <string name="dialog_sub_failed_msg">Provider qurilmalar limitini oshirgan.\n\nYechim:\n1. Provider botida qurilmalarni reset qiling\n2. Yoki yangi obuna oling\n3. Yoki + Qo\'shish orqali linklarni qo\'lda kiriting</string>
+    <string name="dialog_sub_failed_msg">Provider qurilmalar limitini oshirgan.&#10;&#10;Yechim:&#10;1. Provider botida qurilmalarni reset qiling&#10;2. Yoki yangi obuna oling&#10;3. Yoki + Qo\'shish orqali linklarni qo\'lda kiriting</string>
     <string name="dialog_understand">Tushunarli</string>
     <string name="dialog_ai_top3">🤖 AI Selector — TOP 3</string>
     <string name="dialog_ai_connect">🥇 Ulash</string>
     <string name="dialog_sub_delete">🗑 Subscription\'ni o\'chirish</string>
-    <string name="dialog_sub_delete_msg">%1$s\n\n%2$d ta server o\'chiriladi. Davom etilsinmi?</string>
+    <string name="dialog_sub_delete_msg">%1$s&#10;&#10;%2$d ta server o\'chiriladi. Davom etilsinmi?</string>
     <string name="dialog_delete_yes">Ha, o\'chirish</string>
     <string name="dialog_manual_delete">🗑 Barcha qo\'lda qo\'shilganlarni o\'chirish</string>
     <string name="dialog_manual_delete_msg">%1$d ta server o\'chiriladi. Davom etilsinmi?</string>
@@ -155,7 +155,7 @@
     <string name="hint_mixed_links">vless://... (bir nechta link)  YOKI  https://sub-url.com/xxx</string>
     <string name="hint_name_optional">Nomi (ixtiyoriy)</string>
     <string name="hint_sub_url">https://example.com/sub/xxx</string>
-    <string name="hint_awg_config">[Interface]\nPrivateKey = ...\nAddress = 10.0.0.2/32</string>
+    <string name="hint_awg_config">[Interface]&#10;PrivateKey = ...&#10;Address = 10.0.0.2/32</string>
     <string name="hint_name">Nom (remark)</string>
     <string name="hint_host">Host</string>
     <string name="hint_port">Port</string>
@@ -188,7 +188,7 @@
     <string name="settings_open_sources">Ochiq manbalar</string>
     <string name="open_source_hint">Quyidagi bepul obunalardan birini yoqing — serverlar avtomatik yuklanadi.</string>
     <string name="no_subscription_title">Obuna topilmadi</string>
-    <string name="no_subscription_message">Sizda hali obuna yoki kalit yo\'q.\n\nSozlamalar \u2192 Ochiq manbalar bo\'limiga o\'tib, kerakli obunani yoqing.</string>
+    <string name="no_subscription_message">Sizda hali obuna yoki kalit yo\'q.&#10;&#10;Sozlamalar &#x2192; Ochiq manbalar bo\'limiga o\'tib, kerakli obunani yoqing.</string>
     <string name="go_to_settings">Sozlamalarga o\'tish</string>
     <string name="delete">O\'chirish</string>
     <string name="open_source_delete_title">%s ni o\'chirish</string>
@@ -259,4 +259,21 @@
     <string name="tile_subtitle_on">Ulangan</string>
     <string name="tile_subtitle_off">Ulanmagan</string>
     <string name="text_expand_to_view">%d ta server — ko\'rish uchun bosing</string>
+
+    <!-- i18n patch -->
+    <string name="toast_notification_denied">Notification ruxsati berilmadi</string>
+    <string name="toast_error_prefix">Xato: %1$s</string>
+    <string name="toast_reconnecting">Qayta ulanmoqda: %1$s</string>
+    <string name="reason_new_server">Yangi server: %1$s</string>
+    <string name="reason_awg">AWG: %1$s</string>
+    <string name="error_no_server">Server tanlanmagan</string>
+    <string name="toast_link_not_found">Link topilmadi. vless:// bilan boshlanishi kerak</string>
+    <string name="toast_clipboard_no_link">Clipboard\'da link yo\'q. Link vless:// bilan boshlanadi</string>
+    <string name="toast_no_endpoint">Endpoint yo\'q</string>
+    <string name="toast_awg_config_error">AWG config xato: %1$s</string>
+    <string name="toast_awg_added_endpoint">AWG config qo\'shildi&#10;%1$s</string>
+    <string name="toast_invalid_sub_url">To\'g\'ri URL kiriting: https://example.com/sub/xxx</string>
+    <string name="toast_invalid_sub_or_link">Subscription: https://example.com/sub/xxx&#10;Yoki: vless://, vmess://, hysteria2://</string>
+    <string name="toast_server_no_response">Server javob bermadi.&#10;URL yoki internetni tekshiring</string>
+
 </resources>
