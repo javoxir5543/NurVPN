@@ -109,7 +109,7 @@ Pull request va issue'lar xush kelibsiz!
 
 **Javohir** — [@javoxir5543](https://github.com/javoxir5543)
 
-> Professional dasturchi emasman. **DeepSeek AI** yordamida yaratilgan.
+> **Dasturchi emasman** — bu sohaga **qiziqishim bor**. **DeepSeek AI** yordamida yaratilgan.
 
 ---
 

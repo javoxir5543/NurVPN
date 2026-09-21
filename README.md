@@ -10,7 +10,7 @@
 
 ---
 
-> **Note:** I am **not a professional developer**. This project was created with help from **DeepSeek AI** (and other AI assistants) for learning and personal use. Code may contain errors — improvements are welcome!
+> **Note:** I am **not a developer at all** — just someone **interested in this field**. This project was created with the help of **DeepSeek AI** (and other AI assistants) for learning and personal use. Code may contain errors — improvements and pull requests are welcome!
 
 ---
 
@@ -109,7 +109,7 @@ Pull requests and issues are welcome!
 
 **Javohir** — [@javoxir5543](https://github.com/javoxir5543)
 
-> Not a professional developer. Built with help from **DeepSeek AI**.
+> I am **not a developer** — just **interested in this field**. Built with help from **DeepSeek AI**.
 
 ---
 
