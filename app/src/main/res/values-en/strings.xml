@@ -272,4 +272,6 @@
     <string name="toast_invalid_sub_or_link">Subscription: https://example.com/sub/xxx&#10;Or: vless://, vmess://, hysteria2://</string>
     <string name="toast_server_no_response">Server did not respond.&#10;Check URL or internet</string>
 
+    <string name="srv_menu_copy_config">Copy config</string>
+    <string name="clip_label_awg_config">AWG config</string>
 </resources>

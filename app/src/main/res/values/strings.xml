@@ -276,4 +276,6 @@
     <string name="toast_invalid_sub_or_link">Subscription: https://example.com/sub/xxx&#10;Yoki: vless://, vmess://, hysteria2://</string>
     <string name="toast_server_no_response">Server javob bermadi.&#10;URL yoki internetni tekshiring</string>
 
+    <string name="srv_menu_copy_config">Config nusxalash</string>
+    <string name="clip_label_awg_config">AWG config</string>
 </resources>

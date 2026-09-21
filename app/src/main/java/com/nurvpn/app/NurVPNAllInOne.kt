@@ -516,7 +516,7 @@ class HomeFragment : Fragment() {
     private fun pingSingleAwg(cfg: AWGConfig) {
         val a = activity as? MainActivity ?: return
         val ep = cfg.endpoint ?: run {
-            Toast.makeText(context, "Endpoint yo'q", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, R.string.toast_no_endpoint, Toast.LENGTH_SHORT).show()
             return
         }
         Toast.makeText(context, getString(R.string.ping_started),
@@ -723,6 +723,61 @@ class HomeFragment : Fragment() {
             .show()
     }
 
+    /** Home ekranda subscription uzoq bosilganda menyu. */
+    private fun showHomeSubMenu(subId: String, name: String) {
+        val ctx = requireContext()
+        val a = activity as? MainActivity ?: return
+        val sub = a.subscriptions.find { it.id == subId } ?: return
+        val items = arrayOf(
+            "\uD83D\uDD04  " + getString(R.string.sub_menu_refresh),
+            "\uD83D\uDCD1  " + getString(R.string.sub_menu_copy_url),
+            "\uD83D\uDDD1  " + getString(R.string.sub_menu_delete)
+        )
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle(name)
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> {
+                        // Yangilash
+                        loadSubscription(sub.url, sub.name)
+                    }
+                    1 -> {
+                        // URL nusxalash
+                        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE)
+                            as? android.content.ClipboardManager ?: return@setItems
+                        cm.setPrimaryClip(android.content.ClipData
+                            .newPlainText(getString(R.string.clip_label_sub_url), sub.url))
+                        Toast.makeText(ctx, R.string.toast_url_copied,
+                            Toast.LENGTH_SHORT).show()
+                    }
+                    2 -> {
+                        // O'chirish — tasdiqlash
+                        androidx.appcompat.app.AlertDialog.Builder(ctx)
+                            .setTitle(R.string.dialog_delete)
+                            .setMessage(name)
+                            .setPositiveButton(R.string.dialog_delete_yes) { _, _ ->
+                                a.servers.removeAll { it.subId == sub.id }
+                                a.subscriptions.remove(sub)
+                                ServerStore.save(a, a.servers)
+                                SubscriptionStore.save(a, a.subscriptions)
+                                // OpenSourceStore dan ham o'chirish (agar open:xxx bo'lsa)
+                                if (sub.id.startsWith("open:")) {
+                                    val openId = sub.id.removePrefix("open:")
+                                    OpenSourceStore.setEnabled(ctx, openId, false)
+                                }
+                                Toast.makeText(ctx,
+                                    getString(R.string.open_source_deleted, name),
+                                    Toast.LENGTH_SHORT).show()
+                                rebuildServerCards()
+                            }
+                            .setNegativeButton(R.string.dialog_no, null)
+                            .show()
+                    }
+                }
+            }
+            .show()
+    }
+
     private fun makeExpandableCard(icon: String, title: String, count: Int, subId: String? = null, sub: Subscription? = null): LinearLayout {
         val ctx = requireContext()
         val dp = resources.displayMetrics.density
@@ -881,6 +936,14 @@ class HomeFragment : Fragment() {
             setPadding((14*dp).toInt(), 0, (14*dp).toInt(), (8*dp).toInt())
         }
         arrow.text = if (startExpanded) "\u2B06" else "\u2B07"
+
+        // Uzoq bosish — subscription menyusi
+        if (subId != null && subId != "awg_card" && subId != "fav_card") {
+            header.setOnLongClickListener {
+                showHomeSubMenu(subId, title)
+                true
+            }
+        }
 
         header.setOnClickListener {
             if (subId != null) {
@@ -1065,7 +1128,7 @@ class HomeFragment : Fragment() {
                 val matches = regex.findAll(text).map { it.value }.toList()
                 if (matches.isEmpty()) {
                     Toast.makeText(context,
-                        "Link topilmadi. vless:// bilan boshlanishi kerak",
+                        R.string.toast_link_not_found,
                         Toast.LENGTH_LONG).show()
                     return@setPositiveButton
                 }
@@ -1345,7 +1408,7 @@ class HomeFragment : Fragment() {
                     url.contains(".") && !url.contains("://") -> "https://$url"
                     else -> {
                         Toast.makeText(c,
-                            "To'g'ri URL kiriting: https://example.com/sub/xxx",
+                            R.string.toast_invalid_sub_url,
                             Toast.LENGTH_LONG).show()
                         return@setPositiveButton
                     }
@@ -1452,7 +1515,7 @@ class HomeFragment : Fragment() {
         val matches = regex.findAll(text).map { it.value }.toList()
         if (matches.isEmpty()) {
             Toast.makeText(context,
-                "Clipboard'da link yo'q. Link vless:// bilan boshlanadi",
+                R.string.toast_clipboard_no_link,
                 Toast.LENGTH_LONG).show()
             return
         }
@@ -1767,7 +1830,7 @@ class HomeFragment : Fragment() {
         val r = AWGParser.parse(conf)
         if (!r.ok) {
             Toast.makeText(context,
-                "AWG config xato: ${r.error}",
+                getString(R.string.toast_awg_config_error, r.error),
                 Toast.LENGTH_LONG).show()
             return
         }
@@ -2120,7 +2183,7 @@ class ServersFragment : Fragment() {
         val a = activity as? MainActivity ?: return
         val r = AWGParser.parse(conf)
         if (!r.ok) {
-            Toast.makeText(context, r.error, Toast.LENGTH_LONG).show()
+            Toast.makeText(context, getString(R.string.toast_awg_config_error, r.error), Toast.LENGTH_LONG).show()
             return
         }
         val cfg = AWGConfig(conf)
@@ -2251,7 +2314,7 @@ class ServersFragment : Fragment() {
             if (body.isEmpty()) {
                 activity?.runOnUiThread {
                     Toast.makeText(context,
-                        "Server javob bermadi.\nURL yoki internetni tekshiring",
+                        R.string.toast_server_no_response,
                         Toast.LENGTH_LONG).show()
                 }
                 return@Thread
@@ -3052,9 +3115,9 @@ class ServersFragment : Fragment() {
                         frag.startActivity(i)
                     }
                 }
-                items.add("📋 Config nusxalash")
-                actions.add { copyToClipboard(target.rawConf ?: "", "AWG config") }
-                items.add("🏷 Nomini o'zgartirish")
+                items.add("📋 " + c.getString(R.string.srv_menu_copy_config))
+                actions.add { copyToClipboard(target.rawConf ?: "", c.getString(R.string.clip_label_awg_config)) }
+                items.add(c.getString(R.string.dialog_rename_awg))
                 actions.add { editAwgName(target) }
             }
 
@@ -3276,6 +3339,9 @@ class SettingsFragment : Fragment() {
             item.findViewById<TextView>(R.id.os_desc).text = open.description(requireContext())
 
             val sw = item.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.os_switch)
+            // ═══ FIX: State saqlashni o'chirish (duplicate ID muammosi) ═══
+            sw.isSaveEnabled = false
+            sw.isSaveFromParentEnabled = false
             sw.isChecked = OpenSourceStore.isEnabled(requireContext(), open.id)
             sw.setOnCheckedChangeListener { _, checked ->
                 val ctx = requireContext()

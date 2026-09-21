@@ -272,4 +272,6 @@
     <string name="toast_invalid_sub_or_link">Подписка: https://example.com/sub/xxx&#10;Или: vless://, vmess://, hysteria2://</string>
     <string name="toast_server_no_response">Сервер не ответил.&#10;Проверьте URL или интернет</string>
 
+    <string name="srv_menu_copy_config">Скопировать конфиг</string>
+    <string name="clip_label_awg_config">AWG конфиг</string>
 </resources>

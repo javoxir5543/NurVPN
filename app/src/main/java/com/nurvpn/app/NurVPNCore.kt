@@ -1763,7 +1763,7 @@ object SingBoxConfig {
         root.put("route", JSONObject()
             .put("rules", rules)
             .put("final", "proxy")
-            .put("auto_detect_interface", false))
+            .put("auto_detect_interface", true))
 
         return root
     }
@@ -1875,7 +1875,7 @@ object SingBoxConfig {
         root.put("route", JSONObject()
             .put("rules", rules)
             .put("final", "proxy")
-            .put("auto_detect_interface", false))
+            .put("auto_detect_interface", true))
 
         // ═══ CLASH API — O'CHIRILGAN ═══
         // libbox.aar "with_clash_api" tegisiz qurilgan.
@@ -1912,6 +1912,8 @@ class MainActivity : AppCompatActivity() {
     @JvmField var currentAWG: AWGConfig? = null
     @JvmField var protocol: String = PROTO_XRAY
     @JvmField var isRunning = false
+    /** Har restart'da oshadi. Faqat eng oxirgi restart ishlaydi. */
+    @Volatile private var restartGeneration = 0L
     @JvmField var connectStart: Long = 0
     lateinit var prefs: SharedPreferences
 
@@ -1922,7 +1924,7 @@ class MainActivity : AppCompatActivity() {
         ) { granted ->
             if (!granted) {
                 Toast.makeText(this,
-                    "Notification ruxsati berilmadi",
+                    R.string.toast_notification_denied,
                     Toast.LENGTH_LONG).show()
             }
             doStartVpn()
@@ -1936,27 +1938,68 @@ class MainActivity : AppCompatActivity() {
         ThemeHelper.applyTheme(this)
         prefs = getSharedPreferences("main", Context.MODE_PRIVATE)
 
-        // ═══ Upgrade migratsiyasi: eski ochiq manba ID'larini tozalash ═══
+        // ═══ STALE SUBSCRIPTIONS PURGE ═══
         try {
             OpenSourceStore.cleanupOrphans(this)
-            // Orphan subscription'larni ham olib tashlaymiz
             val subs = SubscriptionStore.load(this)
-            val validIds = OpenSourceCatalog.ALL.map { "open:${it.id}" }.toSet()
+            val allServers = ServerStore.load(this)
             val cleaned = subs.filter { sub ->
-                if (!sub.id.startsWith("open:")) true  // qo'lda qo'shilgan — qoladi
-                else sub.id in validIds  // ochiq manba — faqat katalogda bor
+                when {
+                    // 1) open:xxx — katalogda bor + yoqilgan + AWG emas
+                    sub.id.startsWith("open:") -> {
+                        val openId = sub.id.removePrefix("open:")
+                        val open = OpenSourceCatalog.byId(openId)
+                        open != null &&
+                            !open.isAwg &&
+                            OpenSourceStore.isEnabled(this, openId)
+                    }
+                    // 2) sub_xxx — legacy race artifact (server yo'q + yuklanmagan)
+                    sub.id.startsWith("sub_") -> {
+                        allServers.any { it.subId == sub.id } || sub.lastUpdated > 0
+                    }
+                    // 3) Qo'lda — qoladi
+                    else -> true
+                }
             }
             if (cleaned.size != subs.size) {
                 android.util.Log.i("NurVPN-DBG",
-                    "cleanup: ${subs.size - cleaned.size} ta eski ochiq obuna o'chirildi")
+                    "PURGE: ${subs.size - cleaned.size} ta o'chirildi, ${cleaned.size} ta qoldi")
                 SubscriptionStore.save(this, cleaned)
             }
+            subscriptions = cleaned.toMutableList()
         } catch (t: Throwable) {
-            android.util.Log.e("NurVPN-DBG", "cleanup xato", t)
+            android.util.Log.e("NurVPN-DBG", "PURGE xato", t)
         }
 
         servers = ServerStore.load(this)
         awgConfigs = AWGStore.load(this)
+
+        // ═══ WARP AWG configlarni avtomatik tiklash ═══
+        try {
+            var awgRestored = 0
+            for (open in OpenSourceCatalog.ALL) {
+                if (!open.isAwg) continue
+                if (!OpenSourceStore.isEnabled(this, open.id)) continue
+                val raw = BuiltinAwgConfigs.byId(open.awgId ?: continue) ?: continue
+                if (awgConfigs.none { it.rawConf == raw }) {
+                    val cfg = AWGConfig(raw)
+                    cfg.name = open.name(this)
+                    val parsed = AWGParser.parse(raw)
+                    if (parsed.ok) {
+                        cfg.endpoint = parsed.endpoint
+                        cfg.address = parsed.address
+                    }
+                    awgConfigs.add(cfg)
+                    awgRestored++
+                }
+            }
+            if (awgRestored > 0) {
+                AWGStore.save(this, awgConfigs)
+                android.util.Log.i("NurVPN-DBG", "WARP AWG configlar tiklandi: $awgRestored ta")
+            }
+        } catch (t: Throwable) {
+            android.util.Log.e("NurVPN-DBG", "WARP restore xato", t)
+        }
         subscriptions = SubscriptionStore.load(this)
         // ═══ MIGRATSIYA: eski serverlarda protocol noto'g'ri bo'lsa, qayta aniqlash ═══
         var protoFixed = 0
@@ -2018,7 +2061,7 @@ class MainActivity : AppCompatActivity() {
                     "error" -> {
                         isRunning = false; connectStart = 0; TunnelState.isConnected = false
                         Toast.makeText(this@MainActivity,
-                            "Xato: " + intent.getStringExtra(EXTRA_ERR),
+                            getString(R.string.toast_error_prefix, intent.getStringExtra(EXTRA_ERR)),
                             Toast.LENGTH_LONG).show()
                     }
                 }
@@ -2126,7 +2169,7 @@ class MainActivity : AppCompatActivity() {
             .apply()
         // VPN ishlab turgan bo'lsa va server o'zgargan bo'lsa — qayta ulanamiz
         if (isRunning && changed) {
-            restartVpn("Yangi server: " + s.displayName())
+            restartVpn(getString(R.string.reason_new_server, s.displayName()))
         }
     }
 
@@ -2141,40 +2184,49 @@ class MainActivity : AppCompatActivity() {
         AWGEditorBus.init(awgConfigs, c, protocol)
         // VPN ishlab turgan bo'lsa va AWG o'zgargan bo'lsa — qayta ulanamiz
         if (isRunning && changed) {
-            restartVpn("AWG: " + (c.name ?: "Config"))
+            restartVpn(getString(R.string.reason_awg, c.name ?: "Config"))
         }
     }
 
     /** VPN ishlab turganda server o'zgarsa — qayta ulanish. */
     fun restartVpn(reason: String) {
-        android.util.Log.i("NurVPN-DBG", "restartVpn: $reason")
-        Toast.makeText(this, "Qayta ulanmoqda: $reason", Toast.LENGTH_SHORT).show()
-        // 1. To'xtatamiz (FORCE — debounce chetlab o'tish)
+        // ═══ GENERATION: faqat eng oxirgi restart ishlaydi ═══
+        val myGen = ++restartGeneration
+        android.util.Log.i("NurVPN-DBG", "restartVpn[$myGen]: $reason")
+        Toast.makeText(this, getString(R.string.toast_reconnecting, reason), Toast.LENGTH_SHORT).show()
+
         val si = Intent(this, NurVpnService::class.java)
         si.putExtra(EXTRA_STOP, true)
         si.putExtra(EXTRA_FORCE, true)
+        si.putExtra("generation", myGen)
         startService(si)
         connectStart = 0
         isRunning = false
-        // 2. 1.6 sekunddan keyin qayta boshlaymiz (debounce 1.5s dan katta)
+
+        // 2.5 sekund — cache file lock bo'shash uchun
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            if (!isFinishing && !isDestroyed) {
-                connectStart = System.currentTimeMillis()
-                val si2 = Intent(this, NurVpnService::class.java)
-                si2.putExtra(EXTRA_FORCE, true)
-                // Asl startVpn mantiqni takrorlaymiz (server link + name bilan)
-                val cur = currentServer
-                if (cur != null) {
-                    si2.putExtra(EXTRA_LINK, cur.link)
-                    si2.putExtra(EXTRA_NAME, cur.displayName())
-                } else if (currentAWG != null) {
-                    si2.putExtra(EXTRA_AWG, currentAWG!!.rawConf)
-                }
-                si2.putExtra("protocol", protocol)
-                if (Build.VERSION.SDK_INT >= 26) startForegroundService(si2)
-                else startService(si2)
+            if (isFinishing || isDestroyed) return@postDelayed
+            // ═══ Faqat oxirgi restart davom etadi ═══
+            if (myGen != restartGeneration) {
+                android.util.Log.i("NurVPN-DBG",
+                    "restartVpn[$myGen]: bekor (yangi gen $restartGeneration)")
+                return@postDelayed
             }
-        }, 1600)
+            connectStart = System.currentTimeMillis()
+            val si2 = Intent(this, NurVpnService::class.java)
+            si2.putExtra(EXTRA_FORCE, true)
+            si2.putExtra("generation", myGen)
+            val cur = currentServer
+            if (cur != null) {
+                si2.putExtra(EXTRA_LINK, cur.link)
+                si2.putExtra(EXTRA_NAME, cur.displayName())
+            } else if (currentAWG != null) {
+                si2.putExtra(EXTRA_AWG, currentAWG!!.rawConf)
+            }
+            si2.putExtra("protocol", protocol)
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(si2)
+            else startService(si2)
+        }, 2500)
     }
 
     fun startVpn() {
@@ -2240,6 +2292,9 @@ class NurVpnService : VpnService() {
 
     /** Oxirgi start/stop vaqti (debounce uchun). */
     @Volatile private var lastToggleTime = 0L
+
+    /** Service generation — eski START'ni o'tkazib yuborish uchun. */
+    @Volatile private var serviceGeneration = 0L
 
     /** Pause holati (notification'dan boshqariladi). */
     @Volatile private var isPaused = false
@@ -2786,7 +2841,8 @@ class NurVpnService : VpnService() {
         }
 
         if (intent?.getBooleanExtra(MainActivity.EXTRA_STOP, false) == true) {
-            Log.i(TAG, "STOP so'rovi")
+            val stopGen = intent?.getLongExtra("generation", 0L) ?: 0L
+            Log.i(TAG, "STOP so'rovi gen=$stopGen")
             lastToggleTime = now
             isTransitioning = true
             broadcast("disconnected")
@@ -2821,12 +2877,41 @@ class NurVpnService : VpnService() {
             return START_STICKY
         }
 
+        // ═══ GENERATION check ═══
+        val myGen = intent?.getLongExtra("generation", 0L) ?: 0L
+        if (myGen > 0L) {
+            serviceGeneration = myGen
+            android.util.Log.i(TAG, "START gen=$myGen")
+        }
+
         lastToggleTime = now
         isTransitioning = true
-        lastConnectIntent = intent  // resume uchun
+        lastConnectIntent = intent
         startForegroundWithNotif()
         Thread {
             try {
+                // ═══ Eski serverni tozalash + cache bo'shatish ═══
+                runCatching { server?.closeService() }
+                runCatching { server?.close() }
+                server = null
+                // Cache faylni tozalash (lock bo'shash uchun)
+                try {
+                    val cache = java.io.File(cacheDir, "sing-box")
+                    if (cache.exists()) {
+                        cache.deleteRecursively()
+                        android.util.Log.i(TAG, "Cache tozalandi (START)")
+                    }
+                } catch (_: Throwable) {}
+                // Qisqa kutish (fayl tizimi)
+                Thread.sleep(300)
+
+                // ═══ Faqat eng oxirgi gen ishlaydi ═══
+                if (myGen > 0L && myGen != serviceGeneration) {
+                    android.util.Log.i(TAG,
+                        "START[$myGen]: bekor qilindi (yangi gen $serviceGeneration)")
+                    return@Thread
+                }
+
                 connect(intent)
             } finally {
                 isTransitioning = false
@@ -2942,7 +3027,7 @@ class NurVpnService : VpnService() {
 
         try {
             if (link == null && awg == null) {
-                throw Exception("Server tanlanmagan")
+                throw Exception(getString(R.string.error_no_server))
             }
 
             val cfg = if (awg != null) {
