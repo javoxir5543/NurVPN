@@ -16,6 +16,56 @@
         android:paddingTop="12dp"
         android:paddingBottom="24dp">
 
+        <!-- ══════ TANLASH REJIMI PANELI ══════ -->
+        <LinearLayout
+            android:id="@+id/selection_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/accent"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/sel_count"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/on_accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:text="0 tanlandi"/>
+
+            <ImageButton
+                android:id="@+id/sel_select_all"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/checkbox_on_background"
+                android:contentDescription="Hammasini tanlash"/>
+
+            <ImageButton
+                android:id="@+id/sel_delete"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_delete"
+                android:contentDescription="O'chirish"/>
+
+            <ImageButton
+                android:id="@+id/sel_cancel"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:contentDescription="Bekor qilish"/>
+        </LinearLayout>
+
         <!-- ══════ HEADER ══════ -->
         <LinearLayout
             android:layout_width="match_parent"

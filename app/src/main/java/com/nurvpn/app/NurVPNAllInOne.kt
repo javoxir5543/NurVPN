@@ -92,6 +92,12 @@ class HomeFragment : Fragment() {
 
     private var cardsContainer: LinearLayout? = null
     private var bodyAwg: LinearLayout? = null
+    // ═══ Tanlash rejimi ═══
+    var homeSelectMode: Boolean = false
+    val homeSelectedLinks = mutableSetOf<String>()
+    val homeSelectedAwg = mutableSetOf<String>()
+    private var homeSelectionBar: View? = null
+    private var homeSelCountText: TextView? = null
     private var awgArrow: TextView? = null
     private var awgCount: TextView? = null
 
@@ -204,6 +210,13 @@ class HomeFragment : Fragment() {
         bodyAwg = v.findViewById(R.id.body_awg)
         awgArrow = v.findViewById(R.id.awg_arrow)
         awgCount = v.findViewById(R.id.awg_count)
+
+        // ═══ Tanlash rejimi paneli ═══
+        homeSelectionBar = v.findViewById(R.id.selection_bar)
+        homeSelCountText = v.findViewById(R.id.sel_count)
+        v.findViewById<View>(R.id.sel_delete)?.setOnClickListener { deleteHomeSelected() }
+        v.findViewById<View>(R.id.sel_cancel)?.setOnClickListener { exitHomeSelectMode() }
+        v.findViewById<View>(R.id.sel_select_all)?.setOnClickListener { selectAllHome() }
 
         ai = AIServerSelector.get(requireContext().applicationContext)
 
@@ -485,12 +498,236 @@ class HomeFragment : Fragment() {
             rebuildServerCards()
         }
 
+        // ═══ Tanlash rejimi ═══
+        val check = row.findViewById<android.widget.CheckBox>(R.id.select_check)
+        if (homeSelectMode) {
+            check?.visibility = View.VISIBLE
+            check?.isChecked = homeSelectedLinks.contains(si.link)
+        } else {
+            check?.visibility = View.GONE
+        }
+
         row.setOnClickListener {
+            if (homeSelectMode) {
+                toggleHomeSelect(si)
+                return@setOnClickListener
+            }
             a.selectServer(si)
             Toast.makeText(context, si.displayName(), Toast.LENGTH_SHORT).show()
             refresh()
         }
+        row.setOnLongClickListener {
+            if (!homeSelectMode) showHomeMenu(si, a)
+            true
+        }
         return row
+    }
+
+    /** Home'dagi server uchun long-press menyu. */
+    private fun showHomeMenu(target: Any, a: MainActivity) {
+        if (!isAdded) return
+        val c = context ?: return
+        val items = ArrayList<String>()
+        val actions = ArrayList<() -> Unit>()
+
+        if (target is ServerItem) {
+            items.add("🚀 " + c.getString(R.string.srv_menu_connect))
+            actions.add {
+                a.selectServer(target)
+                a.protocol = MainActivity.PROTO_XRAY
+                Toast.makeText(c, target.displayName(), Toast.LENGTH_SHORT).show()
+                refresh()
+            }
+            items.add(if (target.favorite) "💔 " + c.getString(R.string.srv_menu_remove_fav)
+                      else "⭐ " + c.getString(R.string.srv_menu_add_fav))
+            actions.add {
+                target.favorite = !target.favorite
+                ServerStore.save(a, a.servers)
+                Toast.makeText(c,
+                    if (target.favorite) c.getString(R.string.toast_added_fav)
+                    else c.getString(R.string.toast_removed_fav),
+                    Toast.LENGTH_SHORT).show()
+                rebuildServerCards(force = true)
+            }
+            items.add("📋 " + c.getString(R.string.srv_menu_copy_link))
+            actions.add { homeCopyToClipboard(target.link, c.getString(R.string.clip_label_link)) }
+            items.add("📤 " + c.getString(R.string.srv_menu_share))
+            actions.add { homeShareLink(target.link, target.displayName()) }
+            items.add("☑ Tanlash rejimi")
+            actions.add { enterHomeSelectMode() }
+            items.add("🗑 " + c.getString(R.string.menu_delete))
+            actions.add {
+                AlertDialog.Builder(c)
+                    .setTitle(R.string.menu_delete)
+                    .setMessage(target.displayName())
+                    .setPositiveButton(R.string.dialog_yes) { _, _ ->
+                        a.servers.remove(target)
+                        ServerStore.save(a, a.servers)
+                        rebuildServerCards(force = true)
+                        Toast.makeText(c, "O'chirildi", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton(R.string.dialog_no, null)
+                    .show()
+            }
+        } else if (target is AWGConfig) {
+            items.add("🚀 " + c.getString(R.string.srv_menu_connect))
+            actions.add {
+                a.selectAWG(target)
+                a.protocol = MainActivity.PROTO_AWG
+                AWGEditorBus.init(a.awgConfigs, target, MainActivity.PROTO_AWG)
+                Toast.makeText(c, target.name ?: "AWG", Toast.LENGTH_SHORT).show()
+                refresh()
+            }
+            items.add(if (target.favorite) "💔 Sevimlilardan olib tashlash"
+                      else "⭐ Sevimlilarga qo'shish")
+            actions.add {
+                target.favorite = !target.favorite
+                AWGStore.save(a, a.awgConfigs)
+                Toast.makeText(c,
+                    if (target.favorite) c.getString(R.string.toast_added_fav)
+                    else c.getString(R.string.toast_removed_fav),
+                    Toast.LENGTH_SHORT).show()
+                rebuildAwgList()
+            }
+            items.add("✏️ " + c.getString(R.string.srv_menu_edit))
+            val idx = a.awgConfigs.indexOf(target)
+            actions.add {
+                if (idx >= 0 && isAdded) {
+                    val i = Intent(c, AWGEditorActivity::class.java)
+                    i.putExtra(AWGEditorActivity.EXTRA_INDEX, idx)
+                    i.putExtra(AWGEditorActivity.EXTRA_RAW, target.rawConf)
+                    startActivity(i)
+                }
+            }
+            items.add("📋 " + c.getString(R.string.srv_menu_copy_config))
+            actions.add { homeCopyToClipboard(target.rawConf ?: "",
+                c.getString(R.string.clip_label_awg_config)) }
+            items.add("☑ Tanlash rejimi")
+            actions.add { enterHomeSelectMode() }
+            items.add("🗑 " + c.getString(R.string.menu_delete))
+            actions.add {
+                AlertDialog.Builder(c)
+                    .setTitle(R.string.menu_delete)
+                    .setMessage(target.name ?: "AWG")
+                    .setPositiveButton(R.string.dialog_yes) { _, _ ->
+                        a.awgConfigs.remove(target)
+                        AWGStore.save(a, a.awgConfigs)
+                        rebuildAwgList()
+                        Toast.makeText(c, "O'chirildi", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton(R.string.dialog_no, null)
+                    .show()
+            }
+        } else return
+
+        AlertDialog.Builder(c)
+            .setTitle(when (target) {
+                is ServerItem -> target.displayName()
+                is AWGConfig -> target.name ?: "AWG"
+                else -> "Server"
+            })
+            .setItems(items.toTypedArray()) { _, which -> actions.getOrNull(which)?.invoke() }
+            .setNegativeButton(R.string.dialog_no, null)
+            .show()
+    }
+
+    /** Home menyusi uchun clipboard. */
+    private fun homeCopyToClipboard(text: String, label: String) {
+        try {
+            val cm = requireContext()
+                .getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                    as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
+            Toast.makeText(context, "Nusxalandi", Toast.LENGTH_SHORT).show()
+        } catch (t: Throwable) {
+            Toast.makeText(context, "Xato: ${t.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Home menyusi uchun ulashish. */
+    private fun homeShareLink(link: String, name: String) {
+        try {
+            val i = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, link)
+                putExtra(Intent.EXTRA_SUBJECT, name)
+            }
+            startActivity(Intent.createChooser(i, name))
+        } catch (t: Throwable) {
+            Toast.makeText(context, "Xato: ${t.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ═══════════ HOME TANLASH REJIMI ═══════════
+
+    fun enterHomeSelectMode() {
+        homeSelectMode = true
+        homeSelectedLinks.clear()
+        homeSelectedAwg.clear()
+        homeSelectionBar?.visibility = View.VISIBLE
+        updateHomeSelCount()
+        rebuildServerCards(force = true)
+        rebuildAwgList()
+    }
+
+    fun exitHomeSelectMode() {
+        homeSelectMode = false
+        homeSelectedLinks.clear()
+        homeSelectedAwg.clear()
+        homeSelectionBar?.visibility = View.GONE
+        rebuildServerCards(force = true)
+        rebuildAwgList()
+    }
+
+    fun updateHomeSelCount() {
+        homeSelCountText?.text = "${homeSelectedLinks.size + homeSelectedAwg.size} tanlandi"
+    }
+
+    fun toggleHomeSelect(target: Any) {
+        when (target) {
+            is ServerItem -> {
+                if (homeSelectedLinks.contains(target.link)) homeSelectedLinks.remove(target.link)
+                else homeSelectedLinks.add(target.link)
+            }
+            is AWGConfig -> {
+                val k = target.rawConf ?: ""
+                if (homeSelectedAwg.contains(k)) homeSelectedAwg.remove(k)
+                else homeSelectedAwg.add(k)
+            }
+        }
+        updateHomeSelCount()
+        rebuildServerCards(force = true)
+        rebuildAwgList()
+    }
+
+    fun selectAllHome() {
+        homeSelectedLinks.clear()
+        homeSelectedAwg.clear()
+        val a = activity as? MainActivity ?: return
+        for (si in a.servers) homeSelectedLinks.add(si.link)
+        for (cfg in a.awgConfigs) homeSelectedAwg.add(cfg.rawConf ?: "")
+        updateHomeSelCount()
+        rebuildServerCards(force = true)
+        rebuildAwgList()
+    }
+
+    fun deleteHomeSelected() {
+        val a = activity as? MainActivity ?: return
+        var n = 0
+        if (homeSelectedLinks.isNotEmpty()) {
+            val before = a.servers.size
+            a.servers.removeAll { it.link in homeSelectedLinks }
+            n += before - a.servers.size
+            ServerStore.save(a, a.servers)
+        }
+        if (homeSelectedAwg.isNotEmpty()) {
+            val before = a.awgConfigs.size
+            a.awgConfigs.removeAll { (it.rawConf ?: "") in homeSelectedAwg }
+            n += before - a.awgConfigs.size
+            AWGStore.save(a, a.awgConfigs)
+        }
+        Toast.makeText(context, "$n o\'chirildi", Toast.LENGTH_SHORT).show()
+        exitHomeSelectMode()
     }
 
     /**
@@ -1098,6 +1335,32 @@ class HomeFragment : Fragment() {
                 cfg.favorite = !cfg.favorite
                 AWGStore.save(a, a.awgConfigs)
                 rebuildAwgList()
+            }
+
+            // ═══ Tanlash rejimi ═══
+            val awgCheck = row.findViewById<android.widget.CheckBox>(R.id.select_check)
+            if (homeSelectMode) {
+                awgCheck?.visibility = View.VISIBLE
+                awgCheck?.isChecked = homeSelectedAwg.contains(cfg.rawConf ?: "")
+            } else {
+                awgCheck?.visibility = View.GONE
+            }
+
+            // Uzoq bosish → menyu
+            row.setOnLongClickListener {
+                if (!homeSelectMode) showHomeMenu(cfg, a)
+                true
+            }
+            // Qisqa bosish
+            row.setOnClickListener {
+                if (homeSelectMode) {
+                    toggleHomeSelect(cfg)
+                    return@setOnClickListener
+                }
+                a.selectAWG(cfg)
+                a.protocol = MainActivity.PROTO_AWG
+                AWGEditorBus.init(a.awgConfigs, cfg, MainActivity.PROTO_AWG)
+                refresh()
             }
             // Ping ko'rsatish
             val pingView = row.findViewById<TextView>(R.id.row_ping)
