@@ -1086,6 +1086,19 @@ class HomeFragment : Fragment() {
             proto.text = getString(R.string.text_awg_label)
             proto.backgroundTintList = android.content.res.ColorStateList
                 .valueOf(0xFF6C5CE7.toInt())
+
+            // ⭐ Yulduzcha
+            val favView = row.findViewById<android.widget.ImageView>(R.id.row_fav)
+            favView?.visibility = View.VISIBLE
+            favView?.setImageResource(
+                if (cfg.favorite) android.R.drawable.btn_star_big_on
+                else android.R.drawable.btn_star_big_off
+            )
+            favView?.setOnClickListener {
+                cfg.favorite = !cfg.favorite
+                AWGStore.save(a, a.awgConfigs)
+                rebuildAwgList()
+            }
             // Ping ko'rsatish
             val pingView = row.findViewById<TextView>(R.id.row_ping)
             when {
@@ -1112,19 +1125,11 @@ class HomeFragment : Fragment() {
                     pingView.setTextColor(0xFFFF5722.toInt())
                 }
             }
-
-            // 📶 Ping tugmasi (har bir AWG config uchun)
-            val favView = row.findViewById<android.widget.ImageView>(R.id.row_fav)
-            favView?.visibility = android.view.View.VISIBLE
-            favView?.setImageResource(R.drawable.ic_ping)
-            favView?.setColorFilter(androidx.core.content.ContextCompat
-                .getColor(requireContext(), R.color.accent))
-            favView?.setOnClickListener {
-                it.isEnabled = false
-                it.alpha = 0.5f
-                it.postDelayed({ it.isEnabled = true; it.alpha = 1f }, 800)
+            // 📶 Ping o'lchash (row_ping ga bosilsa)
+            pingView.setOnClickListener {
                 pingSingleAwg(cfg)
             }
+
 
             row.setOnClickListener {
                 a.currentAWG = cfg
@@ -2059,10 +2064,39 @@ class ServersFragment : Fragment() {
         }
     }
 
+    private var selectionBar: View? = null
+    private var selCountText: TextView? = null
+
+    fun showSelectionBar() {
+        selectionBar?.visibility = View.VISIBLE
+        updateSelectionCount(0)
+    }
+
+    fun hideSelectionBar() {
+        selectionBar?.visibility = View.GONE
+    }
+
+    fun updateSelectionCount(n: Int) {
+        selCountText?.text = "$n tanlandi"
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         val v = inflater.inflate(R.layout.fragment_servers, container, false)
+
+        // ═══ Tanlash rejimi paneli ═══
+        selectionBar = v.findViewById(R.id.selection_bar)
+        selCountText = v.findViewById(R.id.sel_count)
+        v.findViewById<View>(R.id.sel_delete)?.setOnClickListener {
+            ad?.deleteSelected()
+        }
+        v.findViewById<View>(R.id.sel_cancel)?.setOnClickListener {
+            ad?.exitSelectMode()
+        }
+        v.findViewById<View>(R.id.sel_select_all)?.setOnClickListener {
+            ad?.selectAllVisible()
+        }
         rv = v.findViewById(R.id.server_list)
         search = v.findViewById(R.id.search_input)
 
@@ -2861,8 +2895,81 @@ class ServersFragment : Fragment() {
         private var protoFilter = "all"
         private val expandedSubscriptions = mutableSetOf<String>()
 
+        // ═══ Tanlash rejimi ═══
+        var selectMode: Boolean = false
+        val selectedLinks = mutableSetOf<String>()
+        val selectedAwg = mutableSetOf<String>()
+
         private val TYPE_HEADER = 0
         private val TYPE_ITEM = 1
+
+        fun enterSelectMode() {
+            selectMode = true
+            selectedLinks.clear()
+            selectedAwg.clear()
+            frag.showSelectionBar()
+            rebuild()
+        }
+
+        fun exitSelectMode() {
+            selectMode = false
+            selectedLinks.clear()
+            selectedAwg.clear()
+            frag.hideSelectionBar()
+            rebuild()
+        }
+
+        fun toggleSelect(item: Any) {
+            when (item) {
+                is ServerItem -> {
+                    if (selectedLinks.contains(item.link)) selectedLinks.remove(item.link)
+                    else selectedLinks.add(item.link)
+                }
+                is AWGConfig -> {
+                    val k = item.rawConf ?: ""
+                    if (selectedAwg.contains(k)) selectedAwg.remove(k)
+                    else selectedAwg.add(k)
+                }
+            }
+            frag.updateSelectionCount(selectedLinks.size + selectedAwg.size)
+            notifyDataSetChanged()
+        }
+
+        fun selectAllVisible() {
+            selectedLinks.clear()
+            selectedAwg.clear()
+            for (row in rows) {
+                if (row is Row.Item) {
+                    when (val d = row.data) {
+                        is ServerItem -> selectedLinks.add(d.link)
+                        is AWGConfig -> selectedAwg.add(d.rawConf ?: "")
+                    }
+                }
+            }
+            frag.updateSelectionCount(selectedLinks.size + selectedAwg.size)
+            notifyDataSetChanged()
+        }
+
+        fun deleteSelected() {
+            val a = act ?: return
+            var n = 0
+            if (selectedLinks.isNotEmpty()) {
+                val before = a.servers.size
+                a.servers.removeAll { it.link in selectedLinks }
+                n += before - a.servers.size
+                ServerStore.save(a, a.servers)
+            }
+            if (selectedAwg.isNotEmpty()) {
+                val before = a.awgConfigs.size
+                a.awgConfigs.removeAll { (it.rawConf ?: "") in selectedAwg }
+                n += before - a.awgConfigs.size
+                AWGStore.save(a, a.awgConfigs)
+            }
+            try {
+                Toast.makeText(frag.requireContext(), "$n o'chirildi", Toast.LENGTH_SHORT).show()
+            } catch (_: Throwable) {}
+            exitSelectMode()
+        }
 
         init { rebuild() }
 
@@ -2995,8 +3102,17 @@ class ServersFragment : Fragment() {
         override fun getItemCount(): Int = rows.size
 
         private fun bindServer(h: ItemVH, s: ServerItem) {
+            // ═══ Tanlash rejimi ═══
+            if (selectMode) {
+                h.selectCheck?.visibility = View.VISIBLE
+                h.selectCheck?.isChecked = selectedLinks.contains(s.link)
+            } else {
+                h.selectCheck?.visibility = View.GONE
+            }
+            h.fav?.visibility = View.VISIBLE
+
             // ⭐ Yulduzcha
-            h.fav?.visibility = android.view.View.VISIBLE
+
             h.fav?.setImageResource(
                 if (s.favorite) android.R.drawable.btn_star_big_on
                 else android.R.drawable.btn_star_big_off
@@ -3072,6 +3188,10 @@ class ServersFragment : Fragment() {
                 if (selected) R.drawable.item_selected_bg else R.drawable.item_bg)
 
             h.itemView.setOnClickListener {
+                if (selectMode) {
+                    toggleSelect(s)
+                    return@setOnClickListener
+                }
                 act?.let {
                     it.selectServer(s)
                     it.protocol = MainActivity.PROTO_XRAY
@@ -3083,6 +3203,26 @@ class ServersFragment : Fragment() {
         }
 
         private fun bindAWG(h: ItemVH, awg: AWGConfig) {
+            // ═══ Tanlash rejimi ═══
+            if (selectMode) {
+                h.selectCheck?.visibility = View.VISIBLE
+                h.selectCheck?.isChecked = selectedAwg.contains(awg.rawConf ?: "")
+            } else {
+                h.selectCheck?.visibility = View.GONE
+            }
+
+            // ⭐ Yulduzcha
+            h.fav?.visibility = View.VISIBLE
+            h.fav?.setImageResource(
+                if (awg.favorite) android.R.drawable.btn_star_big_on
+                else android.R.drawable.btn_star_big_off
+            )
+            h.fav?.setOnClickListener {
+                awg.favorite = !awg.favorite
+                act?.let { a2 -> AWGStore.save(a2, a2.awgConfigs) }
+                notifyDataSetChanged()
+            }
+
             h.flag.text = "🔒"
             h.name.text = awg.name ?: "AWG"
             h.addr.text = awg.endpoint ?: ""
@@ -3105,6 +3245,10 @@ class ServersFragment : Fragment() {
                 if (selected) R.drawable.item_selected_bg else R.drawable.item_bg)
 
             h.itemView.setOnClickListener {
+                if (selectMode) {
+                    toggleSelect(awg)
+                    return@setOnClickListener
+                }
                 act?.let {
                     it.selectAWG(awg)
                     it.protocol = MainActivity.PROTO_AWG
@@ -3411,6 +3555,7 @@ class ServersFragment : Fragment() {
         }
 
         inner class ItemVH(v: View) : RecyclerView.ViewHolder(v) {
+        val selectCheck: android.widget.CheckBox? = v.findViewById(R.id.select_check)
             val flag: TextView = v.findViewById(R.id.flag)
             val name: TextView = v.findViewById(R.id.name)
             val addr: TextView = v.findViewById(R.id.addr)
@@ -3484,6 +3629,10 @@ class ServersFragment : Fragment() {
                 items.add(c.getString(R.string.dialog_rename_awg))
                 actions.add { editAwgName(target) }
             }
+
+            // ═══ Tanlash rejimi ═══
+            items.add("☑ Tanlash rejimi")
+            actions.add { enterSelectMode() }
 
             items.add("🗑 " + c.getString(R.string.menu_delete))
             actions.add { confirmDelete(target) }

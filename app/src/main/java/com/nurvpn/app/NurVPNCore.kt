@@ -1127,6 +1127,7 @@ class AWGConfig(@JvmField var rawConf: String?) {
     var endpoint: String? = null
     var address: String? = null
     var ping: Int = -1
+    var favorite: Boolean = false
 }
 
 object AWGStore {
@@ -1142,6 +1143,7 @@ object AWGStore {
             o.put("endpoint", c.endpoint)
             o.put("address", c.address ?: "")
             o.put("ping", c.ping)
+            o.put("favorite", c.favorite)
             arr.put(o)
         }
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
@@ -1160,6 +1162,8 @@ object AWGStore {
                 c.name = o.optString("name", null)
                 c.endpoint = o.optString("endpoint", null)
                 c.address = o.optString("address", null)
+                c.favorite = o.optBoolean("favorite", false)
+                c.ping = o.optInt("ping", -1)
                 out.add(c)
             }
         } catch (ignored: Throwable) {}
