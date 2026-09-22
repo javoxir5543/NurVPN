@@ -778,6 +778,97 @@ class HomeFragment : Fragment() {
             .show()
     }
 
+    /** Xray JSON config'ni server sifatida qo'shish. */
+    private fun addFromJson(json: String) {
+        val a = activity as? MainActivity ?: return
+        try {
+            val item = ServerLinkParser.parse(json, null)
+            if (item == null) {
+                Toast.makeText(context, "JSON config o\'qilmadi",
+                    Toast.LENGTH_LONG).show()
+                return
+            }
+            // Duplicate tekshiruvi
+            if (a.servers.any { it.link == item.link }) {
+                Toast.makeText(context, "Server allaqachon qo\'shilgan",
+                    Toast.LENGTH_SHORT).show()
+                return
+            }
+            a.servers.add(item)
+            ServerStore.save(a, a.servers)
+            Toast.makeText(context,
+                "Server qo\'shildi: ${item.displayName()}",
+                Toast.LENGTH_SHORT).show()
+            android.util.Log.i("NurVPN-DBG",
+                "addFromJson: ${item.displayName()} (${item.host}:${item.port})")
+            refresh()
+        } catch (t: Throwable) {
+            android.util.Log.e("NurVPN-DBG", "addFromJson xato", t)
+            Toast.makeText(context, "Xato: ${t.message}",
+                Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** JSON array yoki object → ServerItem ro'yxati. */
+    /** JSON array yoki object → ServerItem ro'yxati (subId bilan). */
+    private fun parseJsonConfigsWithSub(json: String, subId: String): List<ServerItem> {
+        val out = ArrayList<ServerItem>()
+        try {
+            val trimmed = json.trim()
+            if (trimmed.startsWith("[")) {
+                val arr = org.json.JSONArray(trimmed)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val si = ServerLinkParser.parse(obj.toString(), subId)
+                    if (si != null) {
+                        si.subId = subId
+                        out.add(si)
+                        android.util.Log.i("NurVPN-DBG",
+                            "JSON[$i]: ${si.displayName()} (${si.host}:${si.port})")
+                    } else {
+                        android.util.Log.w("NurVPN-DBG", "JSON[$i]: parse null")
+                    }
+                }
+            } else {
+                val si = ServerLinkParser.parse(trimmed, subId)
+                if (si != null) {
+                    si.subId = subId
+                    out.add(si)
+                }
+            }
+        } catch (t: Throwable) {
+            android.util.Log.e("NurVPN-DBG", "parseJsonConfigsWithSub xato", t)
+        }
+        return out
+    }
+
+    private fun parseJsonConfigs(json: String): List<ServerItem> {
+        val out = ArrayList<ServerItem>()
+        try {
+            val trimmed = json.trim()
+            if (trimmed.startsWith("[")) {
+                val arr = org.json.JSONArray(trimmed)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val si = ServerLinkParser.parse(obj.toString(), null)
+                    if (si != null) {
+                        out.add(si)
+                        android.util.Log.i("NurVPN-DBG",
+                            "JSON[$i]: ${si.displayName()} (${si.host}:${si.port})")
+                    } else {
+                        android.util.Log.w("NurVPN-DBG", "JSON[$i]: parse null")
+                    }
+                }
+            } else {
+                val si = ServerLinkParser.parse(trimmed, null)
+                if (si != null) out.add(si)
+            }
+        } catch (t: Throwable) {
+            android.util.Log.e("NurVPN-DBG", "parseJsonConfigs xato", t)
+        }
+        return out
+    }
+
     private fun makeExpandableCard(icon: String, title: String, count: Int, subId: String? = null, sub: Subscription? = null): LinearLayout {
         val ctx = requireContext()
         val dp = resources.displayMetrics.density
@@ -1207,10 +1298,15 @@ class HomeFragment : Fragment() {
                 val conn = u.openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 15000
                 conn.readTimeout = 15000
-                conn.setRequestProperty("User-Agent", "v2rayTun/3.6.0 (Linux; Android 13; SM-S918B)")
+                conn.setRequestProperty("User-Agent", "INCY/1.0.0 (Linux; Android 13)")
                 conn.setRequestProperty("Accept", "*/*")
                 // HWID (server talab qiladi)
                 conn.setRequestProperty("x-hwid", getHwid())
+                conn.setRequestProperty("x-device-id", getHwid())
+                conn.setRequestProperty("x-platform", "android")
+                conn.setRequestProperty("x-client", "incy")
+                conn.setRequestProperty("accept", "*/*")
+                conn.setRequestProperty("accept-language", "en-US,en;q=0.9")
                 conn.setRequestProperty("x-device-os", "Android")
                 conn.setRequestProperty("x-ver-os", android.os.Build.VERSION.RELEASE ?: "13")
                 conn.setRequestProperty("x-device-model", android.os.Build.MODEL ?: "SM-S918B")
@@ -1276,6 +1372,41 @@ class HomeFragment : Fragment() {
                 }
                 return@Thread
             }
+            // ═══ JSON ARRAY (Xray configs ro'yxati) ═══
+            val trimmedBody = body.trim()
+            if (trimmedBody.startsWith("[") || trimmedBody.startsWith("{")) {
+                android.util.Log.i("NurVPN-DBG",
+                    "loadSubscription: JSON detected, ${trimmedBody.length} belgi")
+                // subId yaratamiz yoki mavjudni olamiz
+                val subIdForJson = "sub_" + System.currentTimeMillis().toString(36)
+                var subForJson = a.subscriptions.find { it.url == url }
+                if (subForJson == null) {
+                    subForJson = Subscription(subIdForJson, url, subName ?: "JSON Sub")
+                    a.subscriptions.add(subForJson)
+                    SubscriptionStore.save(a, a.subscriptions)
+                }
+                val jsonServers = parseJsonConfigsWithSub(trimmedBody, subForJson.id)
+                android.util.Log.i("NurVPN-DBG",
+                    "loadSubscription: JSON serverlar=${jsonServers.size}")
+                if (jsonServers.isNotEmpty()) {
+                    activity?.runOnUiThread {
+                        val a2 = activity as? MainActivity ?: return@runOnUiThread
+                        var added = 0
+                        for (si in jsonServers) {
+                            if (a2.servers.any { it.link == si.link }) continue
+                            a2.servers.add(si)
+                            added++
+                        }
+                        ServerStore.save(a2, a2.servers)
+                        Toast.makeText(c,
+                            "JSON: $added server qo'shildi",
+                            Toast.LENGTH_SHORT).show()
+                        refresh()
+                    }
+                    return@Thread
+                }
+            }
+
             // ═══ Linklarni ajratish ═══
             val directLinks = SubscriptionLinkExtractor.extract(body)
             android.util.Log.i("NurVPN-DBG", "loadSub: directLinks=${directLinks.size}")
@@ -1499,6 +1630,13 @@ class HomeFragment : Fragment() {
         }
         val text = clip.getItemAt(0).text?.toString()?.trim() ?: return
         android.util.Log.i("NurVPN-DBG", "pasteFromClipboard: uzunlik=${text.length}")
+
+        // ═══ XRAY JSON CONFIG ═══
+        if (text.startsWith("{")) {
+            android.util.Log.i("NurVPN-DBG", "pasteFromClipboard: JSON detected")
+            addFromJson(text)
+            return
+        }
 
         // ═══ Subscription URL? ═══
         if (text.startsWith("http://") || text.startsWith("https://")) {
@@ -1896,6 +2034,31 @@ class ServersFragment : Fragment() {
         }
     }
 
+    /** JSON fayl tanlash uchun */
+    private val jsonFilePicker = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri == null || !isAdded) return@registerForActivityResult
+        try {
+            val text = requireContext().contentResolver
+                .openInputStream(uri)?.use {
+                    it.readBytes().toString(Charsets.UTF_8)
+                }
+            if (text.isNullOrBlank()) {
+                Toast.makeText(context, R.string.toast_file_empty, Toast.LENGTH_SHORT).show()
+                return@registerForActivityResult
+            }
+            val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "json_import"
+            android.util.Log.i("NurVPN-JSON",
+                "Fayl o\'qildi: ${text.length} belgi, fayl=$fileName")
+            importJsonFile(text, fileName)
+        } catch (t: Throwable) {
+            android.util.Log.e("NurVPN-JSON", "Fayl o\'qish xato", t)
+            Toast.makeText(context,
+                "Xato: ${t.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
@@ -2112,6 +2275,21 @@ class ServersFragment : Fragment() {
 
     private fun showAddDialog() {
         if (!isAdded) return
+        val options = arrayOf("\u270D Qo\'lda kiritish", "\uD83D\uDCC1 JSON fayldan")
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.dialog_add_xray)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showAddManualDialog()
+                    1 -> jsonFilePicker.launch("application/json")
+                }
+            }
+            .setNegativeButton(R.string.dialog_no, null)
+            .show()
+    }
+
+    private fun showAddManualDialog() {
+        if (!isAdded) return
         val et = EditText(requireContext())
         et.hint = getString(R.string.hint_mixed_links)
         et.inputType = android.text.InputType.TYPE_CLASS_TEXT or
@@ -2129,6 +2307,192 @@ class ServersFragment : Fragment() {
             }
             .setNegativeButton(R.string.dialog_no, null)
             .show()
+    }
+
+    /** sing-box "endpoints" array → WireGuard .conf larni import qiladi. */
+    private fun importWireGuardEndpoints(json: String, fileName: String) {
+        val a = activity as? MainActivity ?: return
+        Thread {
+            var added = 0
+            try {
+                val root = org.json.JSONObject(json)
+                val endpoints = root.optJSONArray("endpoints") ?: return@Thread
+                android.util.Log.i("NurVPN-JSON",
+                    "WireGuard endpoints: ${endpoints.length()} ta")
+                for (i in 0 until endpoints.length()) {
+                    val ep = endpoints.getJSONObject(i)
+                    val type = ep.optString("type", "")
+                    if (type != "wireguard") {
+                        android.util.Log.w("NurVPN-JSON",
+                            "endpoints[$i]: type=$type, skip")
+                        continue
+                    }
+                    val conf = buildWireGuardConf(ep) ?: continue
+                    val r = AWGParser.parse(conf)
+                    if (!r.ok) {
+                        android.util.Log.w("NurVPN-JSON",
+                            "endpoints[$i]: AWGParser xato: ${r.error}")
+                        continue
+                    }
+                    val cfg = AWGConfig(conf)
+                    cfg.endpoint = r.endpoint
+                    cfg.address = r.address
+                    cfg.name = ep.optString("tag", "WG ${i + 1}")
+                    activity?.runOnUiThread {
+                        a.awgConfigs.add(cfg)
+                    }
+                    added++
+                }
+            } catch (t: Throwable) {
+                android.util.Log.e("NurVPN-JSON", "WG parse xato", t)
+            }
+            val finalAdded = added
+            activity?.runOnUiThread {
+                if (finalAdded == 0) {
+                    Toast.makeText(context, "WireGuard topilmadi",
+                        Toast.LENGTH_LONG).show()
+                    return@runOnUiThread
+                }
+                AWGStore.save(a, a.awgConfigs)
+                ad?.notifyDataChanged()
+                Toast.makeText(context,
+                    "$finalAdded WireGuard qo\'shildi",
+                    Toast.LENGTH_SHORT).show()
+            }
+        }.start()
+    }
+
+    /** sing-box endpoint JSON → WireGuard .conf matni. */
+    private fun buildWireGuardConf(ep: org.json.JSONObject): String? {
+        val privateKey = ep.optString("private_key", "")
+        if (privateKey.isEmpty()) return null
+        val peers = ep.optJSONArray("peers") ?: return null
+        if (peers.length() == 0) return null
+        val peer = peers.getJSONObject(0)
+
+        val sb = StringBuilder()
+        sb.appendLine("[Interface]")
+        sb.appendLine("PrivateKey = $privateKey")
+        val addrArr = ep.optJSONArray("address")
+        if (addrArr != null && addrArr.length() > 0) {
+            val list = (0 until addrArr.length()).map { addrArr.getString(it) }
+            sb.appendLine("Address = ${list.joinToString(", ")}")
+        }
+        val mtu = ep.optInt("mtu", 0)
+        if (mtu > 0) sb.appendLine("MTU = $mtu")
+        val dnsArr = ep.optJSONArray("dns")
+        if (dnsArr != null && dnsArr.length() > 0) {
+            val list = (0 until dnsArr.length()).map { dnsArr.getString(it) }
+            sb.appendLine("DNS = ${list.joinToString(", ")}")
+        }
+        sb.appendLine()
+        sb.appendLine("[Peer]")
+        sb.appendLine("PublicKey = ${peer.optString("public_key")}")
+        val paddr = peer.optString("address", "")
+        val pport = peer.optInt("port", 51820)
+        if (paddr.isEmpty()) return null
+        sb.appendLine("Endpoint = $paddr:$pport")
+        val allowed = peer.optJSONArray("allowed_ips")
+        if (allowed != null && allowed.length() > 0) {
+            val list = (0 until allowed.length()).map { allowed.getString(it) }
+            sb.appendLine("AllowedIPs = ${list.joinToString(", ")}")
+        } else {
+            sb.appendLine("AllowedIPs = 0.0.0.0/0, ::/0")
+        }
+        // Reserved (base64 → [1, 2, 3])
+        val reserved = peer.optString("reserved", "")
+        if (reserved.isNotEmpty()) {
+            try {
+                val bytes = android.util.Base64.decode(
+                    reserved, android.util.Base64.DEFAULT)
+                val nums = bytes.joinToString(",", "[", "]") {
+                    (it.toInt() and 0xFF).toString()
+                }
+                sb.appendLine("Reserved = $nums")
+            } catch (_: Throwable) {}
+        }
+        return sb.toString()
+    }
+
+    private fun importJsonFile(text: String, fileName: String) {
+        val a = activity as? MainActivity ?: return
+        val trimmed = text.trim()
+        if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+            Toast.makeText(context, "JSON fayl emas", Toast.LENGTH_LONG).show()
+            return
+        }
+        // ═══ sing-box endpoints (WireGuard) ═══
+        if (trimmed.startsWith("{") && trimmed.contains("\"endpoints\"")) {
+            importWireGuardEndpoints(trimmed, fileName)
+            return
+        }
+        val subId = "jsonfile_" + System.currentTimeMillis().toString(36)
+        val subName = fileName.removeSuffix(".json").ifBlank { "JSON Fayl" }
+
+        Thread {
+            val servers = ArrayList<ServerItem>()
+            try {
+                if (trimmed.startsWith("[")) {
+                    val arr = org.json.JSONArray(trimmed)
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val si = ServerLinkParser.parse(obj.toString(), subId)
+                        if (si != null) {
+                            si.subId = subId
+                            servers.add(si)
+                        }
+                    }
+                } else {
+                    val single = ServerLinkParser.parse(trimmed, subId)
+                    if (single != null) {
+                        single.subId = subId
+                        servers.add(single)
+                    } else {
+                        var depth = 0
+                        var start = -1
+                        for (i in trimmed.indices) {
+                            when (trimmed[i]) {
+                                '{' -> { if (depth == 0) start = i; depth++ }
+                                '}' -> {
+                                    depth--
+                                    if (depth == 0 && start >= 0) {
+                                        val chunk = trimmed.substring(start, i + 1)
+                                        val si = ServerLinkParser.parse(chunk, subId)
+                                        if (si != null) {
+                                            si.subId = subId
+                                            servers.add(si)
+                                        }
+                                        start = -1
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (t: Throwable) {
+                android.util.Log.e("NurVPN-JSON", "Parse xato", t)
+            }
+
+            activity?.runOnUiThread {
+                if (servers.isEmpty()) {
+                    Toast.makeText(context, "Server topilmadi", Toast.LENGTH_LONG).show()
+                    return@runOnUiThread
+                }
+                val sub = Subscription(subId, "file://" + fileName, subName)
+                a.subscriptions.add(sub)
+                SubscriptionStore.save(a, a.subscriptions)
+
+                var added = 0
+                for (si in servers) {
+                    if (a.servers.any { it.link == si.link }) continue
+                    a.servers.add(si)
+                    added++
+                }
+                ServerStore.save(a, a.servers)
+                ad?.notifyDataChanged()
+                Toast.makeText(context, "$added server qo\'shildi", Toast.LENGTH_SHORT).show()
+            }
+        }.start()
     }
 
     private fun autoDetectAndAdd(text: String) {

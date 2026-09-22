@@ -312,7 +312,7 @@ class ServerItem(@JvmField var link: String) {
 
     fun displayName(): String {
         if (!remark.isNullOrEmpty()) {
-            val r = remark!!
+            val r = remark!!.replace("+", " ").replace("%20", " ").trim()
             // Agar remark juda uzun bo'lsa (butun link bo'lsa) — qisqartiramiz
             if (r.length > 60 || r.startsWith("vless://") ||
                 r.startsWith("vmess://") || r.startsWith("hysteria2://") ||
@@ -452,20 +452,189 @@ object ServerLinkParser {
     fun parse(link: String, subId: String? = null): ServerItem? {
         if (link.isEmpty()) return null
         return try {
+            val trimmed = link.trim()
             when {
-                link.startsWith("vmess://") -> parseVmess(link, subId)
-                link.startsWith("vless://") ||
-                link.startsWith("hysteria2://") ||
-                link.startsWith("hy2://") ||
-                link.startsWith("tuic://") ||
-                link.startsWith("trojan://") ||
-                link.startsWith("ss://") -> parseStandard(link, subId)
+                // ═══ Xray JSON config ═══
+                trimmed.startsWith("{") -> parseXrayJson(trimmed, subId)
+                // ═══ URI links ═══
+                trimmed.startsWith("vmess://") -> parseVmess(trimmed, subId)
+                trimmed.startsWith("vless://") ||
+                trimmed.startsWith("hysteria2://") ||
+                trimmed.startsWith("hy2://") ||
+                trimmed.startsWith("tuic://") ||
+                trimmed.startsWith("trojan://") ||
+                trimmed.startsWith("ss://") -> parseStandard(trimmed, subId)
                 else -> null
             }
         } catch (t: Throwable) {
             android.util.Log.e("NurVPN-PARSE", "parse fail: ${t.message}", t)
             null
         }
+    }
+
+    /** Xray JSON config → URI string → ServerItem. */
+    private fun parseXrayJson(json: String, subId: String?): ServerItem? {
+        return try {
+            val root = org.json.JSONObject(json)
+            val outbounds = root.optJSONArray("outbounds") ?: return null
+            // Proxy outbound topamiz (direct/block/fragment emas)
+            var proxy: org.json.JSONObject? = null
+            for (i in 0 until outbounds.length()) {
+                val ob = outbounds.getJSONObject(i)
+                val proto = ob.optString("protocol", "")
+                if (proto in listOf("vless", "vmess", "trojan", "shadowsocks")) {
+                    proxy = ob
+                    break
+                }
+            }
+            val ob = proxy ?: return null
+
+            val protocol = ob.optString("protocol")
+            val settings = ob.optJSONObject("settings") ?: return null
+            val stream = ob.optJSONObject("streamSettings")
+
+            // DEBUG: barcha JSON key larni logga chiqaramiz
+            val dbgKeys = mutableListOf<String>()
+            val kit = root.keys()
+            while (kit.hasNext()) dbgKeys.add(kit.next())
+            android.util.Log.i("NurVPN-PARSE", "JSON root keys: $dbgKeys")
+            for (k in dbgKeys) {
+                val v = root.opt(k)
+                if (v is String) android.util.Log.i("NurVPN-PARSE", "  root.$k = $v")
+            }
+            val obKeys = mutableListOf<String>()
+            val oit = ob.keys()
+            while (oit.hasNext()) obKeys.add(oit.next())
+            android.util.Log.i("NurVPN-PARSE", "outbound keys: $obKeys")
+            for (k in obKeys) {
+                val v = ob.opt(k)
+                if (v is String) android.util.Log.i("NurVPN-PARSE", "  ob.$k = $v")
+            }
+            // Nomni turli maydonlardan izlaymiz
+            val remark = listOf("remarks","remark","tag","name","title","label","ps","displayName","serverName","country")
+                .firstNotNullOfOrNull { k ->
+                    val v = root.optString(k, "")
+                    if (v.isNotBlank() && !v.startsWith("http")) v else null
+                } ?: listOf("remarks","remark","tag","name","title","label")
+                .firstNotNullOfOrNull { k ->
+                    val v = ob.optString(k, "")
+                    if (v.isNotBlank() && !v.startsWith("http")) v else null
+                } ?: ""
+            android.util.Log.i("NurVPN-PARSE", "Extracted remark='$remark'")
+            val link = when (protocol) {
+                "vless" -> buildVlessUri(settings, stream, remark)
+                else -> {
+                    android.util.Log.w("NurVPN-PARSE", "JSON protocol qollab-quvvatlanmaydi: $protocol")
+                    return null
+                }
+            } ?: return null
+
+            android.util.Log.i("NurVPN-PARSE", "Xray JSON → URI: ${link.take(80)}...")
+            parseStandard(link, subId)
+        } catch (t: Throwable) {
+            android.util.Log.e("NurVPN-PARSE", "Xray JSON parse xato", t)
+            null
+        }
+    }
+
+    /** Xray VLESS settings → vless:// URI. */
+    private fun buildVlessUri(settings: org.json.JSONObject, stream: org.json.JSONObject?, remark: String? = null): String? {
+        val vnext = settings.optJSONArray("vnext") ?: return null
+        if (vnext.length() == 0) return null
+        val node = vnext.getJSONObject(0)
+        val addr = node.optString("address", "")
+        val port = node.optInt("port", 443)
+        val users = node.optJSONArray("users") ?: return null
+        if (users.length() == 0) return null
+        val user = users.getJSONObject(0)
+        val uuid = user.optString("id", "")
+        val flow = user.optString("flow", "")
+
+        // ═══ Stream settings ═══
+        val net = stream?.optString("network", "tcp") ?: "tcp"
+        val security = stream?.optString("security", "none") ?: "none"
+
+        val params = mutableListOf<String>()
+        params.add("encryption=none")
+        params.add("type=$net")
+
+        if (flow.isNotEmpty()) params.add("flow=${java.net.URLEncoder.encode(flow, "UTF-8")}")
+
+        when (net) {
+            "xhttp" -> {
+                val xh = stream?.optJSONObject("xhttpSettings")
+                if (xh != null) {
+                    val host = xh.optString("host", "")
+                    val path = xh.optString("path", "/")
+                    val mode = xh.optString("mode", "auto")
+                    if (host.isNotEmpty()) params.add("host=${java.net.URLEncoder.encode(host, "UTF-8")}")
+                    params.add("path=${java.net.URLEncoder.encode(path, "UTF-8")}")
+                    params.add("mode=$mode")
+                    params.add("xhttpMode=$mode")
+                    params.add("xhttpPath=${java.net.URLEncoder.encode(path, "UTF-8")}")
+                } else {
+                    params.add("path=%2F")
+                    params.add("mode=auto")
+                    params.add("xhttpMode=auto")
+                    params.add("xhttpPath=%2F")
+                }
+            }
+            "ws" -> {
+                val ws = stream?.optJSONObject("wsSettings")
+                if (ws != null) {
+                    val host = ws.optString("host", "")
+                    val path = ws.optString("path", "")
+                    if (host.isNotEmpty()) params.add("host=${java.net.URLEncoder.encode(host, "UTF-8")}")
+                    if (path.isNotEmpty()) params.add("path=${java.net.URLEncoder.encode(path, "UTF-8")}")
+                }
+            }
+            "grpc" -> {
+                val grpc = stream?.optJSONObject("grpcSettings")
+                if (grpc != null) {
+                    val sn = grpc.optString("serviceName", "")
+                    if (sn.isNotEmpty()) params.add("serviceName=${java.net.URLEncoder.encode(sn, "UTF-8")}")
+                }
+            }
+            "tcp" -> {
+                val tcp = stream?.optJSONObject("tcpSettings")
+                if (tcp != null && tcp.optBoolean("headerType") == true) {
+                    params.add("headerType=http")
+                }
+            }
+        }
+
+        params.add("security=$security")
+
+        when (security) {
+            "reality" -> {
+                val r = stream?.optJSONObject("realitySettings")
+                if (r != null) {
+                    val sni = r.optString("serverName", "")
+                    val pbk = r.optString("publicKey", "")
+                    val sid = r.optString("shortId", "")
+                    val fp = r.optString("fingerprint", "chrome")
+                    if (sni.isNotEmpty()) params.add("sni=${java.net.URLEncoder.encode(sni, "UTF-8")}")
+                    if (pbk.isNotEmpty()) params.add("pbk=$pbk")
+                    if (sid.isNotEmpty()) params.add("sid=$sid")
+                    if (fp.isNotEmpty()) params.add("fp=$fp")
+                }
+            }
+            "tls" -> {
+                val t = stream?.optJSONObject("tlsSettings")
+                if (t != null) {
+                    val sni = t.optString("serverName", "")
+                        .removePrefix("https://").removePrefix("http://")
+                        .removePrefix("://").trimEnd('/')
+                    val fp = t.optString("fingerprint", "")
+                    if (sni.isNotEmpty()) params.add("sni=${java.net.URLEncoder.encode(sni, "UTF-8")}")
+                    if (fp.isNotEmpty()) params.add("fp=$fp")
+                }
+            }
+        }
+
+        val query = params.joinToString("&")
+        val name = remark?.takeIf { it.isNotBlank() } ?: addr
+        return "vless://$uuid@$addr:$port?$query#" + java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")
     }
 
     private fun parseVmess(link: String, subId: String?): ServerItem? {
@@ -589,6 +758,26 @@ object ServerLinkParser {
             } else si.host = hp
         }
         if (si.remark.isNullOrEmpty()) si.remark = si.host
+        // SNI tozalash: "://unsplash.com" → "unsplash.com"
+        try {
+            val qidx = body.indexOf('?')
+            if (qidx > 0) {
+                val qs = body.substring(qidx + 1).substringBefore('/')
+                for (pair in qs.split("&")) {
+                    if (pair.startsWith("sni=")) {
+                        val raw = android.net.Uri.decode(pair.substring(4))
+                        val clean = raw.removePrefix("https://").removePrefix("http://")
+                            .removePrefix("://").trimEnd('/')
+                        if (clean != raw) {
+                            si.link = si.link.replace("sni=" + pair.substring(4),
+                                "sni=" + java.net.URLEncoder.encode(clean, "UTF-8"))
+                        }
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            android.util.Log.w("NurVPN-PARSE", "SNI tozalash xato: ${t.message}")
+        }
         val cc = CountryLookup.lookup(si.host)
         si.countryCode = cc[0]
         si.country = cc[1]
@@ -1563,7 +1752,34 @@ object SingBoxConfig {
                 t.put("type", "grpc")
                 t.put("service_name", q["serviceName"] ?: "")
             }
-            else -> return
+            "http", "h2" -> {
+                t.put("type", "http")
+                if (q["host"] != null)
+                    t.put("host", JSONArray().put(q["host"]))
+                if (q["path"] != null) t.put("path", q["path"])
+            }
+            "httpupgrade" -> {
+                t.put("type", "httpupgrade")
+                if (q["host"] != null) t.put("host", q["host"])
+                if (q["path"] != null) t.put("path", q["path"])
+            }
+            "xhttp" -> {
+                // ═══ XHTTP transport (sing-box 1.10+) ═══
+                t.put("type", "xhttp")
+                if (q["host"] != null && q["host"]!!.isNotEmpty())
+                    t.put("host", q["host"])
+                // path: ham "path", ham "xhttpPath" ni qabul qilamiz
+                val xpath = q["path"] ?: q["xhttpPath"] ?: "/"
+                val xmode = q["mode"] ?: q["xhttpMode"] ?: "auto"
+                t.put("path", xpath)
+                t.put("mode", xmode)
+                android.util.Log.i("NurVPN-PARSE",
+                    "XHTTP config: host=${q["host"]}, path=$xpath, mode=$xmode")
+            }
+            else -> {
+                android.util.Log.w("NurVPN-PARSE", "Noma'lum transport: $type")
+                return
+            }
         }
         o.put("transport", t)
     }
@@ -1619,6 +1835,7 @@ object SingBoxConfig {
         var port = 51820
         var mtu = 1280
         var keepalive = 0
+        var reserved: List<Int> = emptyList()
 
         for (raw in rawConf.lines()) {
             val t = raw.trim()
@@ -1667,6 +1884,21 @@ object SingBoxConfig {
                     for (ip in v.split(",")) if (ip.trim().isNotEmpty()) allowedIps.put(ip.trim())
                 k.equals("PersistentKeepalive", true) && inPeer ->
                     keepalive = v.toIntOrNull() ?: 0
+                k.equals("Reserved", true) && inPeer -> {
+                    // Format: "[113, 208, 80]" yoki "113,208,80" yoki "cdBQ" (base64)
+                    val clean = v.trim().removePrefix("[").removeSuffix("]")
+                    val parts = clean.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                    reserved = if (parts.all { it.toIntOrNull() != null }) {
+                        parts.mapNotNull { it.toIntOrNull() }
+                    } else {
+                        // base64 ni dekod qilishga urinamiz
+                        try {
+                            val bytes = android.util.Base64.decode(v, android.util.Base64.DEFAULT)
+                            bytes.map { it.toInt() and 0xFF }
+                        } catch (_: Throwable) { emptyList() }
+                    }
+                    android.util.Log.i("NurVPN-AWG", "Reserved parsed: $reserved")
+                }
             }
         }
 
@@ -1702,6 +1934,13 @@ object SingBoxConfig {
         if (allowedIps.length() > 0) peer.put("allowed_ips", allowedIps)
         else peer.put("allowed_ips", JSONArray().put("0.0.0.0/0").put("::/0"))
         if (keepalive > 0) peer.put("persistent_keepalive_interval", keepalive)
+        // ★ Reserved — WARP uchun majburiy
+        if (reserved.isNotEmpty()) {
+            val rArr = JSONArray()
+            for (n in reserved) rArr.put(n)
+            peer.put("reserved", rArr)
+            android.util.Log.i("NurVPN-AWG", "peer.reserved = $reserved")
+        }
         o.put("peers", JSONArray().put(peer))
 
         return o
