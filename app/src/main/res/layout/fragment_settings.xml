@@ -349,7 +349,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="⚙️ AWG config tahrirlash"
+                android:text="@string/awg_edit_title"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp"
                 android:textStyle="bold"/>

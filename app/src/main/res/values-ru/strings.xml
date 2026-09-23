@@ -274,4 +274,25 @@
 
     <string name="srv_menu_copy_config">Скопировать конфиг</string>
     <string name="clip_label_awg_config">AWG конфиг</string>
+    <string name="sel_mode">Режим выбора</string>
+    <string name="toast_error_fmt">Ошибка: %s</string>
+    <string name="toast_n_deleted_fmt">Удалено: %d</string>
+    <string name="toast_json_not_read">JSON конфиг не прочитан</string>
+    <string name="toast_server_exists">Сервер уже добавлен</string>
+    <string name="toast_wg_not_found">WireGuard не найден</string>
+    <string name="toast_not_json">Не JSON файл</string>
+    <string name="toast_server_not_found">Сервер не найден</string>
+    <string name="toast_n_servers_added_fmt">Добавлено серверов: %d</string>
+    <string name="toast_n_wg_added_fmt">Добавлено WireGuard: %d</string>
+    <string name="sel_select_all">Выбрать все</string>
+    <string name="sel_delete">Удалить</string>
+    <string name="sel_cancel">Отмена</string>
+    <string name="add_manual">Ввести вручную</string>
+    <string name="add_from_json">Из JSON файла</string>
+    <string name="manual_added">Добавлено вручную</string>
+    <string name="sel_count_zero">Выбрано: 0</string>
+    <string name="count_zero_ta">0 шт.</string>
+    <string name="awg_edit_title">Редактирование AWG конфига</string>
+    <string name="awg_edit_subtitle">Порт, Jc, MTU (для Beeline)</string>
+    <string name="awg_presets">Пресеты</string>
 </resources>

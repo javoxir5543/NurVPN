@@ -278,4 +278,25 @@
 
     <string name="srv_menu_copy_config">Config nusxalash</string>
     <string name="clip_label_awg_config">AWG config</string>
+    <string name="sel_mode">Tanlash rejimi</string>
+    <string name="toast_error_fmt">Xato: %s</string>
+    <string name="toast_n_deleted_fmt">%d ta o\'chirildi</string>
+    <string name="toast_json_not_read">JSON config o\'qilmadi</string>
+    <string name="toast_server_exists">Server allaqachon qo\'shilgan</string>
+    <string name="toast_wg_not_found">WireGuard topilmadi</string>
+    <string name="toast_not_json">JSON fayl emas</string>
+    <string name="toast_server_not_found">Server topilmadi</string>
+    <string name="toast_n_servers_added_fmt">%d ta server qo\'shildi</string>
+    <string name="toast_n_wg_added_fmt">%d ta WireGuard qo\'shildi</string>
+    <string name="sel_select_all">Hammasini tanlash</string>
+    <string name="sel_delete">O\'chirish</string>
+    <string name="sel_cancel">Bekor qilish</string>
+    <string name="add_manual">Qo\'lda kiritish</string>
+    <string name="add_from_json">JSON fayldan</string>
+    <string name="manual_added">Qo\'lda qo\'shilgan</string>
+    <string name="sel_count_zero">0 tanlandi</string>
+    <string name="count_zero_ta">0 ta</string>
+    <string name="awg_edit_title">AWG config tahrirlash</string>
+    <string name="awg_edit_subtitle">Port, Jc, MTU (Beeline uchun)</string>
+    <string name="awg_presets">Presetlar</string>
 </resources>

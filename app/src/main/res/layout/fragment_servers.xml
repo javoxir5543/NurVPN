@@ -30,7 +30,7 @@
                 android:textColor="@color/on_accent"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:text="0 tanlandi"/>
+                android:text="@string/sel_count_zero"/>
 
             <ImageButton
                 android:id="@+id/sel_select_all"
@@ -38,7 +38,7 @@
                 android:layout_height="42dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/checkbox_on_background"
-                android:contentDescription="Hammasini tanlash"/>
+                android:contentDescription="@string/sel_select_all"/>
 
             <ImageButton
                 android:id="@+id/sel_delete"
@@ -46,7 +46,7 @@
                 android:layout_height="42dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_delete"
-                android:contentDescription="O'chirish"/>
+                android:contentDescription="@string/sel_delete"/>
 
             <ImageButton
                 android:id="@+id/sel_cancel"
@@ -54,7 +54,7 @@
                 android:layout_height="42dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_close_clear_cancel"
-                android:contentDescription="Bekor qilish"/>
+                android:contentDescription="@string/sel_cancel"/>
         </LinearLayout>
 
         <EditText

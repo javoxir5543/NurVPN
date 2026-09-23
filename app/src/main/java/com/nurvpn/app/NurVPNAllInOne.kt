@@ -553,7 +553,7 @@ class HomeFragment : Fragment() {
             actions.add { homeCopyToClipboard(target.link, c.getString(R.string.clip_label_link)) }
             items.add("📤 " + c.getString(R.string.srv_menu_share))
             actions.add { homeShareLink(target.link, target.displayName()) }
-            items.add("☑ Tanlash rejimi")
+            items.add("☑ " + c.getString(R.string.sel_mode))
             actions.add { enterHomeSelectMode() }
             items.add("🗑 " + c.getString(R.string.menu_delete))
             actions.add {
@@ -564,7 +564,7 @@ class HomeFragment : Fragment() {
                         a.servers.remove(target)
                         ServerStore.save(a, a.servers)
                         rebuildServerCards(force = true)
-                        Toast.makeText(c, "O'chirildi", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(c, c.getString(R.string.toast_deleted), Toast.LENGTH_SHORT).show()
                     }
                     .setNegativeButton(R.string.dialog_no, null)
                     .show()
@@ -602,7 +602,7 @@ class HomeFragment : Fragment() {
             items.add("📋 " + c.getString(R.string.srv_menu_copy_config))
             actions.add { homeCopyToClipboard(target.rawConf ?: "",
                 c.getString(R.string.clip_label_awg_config)) }
-            items.add("☑ Tanlash rejimi")
+            items.add("☑ " + c.getString(R.string.sel_mode))
             actions.add { enterHomeSelectMode() }
             items.add("🗑 " + c.getString(R.string.menu_delete))
             actions.add {
@@ -613,7 +613,7 @@ class HomeFragment : Fragment() {
                         a.awgConfigs.remove(target)
                         AWGStore.save(a, a.awgConfigs)
                         rebuildAwgList()
-                        Toast.makeText(c, "O'chirildi", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(c, c.getString(R.string.toast_deleted), Toast.LENGTH_SHORT).show()
                     }
                     .setNegativeButton(R.string.dialog_no, null)
                     .show()
@@ -638,9 +638,9 @@ class HomeFragment : Fragment() {
                 .getSystemService(android.content.Context.CLIPBOARD_SERVICE)
                     as android.content.ClipboardManager
             cm.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
-            Toast.makeText(context, "Nusxalandi", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, getString(R.string.toast_copied), Toast.LENGTH_SHORT).show()
         } catch (t: Throwable) {
-            Toast.makeText(context, "Xato: ${t.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, getString(R.string.toast_error_fmt, t.message), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -654,7 +654,7 @@ class HomeFragment : Fragment() {
             }
             startActivity(Intent.createChooser(i, name))
         } catch (t: Throwable) {
-            Toast.makeText(context, "Xato: ${t.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, getString(R.string.toast_error_fmt, t.message), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -2646,7 +2646,7 @@ class ServersFragment : Fragment() {
             val finalAdded = added
             activity?.runOnUiThread {
                 if (finalAdded == 0) {
-                    Toast.makeText(context, "WireGuard topilmadi",
+                    Toast.makeText(context, getString(R.string.toast_wg_not_found),
                         Toast.LENGTH_LONG).show()
                     return@runOnUiThread
                 }
@@ -2715,7 +2715,7 @@ class ServersFragment : Fragment() {
         val a = activity as? MainActivity ?: return
         val trimmed = text.trim()
         if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
-            Toast.makeText(context, "JSON fayl emas", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, getString(R.string.toast_not_json), Toast.LENGTH_LONG).show()
             return
         }
         // ═══ sing-box endpoints (WireGuard) ═══
@@ -2772,7 +2772,7 @@ class ServersFragment : Fragment() {
 
             activity?.runOnUiThread {
                 if (servers.isEmpty()) {
-                    Toast.makeText(context, "Server topilmadi", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, getString(R.string.toast_server_not_found), Toast.LENGTH_LONG).show()
                     return@runOnUiThread
                 }
                 val sub = Subscription(subId, "file://" + fileName, subName)
@@ -3229,7 +3229,7 @@ class ServersFragment : Fragment() {
                 AWGStore.save(a, a.awgConfigs)
             }
             try {
-                Toast.makeText(frag.requireContext(), "$n o'chirildi", Toast.LENGTH_SHORT).show()
+                Toast.makeText(frag.requireContext(), frag.getString(R.string.toast_n_deleted_fmt, n), Toast.LENGTH_SHORT).show()
             } catch (_: Throwable) {}
             exitSelectMode()
         }
@@ -3286,7 +3286,7 @@ class ServersFragment : Fragment() {
 
             for ((subId, list) in grouped) {
                 val sub = if (subId != null) a.subscriptions.find { it.id == subId } else null
-                val title = sub?.name ?: "Qo'lda qo'shilgan"
+                val title = sub?.name ?: frag.getString(R.string.manual_added)
                 val icon = if (sub != null) "📡" else "🔧"
                 val key = subId ?: "manual"
                 val isExpanded = expandedSubscriptions.contains(key)
@@ -3894,7 +3894,7 @@ class ServersFragment : Fragment() {
             }
 
             // ═══ Tanlash rejimi ═══
-            items.add("☑ Tanlash rejimi")
+            items.add("☑ " + c.getString(R.string.sel_mode))
             actions.add { enterSelectMode() }
 
             items.add("🗑 " + c.getString(R.string.menu_delete))

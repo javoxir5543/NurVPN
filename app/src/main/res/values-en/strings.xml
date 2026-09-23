@@ -274,4 +274,25 @@
 
     <string name="srv_menu_copy_config">Copy config</string>
     <string name="clip_label_awg_config">AWG config</string>
+    <string name="sel_mode">Selection mode</string>
+    <string name="toast_error_fmt">Error: %s</string>
+    <string name="toast_n_deleted_fmt">Deleted: %d</string>
+    <string name="toast_json_not_read">JSON config not read</string>
+    <string name="toast_server_exists">Server already added</string>
+    <string name="toast_wg_not_found">WireGuard not found</string>
+    <string name="toast_not_json">Not a JSON file</string>
+    <string name="toast_server_not_found">Server not found</string>
+    <string name="toast_n_servers_added_fmt">Servers added: %d</string>
+    <string name="toast_n_wg_added_fmt">WireGuard added: %d</string>
+    <string name="sel_select_all">Select all</string>
+    <string name="sel_delete">Delete</string>
+    <string name="sel_cancel">Cancel</string>
+    <string name="add_manual">Enter manually</string>
+    <string name="add_from_json">From JSON file</string>
+    <string name="manual_added">Manually added</string>
+    <string name="sel_count_zero">0 selected</string>
+    <string name="count_zero_ta">0 pcs</string>
+    <string name="awg_edit_title">Edit AWG config</string>
+    <string name="awg_edit_subtitle">Port, Jc, MTU (for Beeline)</string>
+    <string name="awg_presets">Presets</string>
 </resources>
