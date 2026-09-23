@@ -4443,14 +4443,28 @@ class SettingsFragment : Fragment() {
         rootView.findViewById<TextView>(R.id.leak_ipv6)?.text = "IPv6: ..."
         rootView.findViewById<TextView>(R.id.leak_dns)?.text = "DNS: ..."
 
+        // LeakTester ga VPN va IPv6 holatini uzatamiz
+        try {
+            LeakTester.lastVpnActive = TunnelState.isConnected
+            LeakTester.lastIpv6Blocked = IPv6Blocker.isBlocked(requireContext())
+            android.util.Log.i("NurVPN-LEAK",
+                "test: vpnActive=${LeakTester.lastVpnActive}, " +
+                "ipv6Blocked=${LeakTester.lastIpv6Blocked}")
+        } catch (_: Throwable) {}
+
         LeakTester.test { r ->
             if (!isAdded) return@test
             activity?.runOnUiThread {
                 val v2 = view ?: return@runOnUiThread
                 v2.findViewById<TextView>(R.id.leak_ipv4)?.text =
                     "IPv4: ${r.ipv4}" + if (r.ipv4Ok) " ✅" else " ⚠️"
+                val ipv6Icon = when {
+                    r.ipv6Ok -> " ✅"
+                    !LeakTester.lastVpnActive -> " ⚠️"   // VPN off — normal holat
+                    else -> " ❌"                          // VPN on + IPv6 bor — LEAK
+                }
                 v2.findViewById<TextView>(R.id.leak_ipv6)?.text =
-                    "IPv6: ${r.ipv6}" + if (r.ipv6Ok) " ✅" else " ❌"
+                    "IPv6: ${r.ipv6}$ipv6Icon"
                 v2.findViewById<TextView>(R.id.leak_dns)?.text =
                     "DNS: ${r.dns}" + if (r.dnsOk) " ✅" else " ⚠️"
             }
