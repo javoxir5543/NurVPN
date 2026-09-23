@@ -855,13 +855,61 @@ class HomeFragment : Fragment() {
     private fun pingSubscriptionHome(subId: String, subName: String) {
         val a = activity as? MainActivity ?: return
         // ⭐ Avtomatik ping_asc
+        // ⭐ Sevimlilar kartasi uchun maxsus
+        if (subId == "fav_card") {
+            val favs = a.servers.filter { it.favorite }
+            if (favs.isEmpty()) {
+                Toast.makeText(context, R.string.text_no_servers_add,
+                    Toast.LENGTH_SHORT).show()
+                return
+            }
+            Toast.makeText(context,
+                getString(R.string.ping_sub_started, subName, favs.size),
+                Toast.LENGTH_SHORT).show()
+            android.util.Log.i("NurVPN-PING",
+                "Home ping favorites: ${favs.size}")
+            PingTester.testAll(favs, object : PingTester.Listener {
+                override fun onPingUpdate(item: ServerItem, ping: Int) {
+                    if (!pingUpdateScheduled) {
+                        pingUpdateScheduled = true
+                        ui.postDelayed(pingRebuildRunnable, 400)
+                    }
+                }
+                override fun onAllDone() {
+                    pingRunning = false
+                    if (!isAdded) return
+                    ui.removeCallbacks(pingRebuildRunnable)
+                    pingUpdateScheduled = false
+                    val a2 = activity as? MainActivity ?: return
+                    ServerStore.save(a2, a2.servers)
+                    rebuildServerCards()
+                    Toast.makeText(context, R.string.ping_done,
+                        Toast.LENGTH_SHORT).show()
+                }
+            })
+            return
+        }
+
         SubscriptionStore.setSortMode(requireContext(), subId, "ping_asc")
         a.subscriptions = SubscriptionStore.load(a)
-        val servers = a.servers.filter { it.subId == subId }
+        var servers = a.servers.filter { it.subId == subId }
+        android.util.Log.i("NurVPN-PING",
+            "pingSubHome: subId=$subId, matched=${servers.size}, total=${a.servers.size}")
         if (servers.isEmpty()) {
-            Toast.makeText(context, R.string.no_servers_in_sub,
-                Toast.LENGTH_SHORT).show()
-            return
+            val allSubIds = a.servers.mapNotNull { it.subId }.distinct()
+            android.util.Log.w("NurVPN-PING",
+                "pingSubHome: matched=0, mavjud subIds=$allSubIds")
+            val subNameById = a.subscriptions.find { it.id == subId }?.name
+            if (subNameById != null) {
+                android.util.Log.w("NurVPN-PING",
+                    "pingSubHome: fallback — barcha ${a.servers.size} server")
+                servers = a.servers
+            }
+            if (servers.isEmpty()) {
+                Toast.makeText(context, R.string.no_servers_in_sub,
+                    Toast.LENGTH_SHORT).show()
+                return
+            }
         }
         Toast.makeText(context,
             getString(R.string.ping_sub_started, subName, servers.size),
@@ -3530,13 +3578,56 @@ class ServersFragment : Fragment() {
             val a = act ?: return
             val ctx = context ?: return
             // ⭐ Avtomatik ping_asc — eng tez birinchi
+            // ⭐ Sevimlilar kartasi uchun maxsus
+            if (subId == "fav_card") {
+                val favs = a.servers.filter { it.favorite }
+                if (favs.isEmpty()) {
+                    Toast.makeText(ctx, R.string.text_no_servers_add,
+                        Toast.LENGTH_SHORT).show()
+                    return
+                }
+                Toast.makeText(ctx,
+                    ctx.getString(R.string.ping_sub_started, subName, favs.size),
+                    Toast.LENGTH_SHORT).show()
+                android.util.Log.i("NurVPN-PING",
+                    "Ping favorites: ${favs.size}")
+                PingTester.testAll(favs, object : PingTester.Listener {
+                    override fun onPingUpdate(item: ServerItem, ping: Int) {
+                        notifyDataSetChanged()
+                    }
+                    override fun onAllDone() {
+                        ServerStore.save(a, a.servers)
+                        notifyDataSetChanged()
+                        Toast.makeText(ctx, R.string.ping_done,
+                            Toast.LENGTH_SHORT).show()
+                    }
+                })
+                return
+            }
+
             SubscriptionStore.setSortMode(ctx, subId, "ping_asc")
             a.subscriptions = SubscriptionStore.load(a)
-            val servers = a.servers.filter { it.subId == subId }
+            var servers = a.servers.filter { it.subId == subId }
+            android.util.Log.i("NurVPN-PING",
+                "pingSub: subId=$subId, matched=${servers.size}, total=${a.servers.size}")
             if (servers.isEmpty()) {
-                Toast.makeText(ctx, R.string.no_servers_in_sub,
-                    Toast.LENGTH_SHORT).show()
-                return
+                // Fallback 1: barcha null bo'lmagan subId larni ko'rish
+                val allSubIds = a.servers.mapNotNull { it.subId }.distinct()
+                android.util.Log.w("NurVPN-PING",
+                    "pingSub: matched=0, mavjud subIds=$allSubIds")
+                // Fallback 2: subName bo'yicha qidiramiz (agar subId o'zgargan bo'lsa)
+                val subNameById = a.subscriptions.find { it.id == subId }?.name
+                if (subNameById != null) {
+                    // Bu obunaga tegishli serverlarni topib bo'lmaydi — barchasini olamiz
+                    android.util.Log.w("NurVPN-PING",
+                        "pingSub: fallback — barcha ${a.servers.size} server")
+                    servers = a.servers
+                }
+                if (servers.isEmpty()) {
+                    Toast.makeText(ctx, R.string.no_servers_in_sub,
+                        Toast.LENGTH_SHORT).show()
+                    return
+                }
             }
             Toast.makeText(ctx,
                 ctx.getString(R.string.ping_sub_started, subName, servers.size),

@@ -107,7 +107,7 @@ object ThemeHelper {
 }
 
 object CountryLookup {
-    private val MAP = mapOf(
+    val MAP = mapOf(
         "us" to "🇺🇸 AQSH", "de" to "🇩🇪 Germaniya", "nl" to "🇳🇱 Niderlandiya",
         "fr" to "🇫🇷 Fransiya", "gb" to "🇬🇧 Buyuk Britaniya", "uk" to "🇬🇧 Buyuk Britaniya",
         "ru" to "🇷🇺 Rossiya", "kz" to "🇰🇿 Qozog'iston", "tr" to "🇹🇷 Turkiya",
@@ -131,6 +131,40 @@ object CountryLookup {
         if (h.contains("america")) return arrayOf("US", "🇺🇸 AQSH")
         if (h.contains("london")) return arrayOf("GB", "🇬🇧 Buyuk Britaniya")
         return arrayOf("", "🌍 " + h)
+    }
+
+    /** Remark dan emoji bayroqni ajratib olish (🇨🇦, 🇩🇪 va h.k.). */
+    fun flagFromRemark(remark: String?): String {
+        if (remark.isNullOrEmpty()) return ""
+        val sb = StringBuilder()
+        var i = 0
+        while (i < remark.length) {
+            val cp = remark.codePointAt(i)
+            if (cp in 0x1F1E6..0x1F1FF) {
+                sb.appendCodePoint(cp)
+                i += Character.charCount(cp)
+            } else if (sb.isNotEmpty()) break
+            else i += Character.charCount(cp)
+        }
+        return sb.toString()
+    }
+
+    /** Remark dan davlat kodini olish (🇨🇦 → CA). */
+    fun ccFromRemark(remark: String?): String {
+        if (remark.isNullOrEmpty()) return ""
+        var i = 0
+        val codes = mutableListOf<Int>()
+        while (i < remark.length && codes.size < 2) {
+            val cp = remark.codePointAt(i)
+            if (cp in 0x1F1E6..0x1F1FF) {
+                codes.add(cp - 0x1F1E6)
+                i += Character.charCount(cp)
+            } else if (codes.isEmpty()) {
+                i += Character.charCount(cp)
+            } else break
+        }
+        if (codes.size != 2) return ""
+        return "${('A' + codes[0])}${('A' + codes[1])}"
     }
 }
 
@@ -307,6 +341,9 @@ class ServerItem(@JvmField var link: String) {
             }
             return sb.toString()
         }
+        // Remark dan emoji bayroqni olishga urinamiz
+        val fromRemark = CountryLookup.flagFromRemark(remark)
+        if (fromRemark.isNotEmpty()) return fromRemark
         return "🌍"
     }
 
@@ -463,7 +500,7 @@ object ServerLinkParser {
                 trimmed.startsWith("hy2://") ||
                 trimmed.startsWith("tuic://") ||
                 trimmed.startsWith("trojan://") ||
-                trimmed.startsWith("ss://") -> parseStandard(trimmed, subId)
+                trimmed.startsWith("ss://", true) -> parseSs(trimmed, subId)
                 else -> null
             }
         } catch (t: Throwable) {
@@ -778,7 +815,84 @@ object ServerLinkParser {
         } catch (t: Throwable) {
             android.util.Log.w("NurVPN-PARSE", "SNI tozalash xato: ${t.message}")
         }
-        val cc = CountryLookup.lookup(si.host)
+        // Country code — avval host dan, keyin remark dan
+        var cc = CountryLookup.lookup(si.host)
+        if (cc[0].isEmpty()) {
+            val fromRemark = CountryLookup.ccFromRemark(si.remark)
+            if (fromRemark.isNotEmpty()) {
+                val name = CountryLookup.MAP[fromRemark.lowercase()] ?: fromRemark
+                cc = arrayOf(fromRemark, name)
+            }
+        }
+        si.countryCode = cc[0]
+        si.country = cc[1]
+        return si
+    }
+
+    /** Shadowsocks (SS / SS 2022) link parser. */
+    private fun parseSs(link: String, subId: String?): ServerItem? {
+        val si = ServerItem(link)
+        si.subId = subId
+        si.protocol = Protocol.SS_2022
+
+        var body = link.removePrefix("ss://")
+        val hash = body.indexOf('#')
+        if (hash > 0) {
+            si.remark = try { android.net.Uri.decode(body.substring(hash + 1)) }
+                        catch (t: Throwable) { body.substring(hash + 1) }
+            body = body.substring(0, hash)
+        }
+        val qIdx = body.indexOf('?')
+        if (qIdx > 0) body = body.substring(0, qIdx)
+
+        var userInfo: String
+        var hostPort: String
+
+        if (body.contains('@')) {
+            userInfo = body.substringBefore('@')
+            hostPort = body.substringAfter('@')
+            if (!userInfo.contains(':')) {
+                userInfo = try {
+                    String(Base64.decode(userInfo, Base64.DEFAULT), Charsets.UTF_8)
+                } catch (t: Throwable) { userInfo }
+            }
+        } else {
+            val dec = try {
+                String(Base64.decode(body, Base64.DEFAULT), Charsets.UTF_8)
+            } catch (t: Throwable) {
+                android.util.Log.w("NurVPN-SS", "SS base64 xato: ${t.message}")
+                return null
+            }
+            if (dec.contains('@')) {
+                userInfo = dec.substringBefore('@')
+                hostPort = dec.substringAfter('@')
+            } else return null
+        }
+
+        val hp = hostPort.substringBefore('/').substringBefore('?')
+        val colon = hp.lastIndexOf(':')
+        if (colon > 0) {
+            si.host = hp.substring(0, colon)
+            si.port = hp.substring(colon + 1).toIntOrNull() ?: 8388
+        } else {
+            si.host = hp
+            si.port = 8388
+        }
+
+        android.util.Log.i("NurVPN-SS",
+            "parseSs: method=${userInfo.substringBefore(':')}, " +
+            "host=${si.host}, port=${si.port}")
+
+        if (si.remark.isNullOrEmpty()) si.remark = si.host
+        // Country code — avval host dan, keyin remark dan
+        var cc = CountryLookup.lookup(si.host)
+        if (cc[0].isEmpty()) {
+            val fromRemark = CountryLookup.ccFromRemark(si.remark)
+            if (fromRemark.isNotEmpty()) {
+                val name = CountryLookup.MAP[fromRemark.lowercase()] ?: fromRemark
+                cc = arrayOf(fromRemark, name)
+            }
+        }
         si.countryCode = cc[0]
         si.country = cc[1]
         return si
@@ -1739,43 +1853,85 @@ object SingBoxConfig {
     }
 
     private fun shadowsocks(link: String): JSONObject {
-        val body = link.removePrefix("ss://").substringBefore("#")
         val o = JSONObject()
         o.put("type", "shadowsocks")
         o.put("tag", "proxy")
-        if (body.contains("@")) {
-            // ═══ Plaintext yoki Base64 userinfo? ═══
-            val userInfo = body.substringBefore("@")
-            val mp = if (userInfo.contains(":")) {
-                // ss://method:password@host:port (plaintext)
-                userInfo
-            } else {
-                // ss://base64(method:password)@host:port
-                try {
+
+        var body = link.removePrefix("ss://")
+        val hash = body.indexOf('#')
+        if (hash > 0) body = body.substring(0, hash)
+
+        var query = ""
+        val qIdx = body.indexOf('?')
+        if (qIdx > 0) {
+            query = body.substring(qIdx + 1)
+            body = body.substring(0, qIdx)
+        }
+
+        var userInfo: String
+        var hostPort: String
+
+        if (body.contains('@')) {
+            userInfo = body.substringBefore('@')
+            hostPort = body.substringAfter('@')
+            if (!userInfo.contains(':')) {
+                userInfo = try {
                     String(Base64.decode(userInfo, Base64.DEFAULT), Charsets.UTF_8)
                 } catch (t: Throwable) {
                     android.util.Log.w("NurVPN-SS",
-                        "SS base64 decode xato, plain ishlatamiz: ${t.message}")
+                        "base64 userinfo xato: ${t.message}")
                     userInfo
                 }
             }
-            val u = URI("ss://" + body)
-            o.put("server", u.host ?: throw ParseException("host yo'q"))
-            o.put("server_port", if (u.port > 0) u.port else 8388)
-            o.put("method", mp.substringBefore(":"))
-            o.put("password", mp.substringAfter(":", ""))
         } else {
             val dec = try {
                 String(Base64.decode(body, Base64.DEFAULT), Charsets.UTF_8)
             } catch (e: Exception) {
                 throw ParseException("ss base64 xato")
             }
-            val u = URI("ss://" + dec)
-            o.put("server", u.host ?: throw ParseException("host yo'q"))
-            o.put("server_port", if (u.port > 0) u.port else 8388)
-            o.put("method", u.userInfo?.substringBefore(":") ?: "aes-256-gcm")
-            o.put("password", u.userInfo?.substringAfter(":", "") ?: "")
+            if (dec.contains('@')) {
+                userInfo = dec.substringBefore('@')
+                hostPort = dec.substringAfter('@')
+            } else {
+                throw ParseException("ss format xato")
+            }
         }
+
+        val hp = hostPort.substringBefore('/').substringBefore('?')
+        val colon = hp.lastIndexOf(':')
+        val host = if (colon > 0) hp.substring(0, colon) else hp
+        val port = if (colon > 0) hp.substring(colon + 1).toIntOrNull() ?: 8388 else 8388
+
+        val method = userInfo.substringBefore(':')
+        val password = userInfo.substringAfter(":", "")
+
+        if (host.isEmpty()) throw ParseException("ss host yo'q")
+        if (method.isEmpty()) throw ParseException("ss method yo'q")
+
+        o.put("server", host)
+        o.put("server_port", port)
+        o.put("method", method)
+        o.put("password", password)
+
+        // Plugin (v2ray-plugin, obfs-local) va UoT
+        if (query.isNotEmpty()) {
+            val params = parseQuery(query)
+            val plugin = params["plugin"]
+            if (!plugin.isNullOrEmpty()) {
+                o.put("plugin", plugin)
+                val opts = params["plugin_opts"]
+                if (!opts.isNullOrEmpty()) o.put("plugin_opts", opts)
+            }
+            val uot = params["uot"]
+            if (uot == "1" || uot == "true") {
+                o.put("udp_over_tcp", JSONObject()
+                    .put("enabled", true)
+                    .put("version", 2))
+            }
+        }
+
+        android.util.Log.i("NurVPN-SS",
+            "shadowsocks: method=$method, host=$host:$port")
         return o
     }
 
