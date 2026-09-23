@@ -280,14 +280,14 @@
     <string name="clip_label_awg_config">AWG config</string>
     <string name="sel_mode">Tanlash rejimi</string>
     <string name="toast_error_fmt">Xato: %s</string>
-    <string name="toast_n_deleted_fmt">%d ta o\'chirildi</string>
+    <string name="toast_n_deleted_fmt">%1$d ta o\'chirildi</string>
     <string name="toast_json_not_read">JSON config o\'qilmadi</string>
     <string name="toast_server_exists">Server allaqachon qo\'shilgan</string>
     <string name="toast_wg_not_found">WireGuard topilmadi</string>
     <string name="toast_not_json">JSON fayl emas</string>
     <string name="toast_server_not_found">Server topilmadi</string>
-    <string name="toast_n_servers_added_fmt">%d ta server qo\'shildi</string>
-    <string name="toast_n_wg_added_fmt">%d ta WireGuard qo\'shildi</string>
+    <string name="toast_n_servers_added_fmt">%1$d ta server qo\'shildi</string>
+    <string name="toast_n_wg_added_fmt">%1$d ta WireGuard qo\'shildi</string>
     <string name="sel_select_all">Hammasini tanlash</string>
     <string name="sel_delete">O\'chirish</string>
     <string name="sel_cancel">Bekor qilish</string>
@@ -303,10 +303,8 @@
     <string name="settings_dedup_desc">Bir xil serverlarni o\'chirish</string>
     <string name="settings_dedup_btn">Tozalash</string>
     <string name="dedup_none">Dublikat topilmadi</string>
-    <string name="dedup_done_fmt">%d ta dublikat o\'chirildi</string>
+    <string name="dedup_done_fmt">%1$d ta dublikat o\'chirildi</string>
     <string name="dedup_confirm_title">Dublikatlarni tozalash</string>
-    <string name="dedup_confirm_msg_fmt">%d ta server va %d ta AWG dublikati topildi. O\'chirilsinmi?</string>
-    <string name="dedup_suspicious_fmt">
-
-Yana %d ta host:port bir xil, lekin link boshqacha. Ularni ham o\'chirasizmi?</string>
+    <string name="dedup_confirm_msg_fmt">%1$d ta server va %2$d ta AWG dublikati topildi. O\'chirilsinmi?</string>
+    <string name="dedup_suspicious_fmt">\n\nYana %1$d ta host:port bir xil, lekin link boshqacha. Ularni ham o\'chirasizmi?</string>
 </resources>

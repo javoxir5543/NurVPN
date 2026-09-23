@@ -2620,7 +2620,10 @@ class ServersFragment : Fragment() {
 
     private fun showAddDialog() {
         if (!isAdded) return
-        val options = arrayOf("\u270D Qo\'lda kiritish", "\uD83D\uDCC1 JSON fayldan")
+        val options = arrayOf(
+            "\u270D " + getString(R.string.add_manual),
+            "\uD83D\uDCC1 " + getString(R.string.add_from_json)
+        )
         AlertDialog.Builder(requireContext())
             .setTitle(R.string.dialog_add_xray)
             .setItems(options) { _, which ->

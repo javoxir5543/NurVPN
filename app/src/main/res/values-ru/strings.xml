@@ -276,14 +276,14 @@
     <string name="clip_label_awg_config">AWG конфиг</string>
     <string name="sel_mode">Режим выбора</string>
     <string name="toast_error_fmt">Ошибка: %s</string>
-    <string name="toast_n_deleted_fmt">Удалено: %d</string>
+    <string name="toast_n_deleted_fmt">Удалено: %1$d</string>
     <string name="toast_json_not_read">JSON конфиг не прочитан</string>
     <string name="toast_server_exists">Сервер уже добавлен</string>
     <string name="toast_wg_not_found">WireGuard не найден</string>
     <string name="toast_not_json">Не JSON файл</string>
     <string name="toast_server_not_found">Сервер не найден</string>
-    <string name="toast_n_servers_added_fmt">Добавлено серверов: %d</string>
-    <string name="toast_n_wg_added_fmt">Добавлено WireGuard: %d</string>
+    <string name="toast_n_servers_added_fmt">Добавлено серверов: %1$d</string>
+    <string name="toast_n_wg_added_fmt">Добавлено WireGuard: %1$d</string>
     <string name="sel_select_all">Выбрать все</string>
     <string name="sel_delete">Удалить</string>
     <string name="sel_cancel">Отмена</string>
@@ -299,10 +299,8 @@
     <string name="settings_dedup_desc">Удалить одинаковые серверы</string>
     <string name="settings_dedup_btn">Очистить</string>
     <string name="dedup_none">Дубликаты не найдены</string>
-    <string name="dedup_done_fmt">Удалено дубликатов: %d</string>
+    <string name="dedup_done_fmt">Удалено дубликатов: %1$d</string>
     <string name="dedup_confirm_title">Удаление дубликатов</string>
-    <string name="dedup_confirm_msg_fmt">Найдено %d серверов и %d AWG дубликатов. Удалить?</string>
-    <string name="dedup_suspicious_fmt">
-
-Ещё %d с одинаковым host:port, но разными ссылками. Удалить их тоже?</string>
+    <string name="dedup_confirm_msg_fmt">Найдено %1$d серверов и %2$d AWG дубликатов. Удалить?</string>
+    <string name="dedup_suspicious_fmt">\n\nЕщё %1$d с одинаковым host:port, но разными ссылками. Удалить их тоже?</string>
 </resources>

@@ -276,14 +276,14 @@
     <string name="clip_label_awg_config">AWG config</string>
     <string name="sel_mode">Selection mode</string>
     <string name="toast_error_fmt">Error: %s</string>
-    <string name="toast_n_deleted_fmt">Deleted: %d</string>
+    <string name="toast_n_deleted_fmt">%1$d removed</string>
     <string name="toast_json_not_read">JSON config not read</string>
     <string name="toast_server_exists">Server already added</string>
     <string name="toast_wg_not_found">WireGuard not found</string>
     <string name="toast_not_json">Not a JSON file</string>
     <string name="toast_server_not_found">Server not found</string>
-    <string name="toast_n_servers_added_fmt">Servers added: %d</string>
-    <string name="toast_n_wg_added_fmt">WireGuard added: %d</string>
+    <string name="toast_n_servers_added_fmt">%1$d servers added</string>
+    <string name="toast_n_wg_added_fmt">%1$d WireGuard added</string>
     <string name="sel_select_all">Select all</string>
     <string name="sel_delete">Delete</string>
     <string name="sel_cancel">Cancel</string>
@@ -299,10 +299,8 @@
     <string name="settings_dedup_desc">Delete identical servers</string>
     <string name="settings_dedup_btn">Clean</string>
     <string name="dedup_none">No duplicates found</string>
-    <string name="dedup_done_fmt">%d duplicates removed</string>
+    <string name="dedup_done_fmt">%1$d duplicates removed</string>
     <string name="dedup_confirm_title">Remove duplicates</string>
-    <string name="dedup_confirm_msg_fmt">Found %d servers and %d AWG duplicates. Delete?</string>
-    <string name="dedup_suspicious_fmt">
-
-Also %d with same host:port but different links. Delete them too?</string>
+    <string name="dedup_confirm_msg_fmt">Found %1$d servers and %2$d AWG duplicates. Delete?</string>
+    <string name="dedup_suspicious_fmt">\n\nAlso %1$d with same host:port but different links. Delete them too?</string>
 </resources>
