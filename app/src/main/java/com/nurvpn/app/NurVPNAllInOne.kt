@@ -4374,6 +4374,7 @@ class SettingsFragment : Fragment() {
                 startActivity(i)
             }
 
+        v.findViewById<Button>(R.id.dedup_btn)?.setOnClickListener { runDeduplication() }
         v.findViewById<Button>(R.id.ai_reset)?.setOnClickListener {
             MetricsStore.clear(requireContext())
             Toast.makeText(requireContext(), R.string.toast_metrics_reset,
@@ -4469,6 +4470,96 @@ class SettingsFragment : Fragment() {
                     "DNS: ${r.dns}" + if (r.dnsOk) " ✅" else " ⚠️"
             }
         }
+    }
+
+    /** Dublikatlarni topish va o'chirish. */
+    private fun runDeduplication() {
+        if (!isAdded) return
+        val a = activity as? MainActivity ?: return
+        val c = requireContext()
+
+        // 1) ServerItem lar — link bo'yicha
+        val seenLinks = HashMap<String, ServerItem>()
+        val exactDupServers = mutableListOf<ServerItem>()
+        for (si in a.servers) {
+            val prev = seenLinks[si.link]
+            if (prev != null) {
+                // Favorite ni saqlab qolamiz
+                if (!prev.favorite && si.favorite) {
+                    prev.favorite = true
+                }
+                exactDupServers.add(si)
+            } else {
+                seenLinks[si.link] = si
+            }
+        }
+
+        // 2) AWG — rawConf bo'yicha
+        val seenConf = HashMap<String, AWGConfig>()
+        val exactDupAwg = mutableListOf<AWGConfig>()
+        for (cfg in a.awgConfigs) {
+            val key = cfg.rawConf ?: ""
+            val prev = seenConf[key]
+            if (prev != null) {
+                if (!prev.favorite && cfg.favorite) prev.favorite = true
+                exactDupAwg.add(cfg)
+            } else {
+                seenConf[key] = cfg
+            }
+        }
+
+        // 3) host:port bo'yicha shubhali (lekin link boshqacha)
+        val seenHostPort = HashMap<String, ServerItem>()
+        val suspicious = mutableListOf<ServerItem>()
+        for (si in a.servers) {
+            if (exactDupServers.contains(si)) continue
+            val key = "${si.host}:${si.port}"
+            if (key == "null:0") continue
+            if (seenHostPort.containsKey(key)) {
+                suspicious.add(si)
+            } else {
+                seenHostPort[key] = si
+            }
+        }
+
+        val total = exactDupServers.size + exactDupAwg.size
+        if (total == 0 && suspicious.isEmpty()) {
+            Toast.makeText(c, R.string.dedup_none, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Xabar tuzish
+        var msg = c.getString(R.string.dedup_confirm_msg_fmt,
+            exactDupServers.size, exactDupAwg.size)
+        if (suspicious.isNotEmpty()) {
+            msg += c.getString(R.string.dedup_suspicious_fmt, suspicious.size)
+        }
+
+        AlertDialog.Builder(c)
+            .setTitle(R.string.dedup_confirm_title)
+            .setMessage(msg)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                var n = 0
+                if (exactDupServers.isNotEmpty()) {
+                    a.servers.removeAll(exactDupServers)
+                    n += exactDupServers.size
+                }
+                if (exactDupAwg.isNotEmpty()) {
+                    a.awgConfigs.removeAll(exactDupAwg)
+                    n += exactDupAwg.size
+                }
+                if (suspicious.isNotEmpty()) {
+                    a.servers.removeAll(suspicious)
+                    n += suspicious.size
+                }
+                ServerStore.save(a, a.servers)
+                AWGStore.save(a, a.awgConfigs)
+                Toast.makeText(c,
+                    c.getString(R.string.dedup_done_fmt, n),
+                    Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(R.string.dialog_no, null)
+            .show()
     }
 
     private fun exportMetrics() {

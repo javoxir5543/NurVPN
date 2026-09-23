@@ -295,4 +295,14 @@
     <string name="awg_edit_title">Редактирование AWG конфига</string>
     <string name="awg_edit_subtitle">Порт, Jc, MTU (для Beeline)</string>
     <string name="awg_presets">Пресеты</string>
+    <string name="settings_dedup_title">Удалить дубликаты</string>
+    <string name="settings_dedup_desc">Удалить одинаковые серверы</string>
+    <string name="settings_dedup_btn">Очистить</string>
+    <string name="dedup_none">Дубликаты не найдены</string>
+    <string name="dedup_done_fmt">Удалено дубликатов: %d</string>
+    <string name="dedup_confirm_title">Удаление дубликатов</string>
+    <string name="dedup_confirm_msg_fmt">Найдено %d серверов и %d AWG дубликатов. Удалить?</string>
+    <string name="dedup_suspicious_fmt">
+
+Ещё %d с одинаковым host:port, но разными ссылками. Удалить их тоже?</string>
 </resources>

@@ -299,4 +299,14 @@
     <string name="awg_edit_title">AWG config tahrirlash</string>
     <string name="awg_edit_subtitle">Port, Jc, MTU (Beeline uchun)</string>
     <string name="awg_presets">Presetlar</string>
+    <string name="settings_dedup_title">Dublikatlarni tozalash</string>
+    <string name="settings_dedup_desc">Bir xil serverlarni o\'chirish</string>
+    <string name="settings_dedup_btn">Tozalash</string>
+    <string name="dedup_none">Dublikat topilmadi</string>
+    <string name="dedup_done_fmt">%d ta dublikat o\'chirildi</string>
+    <string name="dedup_confirm_title">Dublikatlarni tozalash</string>
+    <string name="dedup_confirm_msg_fmt">%d ta server va %d ta AWG dublikati topildi. O\'chirilsinmi?</string>
+    <string name="dedup_suspicious_fmt">
+
+Yana %d ta host:port bir xil, lekin link boshqacha. Ularni ham o\'chirasizmi?</string>
 </resources>
