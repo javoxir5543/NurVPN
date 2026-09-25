@@ -16,6 +16,9 @@ import com.nurvpn.app.config.BuiltinAwgConfigs
 import com.nurvpn.app.storage.OpenSourceCatalog
 import com.nurvpn.app.storage.OpenSourceSubscription
 import com.nurvpn.app.storage.OpenSourceStore
+import com.nurvpn.app.parser.SubscriptionLinkExtractor
+import com.nurvpn.app.parser.decodeBase64Safely
+import com.nurvpn.app.storage.ServerStore
 import io.nekohasekai.libbox.BridgeOptions
 import io.nekohasekai.libbox.BridgeSession
 import io.nekohasekai.libbox.CommandServer
@@ -87,125 +90,6 @@ import java.util.concurrent.Executors
 
 // ═══════════ UTIL ═══════════
 
-
-object ServerStore {
-    private const val PREF = "servers"
-    private const val KEY = "list"
-
-    fun save(ctx: Context, servers: List<ServerItem>) {
-        val arr = JSONArray()
-        for (si in servers) {
-            val o = JSONObject()
-            o.put("link", si.link)
-            o.put("host", si.host)
-            o.put("port", si.port)
-            o.put("remark", si.remark)
-            o.put("cc", si.countryCode)
-            o.put("country", si.country)
-            o.put("ping", si.ping)
-            o.put("subId", si.subId ?: JSONObject.NULL)
-            o.put("favorite", si.favorite)
-            arr.put(o)
-        }
-        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .edit().putString(KEY, arr.toString()).apply()
-    }
-
-    fun load(ctx: Context): MutableList<ServerItem> {
-        val out = ArrayList<ServerItem>()
-        try {
-            val s = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-                .getString(KEY, "[]") ?: "[]"
-            val arr = JSONArray(s)
-            for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                val si = ServerItem(o.getString("link"))
-                si.host = o.optString("host", null)
-                si.port = o.optInt("port", 0)
-                si.remark = o.optString("remark", null)
-                si.countryCode = o.optString("cc", "")
-                si.country = o.optString("country", "")
-                si.ping = o.optInt("ping", -1)
-                si.favorite = o.optBoolean("favorite", false)
-                si.subId = if (o.has("subId") && !o.isNull("subId"))
-                    o.getString("subId") else null
-                si.protocol = Protocol.fromUri(o.getString("link"))
-                Log.d("NurVPN-PING", "load: ${si.host}:${si.port} proto=${si.protocol} link=${o.getString("link").take(20)}…")
-                out.add(si)
-            }
-        } catch (e: Throwable) { Log.e("NurVPN", "load servers", e) }
-        return out
-    }
-}
-
-// ═══════════ UNIVERSAL PARSER ═══════════
-
-/** Base64 matnni xavfsiz decode qiladi. Plain matn uchun "" qaytaradi. */
-fun decodeBase64Safely(value: String): String {
-    val compact = value.filterNot { it.isWhitespace() }
-    val looksLikeBase64 = compact.length >= 16 &&
-        compact.length % 4 != 1 &&
-        Regex("^[A-Za-z0-9+/=_-]+$").matches(compact)
-    if (!looksLikeBase64) return ""
-    return try {
-        String(
-            android.util.Base64.decode(compact, android.util.Base64.DEFAULT),
-            Charsets.UTF_8
-        )
-    } catch (t: Throwable) { "" }
-}
-
-object SubscriptionLinkExtractor {
-
-    private val protocolStart = Regex(
-        "(?i)(?:vless|vmess|trojan|ss|hysteria2|hy2|tuic)://"
-    )
-
-    // Precompile — har safar yangi Regex yaratmaslik uchun
-    private val whitespace = Regex("\\s+")
-
-    fun extract(raw: String): List<String> {
-        if (raw.isEmpty()) return emptyList()
-        val matches = protocolStart.findAll(raw).toList()
-        if (matches.isEmpty()) return emptyList()
-
-        // TAXMINIY hajm — xotirani oldindan ajratish
-        val result = ArrayList<String>(matches.size.coerceAtMost(600))
-
-        for (i in matches.indices) {
-            // Limit: 500 link yetarli
-            if (result.size >= 500) break
-
-            val start = matches[i].range.first
-            val end = if (i + 1 < matches.size) {
-                matches[i + 1].range.first
-            } else {
-                raw.length
-            }
-
-            // Oddiy substring — trim + whitespace
-            val rawLink = raw.substring(start, end)
-            if (rawLink.length <= 20) continue
-
-            // Faqat link ichida whitespace bo'lsa tozalaymiz
-            val link = if (rawLink.indexOf(' ') >= 0 ||
-                           rawLink.indexOf('\n') >= 0 ||
-                           rawLink.indexOf('\r') >= 0 ||
-                           rawLink.indexOf('\t') >= 0) {
-                whitespace.replace(rawLink, "")
-                    .trim()
-                    .trimEnd(',', ';', '"')
-            } else {
-                rawLink.trimEnd(',', ';', '"', '\n', '\r')
-            }
-
-            if (link.length > matches[i].value.length) {
-                result.add(link)
-            }
-        }
-        return result
-    }
-}
 
 object ServerLinkParser {
 
