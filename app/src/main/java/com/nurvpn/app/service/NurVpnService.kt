@@ -1,8 +1,5 @@
-// ═══════════════════════════════════════════════════════════════
-// NurVPN CORE — MainActivity, AI, AWG, sing-box, VpnService, util
-// Tuzatilgan versiya (Kimi AI xatolari tuzatildi)
-// ═══════════════════════════════════════════════════════════════
-package com.nurvpn.app
+package com.nurvpn.app.service
+import com.nurvpn.app.R
 import com.nurvpn.app.core.PingStrategy
 import com.nurvpn.app.core.TunnelState
 import com.nurvpn.app.util.CountryLookup
@@ -109,10 +106,6 @@ import java.net.URI
 import java.util.Collections
 import java.util.Locale
 import java.util.concurrent.Executors
-
-// ═══════════ UTIL ═══════════
-
-
 
 class NurVpnService : VpnService() {
 
@@ -993,13 +986,3 @@ class NurVpnService : VpnService() {
 }
 
 // ═══════════ BINARY RUNNER (endi kerak emas) ═══════════
-object BinaryRunner {
-    @Suppress("unused")
-    fun ensureBinary(ctx: Context, name: String): File? = null
-
-
-// ═══════════ ITERATOR HELPERS ═══════════
-
-
-
-}

@@ -35,7 +35,7 @@ import com.nurvpn.app.util.ThemeHelper
 import com.nurvpn.app.ui.home.HomeFragment
 import com.nurvpn.app.ui.servers.ServersFragment
 import com.nurvpn.app.ui.settings.SettingsFragment
-import com.nurvpn.app.NurVpnService
+import com.nurvpn.app.service.NurVpnService
 
 class MainActivity : AppCompatActivity() {
 

@@ -52,7 +52,7 @@
         </activity>
 
         <service
-            android:name=".NurVpnService"
+            android:name="com.nurvpn.app.service.NurVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:exported="false"
             android:foregroundServiceType="specialUse">
