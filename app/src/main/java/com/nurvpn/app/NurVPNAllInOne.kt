@@ -16,6 +16,7 @@ import com.nurvpn.app.storage.OpenSourceCatalog
 import com.nurvpn.app.storage.OpenSourceSubscription
 import com.nurvpn.app.storage.OpenSourceStore
 import com.nurvpn.app.parser.SubscriptionLinkExtractor
+import com.nurvpn.app.parser.ServerLinkParser
 import com.nurvpn.app.parser.decodeBase64Safely
 import com.nurvpn.app.storage.ServerStore
 
