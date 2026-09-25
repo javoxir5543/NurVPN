@@ -8,6 +8,10 @@ import com.nurvpn.app.util.ThemeHelper
 import com.nurvpn.app.util.ClashApiConfig
 import com.nurvpn.app.util.PingTester
 import com.nurvpn.app.core.Protocol
+import com.nurvpn.app.core.AWGConfig
+import com.nurvpn.app.storage.AWGStore
+import com.nurvpn.app.util.AWGEditor
+import com.nurvpn.app.parser.AWGParser
 import com.nurvpn.app.core.ServerItem
 import com.nurvpn.app.core.ServerMetrics
 import com.nurvpn.app.ai.SmartScoreEngine
