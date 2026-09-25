@@ -213,7 +213,7 @@
             android:layout_marginTop="28dp">
 
             <!-- SpeedWaveView — fon -->
-            <com.nurvpn.app.SpeedWaveView
+            <com.nurvpn.app.ui.widget.SpeedWaveView
                 android:id="@+id/speed_wave"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"/>
