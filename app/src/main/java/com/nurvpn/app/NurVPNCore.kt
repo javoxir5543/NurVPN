@@ -24,6 +24,10 @@ import com.nurvpn.app.ai.SmartScoreEngine
 import com.nurvpn.app.ai.AIInsights
 import com.nurvpn.app.ai.AIServerSelector
 import com.nurvpn.app.storage.MetricsStore
+import com.nurvpn.app.core.AppInfo
+import com.nurvpn.app.storage.AppListLoader
+import com.nurvpn.app.storage.AwgSortStore
+import com.nurvpn.app.storage.SplitTunnelStore
 import com.nurvpn.app.service.NurVpnTileService
 import com.nurvpn.app.config.BuiltinAwgConfigs
 import com.nurvpn.app.storage.OpenSourceCatalog
@@ -106,83 +110,6 @@ import java.util.concurrent.Executors
 
 // ═══════════ UTIL ═══════════
 
-
-object AwgSortStore {
-    private const val PREF = "awg_sort"
-    private const val KEY = "mode"
-
-    fun getMode(ctx: android.content.Context): String =
-        ctx.getSharedPreferences(PREF, android.content.Context.MODE_PRIVATE)
-            .getString(KEY, "default") ?: "default"
-
-    fun setMode(ctx: android.content.Context, mode: String) =
-        ctx.getSharedPreferences(PREF, android.content.Context.MODE_PRIVATE)
-            .edit().putString(KEY, mode).apply()
-
-    /** AWG listini sortMode bo'yicha saralash. */
-    fun sort(list: List<AWGConfig>, mode: String): List<AWGConfig> =
-        when (mode) {
-            "name_asc" -> list.sortedBy { (it.name ?: "AWG").lowercase() }
-            "name_desc" -> list.sortedByDescending { (it.name ?: "AWG").lowercase() }
-            "ping_asc" -> list.sortedBy { if (it.ping < 0) Int.MAX_VALUE else it.ping }
-            "ping_desc" -> list.sortedByDescending { it.ping }
-            else -> list
-        }
-}
-
-object SplitTunnelStore {
-    const val MODE_ALL = 0
-    const val MODE_WHITELIST = 1
-    const val MODE_BLACKLIST = 2
-    private const val PREF = "split"
-
-    fun getMode(ctx: Context): Int =
-        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .getInt("mode", MODE_ALL)
-    fun setMode(ctx: Context, mode: Int) =
-        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .edit().putInt("mode", mode).apply()
-
-    fun getApps(ctx: Context): Set<String> =
-        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .getStringSet("apps", emptySet()) ?: emptySet()
-    fun setApps(ctx: Context, apps: Set<String>) =
-        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .edit().putStringSet("apps", HashSet(apps)).apply()
-}
-
-class AppInfo {
-    var label: String = ""
-    var packageName: String = ""
-    var icon: Drawable? = null
-    var selected: Boolean = false
-}
-
-object AppListLoader {
-    fun loadAsync(ctx: Context, cb: (List<AppInfo>) -> Unit) {
-        Executors.newSingleThreadExecutor().execute {
-            val out = ArrayList<AppInfo>()
-            try {
-                val pm = ctx.packageManager
-                val intents = pm.getInstalledApplications(
-                    PackageManager.GET_META_DATA)
-                for (app in intents) {
-                    if (pm.getLaunchIntentForPackage(app.packageName) == null)
-                        continue
-                    val ai = AppInfo()
-                    ai.packageName = app.packageName
-                    ai.label = app.loadLabel(pm).toString()
-                    ai.icon = app.loadIcon(pm)
-                    out.add(ai)
-                }
-                out.sortBy { it.label.lowercase() }
-            } catch (ignored: Throwable) {}
-            Handler(Looper.getMainLooper()).post { cb(out) }
-        }
-    }
-}
-
-// ═══════════ AI CARD VIEW ═══════════
 
 class AICardView @JvmOverloads constructor(
     ctx: Context, attrs: android.util.AttributeSet? = null

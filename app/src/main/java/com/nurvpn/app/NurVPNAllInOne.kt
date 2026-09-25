@@ -22,6 +22,10 @@ import com.nurvpn.app.ai.SmartScoreEngine
 import com.nurvpn.app.ai.AIInsights
 import com.nurvpn.app.ai.AIServerSelector
 import com.nurvpn.app.storage.MetricsStore
+import com.nurvpn.app.core.AppInfo
+import com.nurvpn.app.storage.AppListLoader
+import com.nurvpn.app.storage.AwgSortStore
+import com.nurvpn.app.storage.SplitTunnelStore
 import com.nurvpn.app.ui.qr.QrScanActivity
 import com.nurvpn.app.ui.widget.SpeedWaveView
 import com.nurvpn.app.config.BuiltinAwgConfigs
