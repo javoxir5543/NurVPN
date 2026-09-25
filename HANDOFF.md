@@ -97,12 +97,12 @@ Git:
 
 ## 🎯 Keyingi chatda nima qilish mumkin
 
-A) HomeFragment ni bo'lish (2352 qator)
-B) ServersFragment ni bo'lish (1864 qator)
-C) NurVpnService ni bo'lish (988 qator)
-D) SingBoxConfig ni parserlarga bo'lish (732 qator)
-E) Yangi funksiyalar qoshish
-F) Testlar yozish
+- **A** HomeFragment ni bo'lish (2352 qator)
+- **B** ServersFragment ni bo'lish (1864 qator)
+- **C** NurVpnService ni bo'lish (988 qator)
+- **D** SingBoxConfig ni parserlarga bo'lish (732 qator)
+- **E** Yangi funksiyalar qoshish
+- **F** Testlar yozish
 
 ## 🚀 Birinchi qadam (yangi chatda)
 
