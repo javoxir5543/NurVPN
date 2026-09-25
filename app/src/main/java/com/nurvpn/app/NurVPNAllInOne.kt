@@ -11,6 +11,8 @@ import com.nurvpn.app.core.Protocol
 import com.nurvpn.app.core.ServerItem
 import com.nurvpn.app.core.ServerMetrics
 import com.nurvpn.app.ai.SmartScoreEngine
+import com.nurvpn.app.ai.AIInsights
+import com.nurvpn.app.ai.AIServerSelector
 import com.nurvpn.app.storage.MetricsStore
 import com.nurvpn.app.ui.qr.QrScanActivity
 import com.nurvpn.app.ui.widget.SpeedWaveView
