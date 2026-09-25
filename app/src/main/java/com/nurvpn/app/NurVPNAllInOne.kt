@@ -2,6 +2,7 @@
 // NurVPN UI — Fragmentlar, Activitylar (tuzatilgan)
 // ═══════════════════════════════════════════════════════════════
 package com.nurvpn.app
+import com.nurvpn.app.config.BuiltinAwgConfigs
 import com.nurvpn.app.storage.OpenSourceCatalog
 import com.nurvpn.app.storage.OpenSourceSubscription
 import com.nurvpn.app.storage.OpenSourceStore

@@ -1,4 +1,4 @@
-package com.nurvpn.app
+package com.nurvpn.app.config
 
 /**
  * Ilova ichida saqlangan AmneziaWG (WARP) config'lar.
