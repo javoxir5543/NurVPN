@@ -30,7 +30,7 @@
             android:parentActivityName="com.nurvpn.app.ui.MainActivity"/>
 
         <activity
-            android:name=".SplitAppsActivity"
+            android:name="com.nurvpn.app.ui.split.SplitAppsActivity"
             android:exported="false"
             android:label="@string/split_title"
             android:parentActivityName="com.nurvpn.app.ui.MainActivity"/>
