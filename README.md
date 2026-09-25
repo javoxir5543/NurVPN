@@ -36,13 +36,17 @@
 
 ## 📸 Screenshots
 
-| Home | Servers | Settings |
+| Home (VPN off) | Home (VPN on) | Servers |
 |:---:|:---:|:---:|
-| ![Home](docs/screenshots/01_home.jpg) | ![Servers](docs/screenshots/02_servers.jpg) | ![Settings](docs/screenshots/03_settings.jpg) |
+| ![Home Off](docs/screenshots/01_home.jpg) | ![Home On](docs/screenshots/07_extra.jpg) | ![Servers](docs/screenshots/02_servers.jpg) |
 
-| Security | Open Sources | More Sources |
+| Settings | Security | Open Sources |
 |:---:|:---:|:---:|
-| ![Security](docs/screenshots/04_security.jpg) | ![Sources](docs/screenshots/05_sources.jpg) | ![More](docs/screenshots/06_sources2.jpg) |
+| ![Settings](docs/screenshots/03_settings.jpg) | ![Security](docs/screenshots/04_security.jpg) | ![Sources](docs/screenshots/05_sources.jpg) |
+
+| More Sources | | |
+|:---:|:---:|:---:|
+| ![More](docs/screenshots/06_sources2.jpg) | | |
 
 ---
 
