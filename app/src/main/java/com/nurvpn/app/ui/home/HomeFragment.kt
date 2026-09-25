@@ -27,6 +27,7 @@ import com.nurvpn.app.storage.AppListLoader
 import com.nurvpn.app.storage.AwgSortStore
 import com.nurvpn.app.storage.SplitTunnelStore
 import com.nurvpn.app.ui.qr.QrScanActivity
+import com.nurvpn.app.ui.qr.QrShowDialog
 import com.nurvpn.app.ui.MainActivity
 import com.nurvpn.app.ui.split.SplitAppsActivity
 import com.nurvpn.app.ui.awg.AWGEditorActivity
@@ -1045,6 +1046,7 @@ class HomeFragment : Fragment() {
         val items = arrayOf(
             "\uD83D\uDD04  " + getString(R.string.sub_menu_refresh),
             "\uD83D\uDCD1  " + getString(R.string.sub_menu_copy_url),
+            "\uD83D\uDCF1  " + getString(R.string.sub_menu_show_qr),
             "\uD83D\uDDD1  " + getString(R.string.sub_menu_delete)
         )
         androidx.appcompat.app.AlertDialog.Builder(ctx)
@@ -1065,6 +1067,10 @@ class HomeFragment : Fragment() {
                             Toast.LENGTH_SHORT).show()
                     }
                     2 -> {
+                        // QR orqali ulashish
+                        QrShowDialog.show(ctx, sub.name, sub.url)
+                    }
+                    3 -> {
                         // O'chirish — tasdiqlash
                         androidx.appcompat.app.AlertDialog.Builder(ctx)
                             .setTitle(R.string.dialog_delete)

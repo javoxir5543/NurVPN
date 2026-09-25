@@ -46,6 +46,7 @@ import com.nurvpn.app.storage.SubscriptionStore
 import com.nurvpn.app.ui.MainActivity
 import com.nurvpn.app.ui.awg.AWGEditorActivity
 import com.nurvpn.app.ui.qr.QrScanActivity
+import com.nurvpn.app.ui.qr.QrShowDialog
 import com.nurvpn.app.util.CountryLookup
 import com.nurvpn.app.util.PingTester
 import java.util.Locale
@@ -1689,6 +1690,8 @@ class ServersFragment : Fragment() {
                 actions.add { copyToClipboard(target.link, c.getString(R.string.clip_label_link)) }
                 items.add("📤 " + c.getString(R.string.srv_menu_share))
                 actions.add { shareLink(target.link, target.displayName()) }
+                items.add("📱 " + c.getString(R.string.srv_menu_show_qr))
+                actions.add { QrShowDialog.show(c, target.displayName(), target.link) }
             } else if (target is AWGConfig) {
                 items.add("🚀 " + c.getString(R.string.srv_menu_connect))
                 actions.add {
@@ -1713,6 +1716,8 @@ class ServersFragment : Fragment() {
                 }
                 items.add("📋 " + c.getString(R.string.srv_menu_copy_config))
                 actions.add { copyToClipboard(target.rawConf ?: "", c.getString(R.string.clip_label_awg_config)) }
+                items.add("📱 " + c.getString(R.string.srv_menu_show_qr))
+                actions.add { QrShowDialog.show(c, target.name ?: "AWG", target.rawConf ?: "") }
                 items.add(c.getString(R.string.dialog_rename_awg))
                 actions.add { editAwgName(target) }
             }

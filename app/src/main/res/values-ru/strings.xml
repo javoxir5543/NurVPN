@@ -307,4 +307,10 @@
     <string name="dns_manual">Ввести вручную…</string>
     <string name="leak_ipv6_blocked">заблокирован</string>
     <string name="leak_ipv6_not_found">не найден</string>
+    <string name="srv_menu_show_qr">Поделиться через QR</string>
+    <string name="sub_menu_show_qr">Поделиться через QR</string>
+    <string name="qr_share_copy">📋 Копировать</string>
+    <string name="qr_share_title">QR код</string>
+    <string name="toast_qr_gen_error">Ошибка создания QR</string>
+    <string name="toast_copied">Скопировано</string>
 </resources>

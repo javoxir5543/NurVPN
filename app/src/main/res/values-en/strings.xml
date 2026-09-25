@@ -307,4 +307,10 @@
     <string name="dns_manual">Enter manually…</string>
     <string name="leak_ipv6_blocked">blocked</string>
     <string name="leak_ipv6_not_found">not found</string>
+    <string name="srv_menu_show_qr">Share via QR</string>
+    <string name="sub_menu_show_qr">Share via QR</string>
+    <string name="qr_share_copy">📋 Copy</string>
+    <string name="qr_share_title">QR code</string>
+    <string name="toast_qr_gen_error">QR generation error</string>
+    <string name="toast_copied">Copied</string>
 </resources>
