@@ -3,7 +3,7 @@ package com.nurvpn.app.service
 import com.nurvpn.app.R
 import com.nurvpn.app.MainActivity
 import com.nurvpn.app.NurVpnService
-import com.nurvpn.app.TunnelState
+import com.nurvpn.app.core.TunnelState
 
 import android.content.Intent
 import android.graphics.drawable.Icon

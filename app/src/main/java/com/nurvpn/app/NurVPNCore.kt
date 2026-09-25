@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════
 package com.nurvpn.app
 import com.nurvpn.app.core.PingStrategy
+import com.nurvpn.app.core.TunnelState
 import com.nurvpn.app.core.Protocol
 import com.nurvpn.app.service.NurVpnTileService
 import com.nurvpn.app.config.BuiltinAwgConfigs
@@ -189,13 +190,6 @@ object ClashApiConfig {
     }
 }
 
-object TunnelState {
-    @Volatile var isConnected: Boolean = false
-        set(v) {
-            Log.d("NurVPN-PING", "TunnelState.isConnected → $v")
-            field = v
-        }
-}
 
 object PingTester {
     interface Listener {
