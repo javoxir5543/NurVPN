@@ -7,6 +7,10 @@ import com.nurvpn.app.util.CountryLookup
 import com.nurvpn.app.util.ThemeHelper
 import com.nurvpn.app.util.ClashApiConfig
 import com.nurvpn.app.util.PingTester
+import com.nurvpn.app.util.DNSLeakProtection
+import com.nurvpn.app.util.IPv6Blocker
+import com.nurvpn.app.util.LeakResult
+import com.nurvpn.app.util.LeakTester
 import com.nurvpn.app.core.Protocol
 import com.nurvpn.app.core.AWGConfig
 import com.nurvpn.app.storage.AWGStore
