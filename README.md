@@ -26,7 +26,7 @@
 - **Split Tunneling** — Whitelist/Blacklist
 - **DNS leak + IPv6 protection**
 - **QR scanner** — links and AWG configs
-- **Open sources** — 10+ free subscriptions
+- **Open sources** — 10+ free subscriptions (can be fully disabled/removed)
 - **AI Selector** — auto-select best server
 - **Pause/Resume** — notification panel
 - **Quick Settings Tile** — control center

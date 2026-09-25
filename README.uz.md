@@ -26,7 +26,7 @@
 - **Split Tunneling** — Whitelist/Blacklist
 - **DNS leak + IPv6 himoya**
 - **QR skaner** — link va AWG config
-- **Ochiq manbalar** — 10+ bepul obuna
+- **Ochiq manbalar** — 10+ bepul obuna (butunlay o'chirish mumkin)
 - **AI Selector** — eng yaxshi server avtomatik tanlash
 - **Pauza/Davom etish** — notification panel
 - **Quick Settings Tile** — control center
