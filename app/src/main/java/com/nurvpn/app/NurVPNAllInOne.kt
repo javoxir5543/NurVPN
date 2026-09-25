@@ -30,6 +30,7 @@ import com.nurvpn.app.ui.qr.QrScanActivity
 import com.nurvpn.app.ui.widget.SpeedWaveView
 import com.nurvpn.app.ui.widget.AICardView
 import com.nurvpn.app.config.BuiltinAwgConfigs
+import com.nurvpn.app.config.SingBoxConfig
 import com.nurvpn.app.storage.OpenSourceCatalog
 import com.nurvpn.app.storage.OpenSourceSubscription
 import com.nurvpn.app.storage.OpenSourceStore
