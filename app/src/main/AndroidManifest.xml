@@ -36,7 +36,7 @@
             android:parentActivityName=".MainActivity"/>
 
         <activity
-            android:name=".QrScanActivity"
+            android:name="com.nurvpn.app.ui.qr.QrScanActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.NurVPN"/>

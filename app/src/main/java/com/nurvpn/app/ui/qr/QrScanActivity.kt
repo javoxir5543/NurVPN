@@ -1,4 +1,6 @@
-package com.nurvpn.app
+package com.nurvpn.app.ui.qr
+
+import com.nurvpn.app.R
 
 import android.content.Intent
 import android.os.Bundle
