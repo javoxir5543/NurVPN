@@ -24,7 +24,7 @@
         android:localeConfig="@xml/locales_config">
 
         <activity
-            android:name=".AWGEditorActivity"
+            android:name="com.nurvpn.app.ui.awg.AWGEditorActivity"
             android:exported="false"
             android:label="@string/editor_title"
             android:parentActivityName="com.nurvpn.app.ui.MainActivity"/>
