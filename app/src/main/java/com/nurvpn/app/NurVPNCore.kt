@@ -3,6 +3,7 @@
 // Tuzatilgan versiya (Kimi AI xatolari tuzatildi)
 // ═══════════════════════════════════════════════════════════════
 package com.nurvpn.app
+import com.nurvpn.app.service.NurVpnTileService
 import com.nurvpn.app.config.BuiltinAwgConfigs
 import com.nurvpn.app.storage.OpenSourceCatalog
 import com.nurvpn.app.storage.OpenSourceSubscription
