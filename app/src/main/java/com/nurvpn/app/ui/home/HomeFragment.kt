@@ -583,6 +583,8 @@ class HomeFragment : Fragment() {
             actions.add { homeCopyToClipboard(target.link, c.getString(R.string.clip_label_link)) }
             items.add("📤 " + c.getString(R.string.srv_menu_share))
             actions.add { homeShareLink(target.link, target.displayName()) }
+            items.add("📱 " + c.getString(R.string.srv_menu_show_qr))
+            actions.add { QrShowDialog.show(c, target.displayName(), target.link) }
             items.add("☑ " + c.getString(R.string.sel_mode))
             actions.add { enterHomeSelectMode() }
             items.add("🗑 " + c.getString(R.string.menu_delete))
@@ -632,6 +634,8 @@ class HomeFragment : Fragment() {
             items.add("📋 " + c.getString(R.string.srv_menu_copy_config))
             actions.add { homeCopyToClipboard(target.rawConf ?: "",
                 c.getString(R.string.clip_label_awg_config)) }
+            items.add("📱 " + c.getString(R.string.srv_menu_show_qr))
+            actions.add { QrShowDialog.show(c, target.name ?: "AWG", target.rawConf ?: "") }
             items.add("☑ " + c.getString(R.string.sel_mode))
             actions.add { enterHomeSelectMode() }
             items.add("🗑 " + c.getString(R.string.menu_delete))
