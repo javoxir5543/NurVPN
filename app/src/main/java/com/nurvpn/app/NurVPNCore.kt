@@ -1482,7 +1482,7 @@ object LeakTester {
                 if (lastVpnActive && lastIpv6Blocked) {
                     // VPN faol + IPv6 bloklangan → barcha IPv6 VPN ichidan o'tadi
                     // Pastdagi interfeysdagi IPv6 manzil LEAK EMAS
-                    r.ipv6 = "bloklangan"
+                    r.ipv6 = "blocked"   // UI da tarjima qilinadi
                     r.ipv6Ok = true
                 } else {
                     var v6: String? = null
@@ -1497,7 +1497,7 @@ object LeakTester {
                         }
                         if (v6 != null) break
                     }
-                    r.ipv6 = v6 ?: "topilmadi"
+                    r.ipv6 = v6 ?: "not_found"
                     r.ipv6Ok = v6 == null
                 }
                 r.dns = try {
@@ -1801,7 +1801,15 @@ object SingBoxConfig {
     }
 
     private fun vmess(link: String): JSONObject {
-        val b64 = link.removePrefix("vmess://").substringBefore("#")
+        val body = link.removePrefix("vmess://").substringBefore("#")
+
+        // ═══ YANGI FORMAT: vmess://UUID@host:port?query ═══
+        if (body.contains("@")) {
+            return vmessUriStyle(body)
+        }
+
+        // ═══ ESKI FORMAT: vmess://BASE64_JSON ═══
+        val b64 = body
         val json = try {
             String(Base64.decode(b64, Base64.DEFAULT), Charsets.UTF_8)
         } catch (e: Exception) {
@@ -1830,6 +1838,84 @@ object SingBoxConfig {
             q["host"] = v.optString("host")
         }
         addTransport(o, q)
+        return o
+    }
+
+    /** vmess://UUID@host:port?query — URI-style format. */
+    private fun vmessUriStyle(body: String): JSONObject {
+        val at = body.indexOf('@')
+        if (at <= 0) throw ParseException("vmess URI xato")
+
+        val uuid = body.substring(0, at)
+        var after = body.substring(at + 1)
+
+        var query = ""
+        val qIdx = after.indexOf('?')
+        if (qIdx >= 0) {
+            query = after.substring(qIdx + 1)
+            after = after.substring(0, qIdx)
+        }
+
+        val slash = after.indexOf('/')
+        if (slash > 0) after = after.substring(0, slash)
+
+        val colon = after.lastIndexOf(':')
+        if (colon <= 0) throw ParseException("vmess URI port yo'q")
+
+        val host = after.substring(0, colon)
+        val port = after.substring(colon + 1).toIntOrNull() ?: 443
+
+        if (uuid.isEmpty()) throw ParseException("vmess UUID yo'q")
+        if (host.isEmpty()) throw ParseException("vmess host yo'q")
+
+        val q = parseQuery(query)
+
+        val o = JSONObject()
+        o.put("type", "vmess")
+        o.put("tag", "proxy")
+        o.put("server", host)
+        o.put("server_port", port)
+        o.put("uuid", uuid)
+        val sec = q["encryption"]?.takeIf { it.isNotEmpty() && it != "auto" }
+            ?: "aes-128-gcm"
+        o.put("security", sec)
+        o.put("alter_id", 0)
+
+        // TLS
+        if (q["security"] == "tls" || q["tls"] == "tls") {
+            val tls = JSONObject()
+            tls.put("enabled", true)
+            tls.put("server_name", q["sni"] ?: q["host"] ?: host)
+            if (q["alpn"] != null) {
+                val alpn = JSONArray()
+                for (a in q["alpn"]!!.split(",")) alpn.put(a.trim())
+                tls.put("alpn", alpn)
+            }
+            if (q["allowInsecure"] == "1" || q["insecure"] == "1") {
+                tls.put("insecure", true)
+            }
+            if (!tls.has("alpn")) {
+                tls.put("alpn", JSONArray().put("http/1.1"))
+            }
+            val utls = JSONObject()
+            utls.put("enabled", true)
+            utls.put("fingerprint", q["fp"]?.takeIf { it.isNotEmpty() } ?: "chrome")
+            tls.put("utls", utls)
+            o.put("tls", tls)
+        }
+
+        // Transport
+        val tq = mutableMapOf<String, String>()
+        q["type"]?.let { tq["type"] = it }
+        q["path"]?.let { tq["path"] = it }
+        q["host"]?.let { tq["host"] = it }
+        q["serviceName"]?.let { tq["serviceName"] = it }
+        addTransport(o, tq)
+
+        android.util.Log.i("NurVPN-PARSE",
+            "vmessUriStyle: uuid=$uuid, host=$host:$port, " +
+            "type=${q["type"]}, security=${q["security"]}, sni=${q["sni"]}")
+
         return o
     }
 
@@ -1941,10 +2027,12 @@ object SingBoxConfig {
         when (type) {
             "ws" -> {
                 t.put("type", "ws")
-                val headers = JSONObject()
-                if (q["host"] != null) headers.put("Host", q["host"])
-                if (headers.keys().hasNext()) t.put("headers", headers)
-                if (q["path"] != null) t.put("path", q["path"])
+                if (q["host"] != null && q["host"]!!.isNotEmpty()) {
+                    val headers = JSONObject()
+                    headers.put("Host", JSONArray().put(q["host"]))
+                    t.put("headers", headers)
+                }
+                t.put("path", if (q["path"]?.isNotEmpty() == true) q["path"] else "/")
             }
             "grpc" -> {
                 t.put("type", "grpc")
@@ -2472,8 +2560,11 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
-        val vpnIntent = VpnService.prepare(this)
-        if (vpnIntent != null) startActivityForResult(vpnIntent, 1001)
+        // ⚠️ MUHIM: VpnService.prepare() bu yerda CHAQIRILMAYDI!
+        // Sabab: ilova ochilishi bilan Android tizim NurVPN ni "faol VPN"
+        // deb belgilaydi va boshqa VPN larni o'chiradi.
+        // prepare() faqat foydalanuvchi "Ulanish" tugmasini bosganda
+        // startVpn() ichida chaqiriladi.
 
         val bottom = findViewById<com.google.android.material.bottomnavigation
             .BottomNavigationView>(R.id.bottom_nav)
@@ -2673,6 +2764,13 @@ class MainActivity : AppCompatActivity() {
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             notificationPermissionLauncher.launch(
                 android.Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        // ═══ VPN ruxsatini faqat shu yerda so'raymiz ═══
+        val vpnIntent = VpnService.prepare(this)
+        if (vpnIntent != null) {
+            // Ruxsat berilmagan — dialog ochamiz
+            startActivityForResult(vpnIntent, 1001)
             return
         }
         doStartVpn()

@@ -303,4 +303,8 @@
     <string name="dedup_confirm_title">Remove duplicates</string>
     <string name="dedup_confirm_msg_fmt">Found %1$d servers and %2$d AWG duplicates. Delete?</string>
     <string name="dedup_suspicious_fmt">\n\nAlso %1$d with same host:port but different links. Delete them too?</string>
+    <string name="dns_select">Select DNS</string>
+    <string name="dns_manual">Enter manually…</string>
+    <string name="leak_ipv6_blocked">blocked</string>
+    <string name="leak_ipv6_not_found">not found</string>
 </resources>

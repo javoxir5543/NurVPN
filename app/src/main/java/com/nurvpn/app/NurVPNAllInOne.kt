@@ -84,6 +84,7 @@ class HomeFragment : Fragment() {
     private var timerText: TextView? = null
     private var downText: TextView? = null
     private var upText: TextView? = null
+    private var speedWave: SpeedWaveView? = null
 
     // Trafik kuzatuvchi
     private var lastRxBytes: Long = -1L
@@ -160,8 +161,11 @@ class HomeFragment : Fragment() {
                     ((rx - lastRxBytes).coerceAtLeast(0L) * 1000L) / elapsedMs
                 val upPerSecond =
                     ((tx - lastTxBytes).coerceAtLeast(0L) * 1000L) / elapsedMs
+                if (!isAdded || isDetached || view == null) return
                 downText?.text = formatSpeed(downPerSecond)
                 upText?.text = formatSpeed(upPerSecond)
+                speedWave?.setConnected(TunnelState.isConnected)
+                speedWave?.setSpeed(downPerSecond, upPerSecond)
             }
         }
         lastRxBytes = rx
@@ -176,6 +180,7 @@ class HomeFragment : Fragment() {
         lastTrafficTime = 0L
         downText?.text = "0 B/s"
         upText?.text = "0 B/s"
+        speedWave?.setSpeed(0L, 0L)
     }
 
     /** Baytlarni tezlikka aylantirish. */
@@ -205,6 +210,8 @@ class HomeFragment : Fragment() {
         timerText = v.findViewById(R.id.timer_text)
         downText = v.findViewById(R.id.down_text)
         upText = v.findViewById(R.id.up_text)
+        speedWave = v.findViewById(R.id.speed_wave)
+        speedWave?.setConnected(TunnelState.isConnected)
 
         cardsContainer = v.findViewById(R.id.server_cards_container)
         bodyAwg = v.findViewById(R.id.body_awg)
@@ -2213,6 +2220,7 @@ class HomeFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        speedWave?.setConnected(TunnelState.isConnected)
         refresh()
         if (!tickerRunning) { tickerRunning = true; ui.post(ticker) }
         autoLoadPendingSubscriptions()
@@ -2306,6 +2314,8 @@ class HomeFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        try { speedWave?.stop() } catch (_: Throwable) {}
+        speedWave = null
         tickerRunning = false
         ui.removeCallbacksAndMessages(null)
         stopPulse()
@@ -4431,6 +4441,11 @@ class SettingsFragment : Fragment() {
             showDnsDialog(a)
             true
         }
+        // DNS dropdown — ⚙️ tugma orqali
+        v.findViewById<android.widget.ImageButton>(R.id.dns_picker_btn)
+            ?.setOnClickListener {
+                showDnsDialog(a)
+            }
 
         killSwitch?.setOnCheckedChangeListener { _, ch ->
             if (binding) return@setOnCheckedChangeListener
@@ -4489,7 +4504,7 @@ class SettingsFragment : Fragment() {
             "9.9.9.9 (Quad9)",
             "77.88.8.8 (Yandex)",
             "223.5.5.5 (AliDNS)",
-            "Qo'lda kiritish…"
+            getString(R.string.dns_manual)
         )
         val values = arrayOf(
             "1.1.1.1", "1.0.0.1",
@@ -4558,8 +4573,13 @@ class SettingsFragment : Fragment() {
                     !LeakTester.lastVpnActive -> " ⚠️"   // VPN off — normal holat
                     else -> " ❌"                          // VPN on + IPv6 bor — LEAK
                 }
+                val ipv6Text = when (r.ipv6) {
+                    "blocked" -> getString(R.string.leak_ipv6_blocked)
+                    "not_found", "topilmadi" -> getString(R.string.leak_ipv6_not_found)
+                    else -> r.ipv6
+                }
                 v2.findViewById<TextView>(R.id.leak_ipv6)?.text =
-                    "IPv6: ${r.ipv6}$ipv6Icon"
+                    "IPv6: $ipv6Text$ipv6Icon"
                 v2.findViewById<TextView>(R.id.leak_dns)?.text =
                     "DNS: ${r.dns}" + if (r.dnsOk) " ✅" else " ⚠️"
             }

@@ -307,4 +307,8 @@
     <string name="dedup_confirm_title">Dublikatlarni tozalash</string>
     <string name="dedup_confirm_msg_fmt">%1$d ta server va %2$d ta AWG dublikati topildi. O\'chirilsinmi?</string>
     <string name="dedup_suspicious_fmt">\n\nYana %1$d ta host:port bir xil, lekin link boshqacha. Ularni ham o\'chirasizmi?</string>
+    <string name="dns_select">DNS tanlash</string>
+    <string name="dns_manual">Qo\'lda kiritish…</string>
+    <string name="leak_ipv6_blocked">bloklangan</string>
+    <string name="leak_ipv6_not_found">topilmadi</string>
 </resources>

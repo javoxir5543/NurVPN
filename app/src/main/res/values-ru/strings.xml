@@ -303,4 +303,8 @@
     <string name="dedup_confirm_title">Удаление дубликатов</string>
     <string name="dedup_confirm_msg_fmt">Найдено %1$d серверов и %2$d AWG дубликатов. Удалить?</string>
     <string name="dedup_suspicious_fmt">\n\nЕщё %1$d с одинаковым host:port, но разными ссылками. Удалить их тоже?</string>
+    <string name="dns_select">Выбрать DNS</string>
+    <string name="dns_manual">Ввести вручную…</string>
+    <string name="leak_ipv6_blocked">заблокирован</string>
+    <string name="leak_ipv6_not_found">не найден</string>
 </resources>

@@ -205,25 +205,38 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- ══════ POWER BUTTON ══════ -->
+        <!-- ══════ POWER BUTTON + SPEED WAVE ══════ -->
         <FrameLayout
-            android:id="@+id/connect_btn"
-            android:layout_width="180dp"
-            android:layout_height="180dp"
+            android:layout_width="240dp"
+            android:layout_height="240dp"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="28dp"
-            android:background="@drawable/bg_power_off"
-            android:clickable="true"
-            android:focusable="true">
+            android:layout_marginTop="28dp">
 
-            <ImageView
-                android:id="@+id/connect_icon"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
+            <!-- SpeedWaveView — fon -->
+            <com.nurvpn.app.SpeedWaveView
+                android:id="@+id/speed_wave"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
+
+            <!-- Connect button — ustida -->
+            <FrameLayout
+                android:id="@+id/connect_btn"
+                android:layout_width="110dp"
+                android:layout_height="110dp"
                 android:layout_gravity="center"
-                android:src="@drawable/ic_shield"
-                android:contentDescription="@string/btn_connect"
-                app:tint="@color/power_icon_off"/>
+                android:background="@drawable/bg_power_off"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/connect_icon"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_shield"
+                    android:contentDescription="@string/btn_connect"
+                    app:tint="@color/power_icon_off"/>
+            </FrameLayout>
         </FrameLayout>
 
         <!-- ══════ STATUS ══════ -->
