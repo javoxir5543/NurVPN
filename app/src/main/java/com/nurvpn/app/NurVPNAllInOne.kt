@@ -13,6 +13,7 @@ import com.nurvpn.app.util.LeakResult
 import com.nurvpn.app.util.LeakTester
 import com.nurvpn.app.core.Protocol
 import com.nurvpn.app.core.AWGConfig
+import com.nurvpn.app.core.AWGEditorBus
 import com.nurvpn.app.storage.AWGStore
 import com.nurvpn.app.util.AWGEditor
 import com.nurvpn.app.parser.AWGParser
@@ -27,6 +28,7 @@ import com.nurvpn.app.storage.AppListLoader
 import com.nurvpn.app.storage.AwgSortStore
 import com.nurvpn.app.storage.SplitTunnelStore
 import com.nurvpn.app.ui.qr.QrScanActivity
+import com.nurvpn.app.ui.MainActivity
 import com.nurvpn.app.ui.widget.SpeedWaveView
 import com.nurvpn.app.ui.widget.AICardView
 import com.nurvpn.app.config.BuiltinAwgConfigs
@@ -81,17 +83,6 @@ import java.util.Locale
 // ═══════════════════════════════════════════════════════════════
 // AWGEditorActivity ↔ MainActivity ma'lumot almashish
 // ═══════════════════════════════════════════════════════════════
-object AWGEditorBus {
-    @JvmField var configs: MutableList<AWGConfig> = ArrayList()
-    @JvmField var current: AWGConfig? = null
-    @JvmField var protocol: String = "awg"
-
-    fun init(cfg: MutableList<AWGConfig>, cur: AWGConfig?, proto: String) {
-        configs = cfg
-        current = cur
-        protocol = proto
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════
 // 1. HomeFragment

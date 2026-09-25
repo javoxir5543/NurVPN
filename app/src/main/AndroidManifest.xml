@@ -27,13 +27,13 @@
             android:name=".AWGEditorActivity"
             android:exported="false"
             android:label="@string/editor_title"
-            android:parentActivityName=".MainActivity"/>
+            android:parentActivityName="com.nurvpn.app.ui.MainActivity"/>
 
         <activity
             android:name=".SplitAppsActivity"
             android:exported="false"
             android:label="@string/split_title"
-            android:parentActivityName=".MainActivity"/>
+            android:parentActivityName="com.nurvpn.app.ui.MainActivity"/>
 
         <activity
             android:name="com.nurvpn.app.ui.qr.QrScanActivity"
@@ -41,7 +41,7 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.NurVPN"/>
         <activity
-            android:name=".MainActivity"
+            android:name="com.nurvpn.app.ui.MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:launchMode="singleTop">
