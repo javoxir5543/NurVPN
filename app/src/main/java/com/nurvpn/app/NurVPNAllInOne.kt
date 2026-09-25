@@ -2,6 +2,9 @@
 // NurVPN UI — Fragmentlar, Activitylar (tuzatilgan)
 // ═══════════════════════════════════════════════════════════════
 package com.nurvpn.app
+import com.nurvpn.app.storage.OpenSourceCatalog
+import com.nurvpn.app.storage.OpenSourceSubscription
+import com.nurvpn.app.storage.OpenSourceStore
 
 import android.content.Context
 import android.content.Intent

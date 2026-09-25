@@ -1,4 +1,5 @@
-package com.nurvpn.app
+package com.nurvpn.app.storage
+import com.nurvpn.app.R
 
 import android.content.Context
 

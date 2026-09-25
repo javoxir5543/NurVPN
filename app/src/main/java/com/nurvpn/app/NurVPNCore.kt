@@ -3,6 +3,9 @@
 // Tuzatilgan versiya (Kimi AI xatolari tuzatildi)
 // ═══════════════════════════════════════════════════════════════
 package com.nurvpn.app
+import com.nurvpn.app.storage.OpenSourceCatalog
+import com.nurvpn.app.storage.OpenSourceSubscription
+import com.nurvpn.app.storage.OpenSourceStore
 import io.nekohasekai.libbox.BridgeOptions
 import io.nekohasekai.libbox.BridgeSession
 import io.nekohasekai.libbox.CommandServer
