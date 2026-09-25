@@ -34,7 +34,7 @@ import com.nurvpn.app.util.CountryLookup
 import com.nurvpn.app.util.ThemeHelper
 import com.nurvpn.app.HomeFragment
 import com.nurvpn.app.ServersFragment
-import com.nurvpn.app.SettingsFragment
+import com.nurvpn.app.ui.settings.SettingsFragment
 import com.nurvpn.app.NurVpnService
 
 class MainActivity : AppCompatActivity() {
