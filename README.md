@@ -38,15 +38,15 @@
 
 | Home (VPN off) | Home (VPN on) | Servers |
 |:---:|:---:|:---:|
-| ![Home Off](docs/screenshots/01_home.jpg) | ![Home On](docs/screenshots/07_extra.jpg) | ![Servers](docs/screenshots/02_servers.jpg) |
+| ![Home Off](docs/screenshots/01_home_off.jpg) | ![Home On](docs/screenshots/02_home_on.jpg) | ![Servers](docs/screenshots/03_servers.jpg) |
 
 | Settings | Security | Open Sources |
 |:---:|:---:|:---:|
-| ![Settings](docs/screenshots/03_settings.jpg) | ![Security](docs/screenshots/04_security.jpg) | ![Sources](docs/screenshots/05_sources.jpg) |
+| ![Settings](docs/screenshots/04_settings.jpg) | ![Security](docs/screenshots/05_security.jpg) | ![Sources](docs/screenshots/06_sources.jpg) |
 
 | More Sources | | |
 |:---:|:---:|:---:|
-| ![More](docs/screenshots/06_sources2.jpg) | | |
+| ![More](docs/screenshots/07_sources2.jpg) | | |
 
 ---
 
