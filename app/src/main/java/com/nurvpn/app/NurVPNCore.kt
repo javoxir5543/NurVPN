@@ -11,6 +11,9 @@ import com.nurvpn.app.util.ClashApiConfig
 import com.nurvpn.app.util.PingTester
 import com.nurvpn.app.core.Protocol
 import com.nurvpn.app.core.ServerItem
+import com.nurvpn.app.core.ServerMetrics
+import com.nurvpn.app.ai.SmartScoreEngine
+import com.nurvpn.app.storage.MetricsStore
 import com.nurvpn.app.service.NurVpnTileService
 import com.nurvpn.app.config.BuiltinAwgConfigs
 import com.nurvpn.app.storage.OpenSourceCatalog
@@ -93,104 +96,6 @@ import java.util.concurrent.Executors
 
 // ═══════════ UTIL ═══════════
 
-
-class ServerMetrics(@JvmField val link: String) {
-    var avgLatency: Double = 0.0
-    var successRate: Double = 0.5
-    var samples: Int = 0
-    var fails: Int = 0
-    var totalBytesUp: Long = 0
-    var totalBytesDown: Long = 0
-    var lastGoodTime: Long = 0
-
-    fun recordPing(latencyMs: Int, ok: Boolean, now: Long) {
-        samples++
-        if (ok) {
-            avgLatency = if (samples == 1) latencyMs.toDouble()
-                         else avgLatency * 0.8 + latencyMs * 0.2
-            lastGoodTime = now
-            val succ = 1.0 - fails.toDouble() / samples
-            successRate = successRate * 0.7 + succ * 0.3
-        } else {
-            fails++
-            successRate = successRate * 0.7 +
-                (1.0 - fails.toDouble() / samples) * 0.3
-        }
-    }
-
-    fun addTraffic(up: Long, down: Long) {
-        totalBytesUp += up
-        totalBytesDown += down
-    }
-
-    fun confidence(): Double = Math.min(1.0, samples / 20.0)
-
-    companion object {
-        @JvmStatic fun latencyScore(lat: Int): Double = when {
-            lat < 0 -> 0.0
-            lat >= 500 -> 0.0
-            else -> 100.0 * (1.0 - lat / 500.0)
-        }
-    }
-}
-
-object SmartScoreEngine {
-    @JvmStatic
-    fun computeScore(m: ServerMetrics, now: Long): Double {
-        val base = ServerMetrics.latencyScore(m.avgLatency.toInt())
-        val conf = m.confidence()
-        var score = 50.0 * (1 - conf) + base * conf
-        score *= (0.4 + 0.6 * m.successRate)
-        if (m.lastGoodTime > 0 && now - m.lastGoodTime < 3600_000L) score += 5
-        if (m.totalBytesDown > 1_000_000) score += 3
-        return Math.max(0.0, Math.min(100.0, score))
-    }
-}
-
-object MetricsStore {
-    private const val PREF = "metrics"
-
-    fun get(ctx: Context, link: String): ServerMetrics {
-        val m = ServerMetrics(link)
-        try {
-            val s = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-                .getString(link, null) ?: return m
-            val o = JSONObject(s)
-            m.avgLatency = o.optDouble("lat", 0.0)
-            m.successRate = o.optDouble("succ", 0.5)
-            m.samples = o.optInt("n", 0)
-            m.fails = o.optInt("f", 0)
-            m.totalBytesUp = o.optLong("up", 0)
-            m.totalBytesDown = o.optLong("down", 0)
-            m.lastGoodTime = o.optLong("t", 0)
-        } catch (ignored: Throwable) {}
-        return m
-    }
-
-    fun save(ctx: Context, m: ServerMetrics) {
-        val o = JSONObject()
-        o.put("lat", m.avgLatency)
-        o.put("succ", m.successRate)
-        o.put("n", m.samples)
-        o.put("f", m.fails)
-        o.put("up", m.totalBytesUp)
-        o.put("down", m.totalBytesDown)
-        o.put("t", m.lastGoodTime)
-        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .edit().putString(m.link, o.toString()).apply()
-    }
-
-    fun clear(ctx: Context) =
-        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .edit().clear().apply()
-
-    fun exportJson(ctx: Context): String {
-        val prefs = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-        val out = JSONObject()
-        for ((k, v) in prefs.all) out.put(k, v)
-        return out.toString(2)
-    }
-}
 
 class AIInsights(
     @JvmField val link: String,

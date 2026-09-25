@@ -9,6 +9,9 @@ import com.nurvpn.app.util.ClashApiConfig
 import com.nurvpn.app.util.PingTester
 import com.nurvpn.app.core.Protocol
 import com.nurvpn.app.core.ServerItem
+import com.nurvpn.app.core.ServerMetrics
+import com.nurvpn.app.ai.SmartScoreEngine
+import com.nurvpn.app.storage.MetricsStore
 import com.nurvpn.app.ui.qr.QrScanActivity
 import com.nurvpn.app.ui.widget.SpeedWaveView
 import com.nurvpn.app.config.BuiltinAwgConfigs
