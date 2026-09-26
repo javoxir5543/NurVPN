@@ -1,0 +1,29 @@
+NurVPN — sing-box yadrosiga asoslangan zamonaviy Android VPN mijozi.
+
+XUSUSIYATLAR:
+• 6+ protokol: VLESS Reality, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AmneziaWG
+• Zamonaviy UI — Material 3, qorong'i-yashil + lime
+• Real vaqtda trafik — yuklash/yuklab olish B/s
+• 3 til: o'zbek, rus, ingliz
+• Yorug'/qorong'i rejim
+• Sevimlilar — tez ulanish
+• Ping test — TCP + ICMP
+• Split Tunneling — oq/qora ro'yxat
+• DNS leak + IPv6 himoya
+• QR skaner va QR orqali ulashish
+• Ochiq manbalar — 10+ bepul obuna
+• AI Selector — eng yaxshi serverni avtomatik tanlash
+• Pauza/Davom etish — xabarnoma paneli
+• Quick Settings Tile — boshqaruv markazi
+• Kill Switch — VPN uzilsa internet o'chadi
+
+TRANSPORTLAR:
+• TCP, WebSocket, gRPC, XHTTP, QUIC
+
+MAXFIYLIK:
+• Barcha ma'lumotlar faqat qurilmada saqlanadi
+• Hech qanday telemetriya yo'q
+• Ochiq kod — tekshirishingiz mumkin
+
+LITSENZIYA:
+• MIT — bepul va ochiq kod

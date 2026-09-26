@@ -49,6 +49,13 @@
 
 ## Установка
 
+### F-Droid (скоро)
+
+NurVPN в настоящее время проходит проверку для F-Droid. После одобрения вы найдёте его здесь:
+[Страница NurVPN в F-Droid](https://f-droid.org/packages/com.nurvpn.app/)
+
+### GitHub Releases
+
 ### Скачать APK
 
 1. Перейдите в **Releases**

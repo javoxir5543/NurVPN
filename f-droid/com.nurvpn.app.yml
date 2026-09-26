@@ -1,0 +1,57 @@
+Categories:
+  - Connectivity
+  - Security
+License: MIT
+AuthorName: javoxir5543
+AuthorEmail: javoxir5543@users.noreply.github.com
+SourceCode: https://github.com/javoxir5543/NurVPN
+IssueTracker: https://github.com/javoxir5543/NurVPN/issues
+Changelog: https://github.com/javoxir5543/NurVPN/releases
+
+AutoName: NurVPN
+Summary: Modern VPN client for Android
+Description: |-
+    NurVPN is a modern VPN client for Android based on sing-box.
+
+    Features:
+    * 6+ protocols: VLESS Reality, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AmneziaWG
+    * Modern UI - Material 3, dark-green + lime
+    * Real-time traffic - up/down B/s
+    * 3 languages: Uzbek, Russian, English
+    * Light/Dark mode
+    * Favorites - quick connect
+    * Ping test - TCP + ICMP
+    * Split Tunneling - whitelist/blacklist
+    * DNS leak + IPv6 protection
+    * QR scanner and QR sharing
+    * Open sources - 10+ free subscriptions
+    * AI Selector - auto-select best server
+    * Pause/Resume - notification panel
+    * Quick Settings Tile - control center
+    * Kill Switch - internet off if VPN drops
+
+    Transports:
+    * TCP, WebSocket, gRPC, XHTTP, QUIC
+
+    Privacy:
+    * All data stored only on device
+    * No telemetry
+    * Open source - you can audit
+
+RepoType: git
+Repo: https://github.com/javoxir5543/NurVPN.git
+
+Builds:
+  - versionName: '1.3'
+    versionCode: 13
+    commit: v1.3
+    subdir: app
+    gradle:
+      - yes
+    prebuild:
+      - echo "sdk.dir=$$SDK$$" > local.properties
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: '1.3'
+CurrentVersionCode: 13

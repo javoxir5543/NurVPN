@@ -49,6 +49,13 @@
 
 ## O'rnatish
 
+### F-Droid (tez orada)
+
+NurVPN hozirda F-Droid uchun ko'rib chiqilmoqda. Tasdiqlangach, uni bu yerda topasiz:
+[NurVPN F-Droid sahifasi](https://f-droid.org/packages/com.nurvpn.app/)
+
+### GitHub Releases
+
 ### APK yuklab olish
 
 1. **Releases** bo'limiga o'ting

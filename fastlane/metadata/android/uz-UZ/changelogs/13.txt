@@ -1,0 +1,15 @@
+v1.3 — QR orqali ulashish + 19 tuzatish
+
+YANGI:
+• QR orqali ulashish (server, AWG config, obuna)
+• Dinamik versiya
+
+TUZATISHLAR:
+• Memory leak tuzatildi
+• VPN ruxsat zamonaviy API
+• 600+ serverda UI freeze tuzatildi
+• DNS leak test yaxshilandi (timeout, UA)
+• AWG sort fix
+• Manual karta ping + sozlama
+
+Batafsil: https://github.com/javoxir5543/NurVPN/releases/tag/v1.3

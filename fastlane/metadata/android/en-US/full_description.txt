@@ -1,0 +1,29 @@
+NurVPN — a modern Android VPN client based on sing-box.
+
+FEATURES:
+• 6+ protocols: VLESS Reality, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AmneziaWG
+• Modern UI — Material 3, dark-green + lime
+• Real-time traffic — up/down B/s
+• 3 languages: Uzbek, Russian, English
+• Light/Dark mode
+• Favorites — quick connect
+• Ping test — TCP + ICMP
+• Split Tunneling — whitelist/blacklist
+• DNS leak + IPv6 protection
+• QR scanner and QR sharing
+• Open sources — 10+ free subscriptions
+• AI Selector — auto-select best server
+• Pause/Resume — notification panel
+• Quick Settings Tile — control center
+• Kill Switch — internet off if VPN drops
+
+TRANSPORTS:
+• TCP, WebSocket, gRPC, XHTTP, QUIC
+
+PRIVACY:
+• All data stored only on device
+• No telemetry
+• Open source — you can audit
+
+LICENSE:
+• MIT — free and open source

@@ -1,0 +1,15 @@
+v1.3 — QR sharing + 19 fixes
+
+NEW:
+• QR sharing (server, AWG config, subscription)
+• Dynamic version
+
+FIXES:
+• Fixed memory leak
+• VPN permission via modern API
+• Fixed UI freeze with 600+ servers
+• Improved DNS leak test (timeout, UA)
+• Fixed AWG sort
+• Ping + settings for manual card
+
+Details: https://github.com/javoxir5543/NurVPN/releases/tag/v1.3
