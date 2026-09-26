@@ -312,4 +312,5 @@
     <string name="qr_share_copy">📋 Копировать</string>
     <string name="qr_share_title">QR код</string>
     <string name="toast_qr_gen_error">Ошибка создания QR</string>
+    <string name="sort_title">Сортировка</string>
 </resources>

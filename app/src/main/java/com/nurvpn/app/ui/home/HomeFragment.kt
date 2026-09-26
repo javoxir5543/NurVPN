@@ -875,11 +875,14 @@ class HomeFragment : Fragment() {
         }
         Toast.makeText(context, R.string.ping_started,
             Toast.LENGTH_SHORT).show()
+        // AWG ni sort mode bo'yicha saralash (UI thread da)
+        val ctx0 = requireContext()
+        val awgSorted = AwgSortStore.sort(a.awgConfigs, AwgSortStore.getMode(ctx0))
         Thread {
             // Parallel ping (4 thread)
             val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
-            val latch = java.util.concurrent.CountDownLatch(a.awgConfigs.size)
-            for (cfg in a.awgConfigs) {
+            val latch = java.util.concurrent.CountDownLatch(awgSorted.size)
+        for (cfg in awgSorted) {
                 pool.execute {
                     try {
                         val ep = cfg.endpoint ?: return@execute

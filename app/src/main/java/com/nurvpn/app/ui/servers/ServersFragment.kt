@@ -931,7 +931,8 @@ class ServersFragment : Fragment() {
             val name: String,
             val count: Int,
             val isAwg: Boolean,
-            val isExpanded: Boolean = false
+            val isExpanded: Boolean = false,
+            val isManual: Boolean = false
         ) : Row()
         class Item(val data: Any) : Row()
     }
@@ -1088,11 +1089,22 @@ class ServersFragment : Fragment() {
             }
 
             // Qo'lda qo'shilgan serverlar — oxirida
-            grouped[null]?.let { manualList ->
+            grouped[null]?.let { manualListRaw ->
+                // Manual sort mode qo'llash
+                val manualSortMode = frag.requireContext()
+                    .getSharedPreferences("manual_sort", android.content.Context.MODE_PRIVATE)
+                    .getString("mode", "default") ?: "default"
+                val manualList = when (manualSortMode) {
+                    "name_asc" -> manualListRaw.sortedBy { it.displayName().lowercase() }
+                    "name_desc" -> manualListRaw.sortedByDescending { it.displayName().lowercase() }
+                    "ping_asc" -> manualListRaw.sortedBy { if (it.ping < 0) Int.MAX_VALUE else it.ping }
+                    "ping_desc" -> manualListRaw.sortedByDescending { it.ping }
+                    else -> manualListRaw
+                }
                 val isExpanded = expandedSubscriptions.contains("manual")
                 rows.add(Row.Header(null,
                     "🔧 ${frag.getString(R.string.manual_added)}",
-                    manualList.size, false, isExpanded))
+                    manualList.size, false, isExpanded, isManual = true))
                 if (isExpanded) {
                     for (si in manualList) rows.add(Row.Item(si))
                 }
@@ -1494,6 +1506,61 @@ class ServersFragment : Fragment() {
             }.start()
         }
 
+        /** Manual serverlarni ping qilish. */
+        fun pingManualAll() {
+            val a = act ?: return
+            val ctx = context ?: return
+            val manual = a.servers.filter { it.subId == null }
+            if (manual.isEmpty()) {
+                Toast.makeText(ctx, R.string.text_no_servers,
+                    Toast.LENGTH_SHORT).show()
+                return
+            }
+            Toast.makeText(ctx,
+                ctx.getString(R.string.ping_sub_started,
+                    ctx.getString(R.string.manual_added), manual.size),
+                Toast.LENGTH_SHORT).show()
+            android.util.Log.i("NurVPN-PING", "Manual ping: ${manual.size}")
+            PingTester.testAll(manual, object : PingTester.Listener {
+                override fun onPingUpdate(item: ServerItem, ping: Int) {
+                    notifyDataSetChanged()
+                }
+                override fun onAllDone() {
+                    ServerStore.save(a, a.servers)
+                    notifyDataSetChanged()
+                    Toast.makeText(ctx, R.string.ping_done,
+                        Toast.LENGTH_SHORT).show()
+                }
+            })
+        }
+
+        /** Manual serverlar uchun sozlama dialogi (sort). */
+        private fun showManualSettingsDialog() {
+            val ctx = context ?: return
+            val current = AwgSortStore.getMode(ctx)
+            val modes = arrayOf(
+                "default" to ctx.getString(R.string.sort_default),
+                "ping_asc" to ctx.getString(R.string.sort_ping_asc),
+                "ping_desc" to ctx.getString(R.string.sort_ping_desc),
+                "name_asc" to ctx.getString(R.string.sort_name_asc),
+                "name_desc" to ctx.getString(R.string.sort_name_desc)
+            )
+            val labels = modes.map { it.second }.toTypedArray()
+            val idx = modes.indexOfFirst { it.first == current }.coerceAtLeast(0)
+
+            androidx.appcompat.app.AlertDialog.Builder(ctx)
+                .setTitle(R.string.sort_title)
+                .setSingleChoiceItems(labels, idx) { d, which ->
+                    // Manual uchun alohida sort mode saqlaymiz
+                    ctx.getSharedPreferences("manual_sort", android.content.Context.MODE_PRIVATE)
+                        .edit().putString("mode", modes[which].first).apply()
+                    rebuild()
+                    d.dismiss()
+                }
+                .setNegativeButton(R.string.dialog_no, null)
+                .show()
+        }
+
         private fun showAwgSettingsDialogServer() {
             val ctx = context ?: return
             val current = AwgSortStore.getMode(ctx)
@@ -1588,25 +1655,25 @@ class ServersFragment : Fragment() {
                     }
                 }
 
-                // ⚙️ sozlama (faqat sub uchun)
-                settings?.visibility = if (row.subId != null) View.VISIBLE else View.GONE
+                // ⚙️ sozlama (sub, AWG yoki manual uchun)
+                val showSettings = row.subId != null || row.isManual
+                settings?.visibility = if (showSettings) View.VISIBLE else View.GONE
                 settings?.setOnClickListener {
-                    val sid = row.subId ?: return@setOnClickListener
-                    if (sid == Row.AWG_HEADER_ID) {
-                        showAwgSettingsDialogServer()
-                    } else {
-                        showSubSettingsDialogServer(sid, row.name)
+                    when {
+                        row.isManual -> showManualSettingsDialog()
+                        row.subId == Row.AWG_HEADER_ID -> showAwgSettingsDialogServer()
+                        row.subId != null -> showSubSettingsDialogServer(row.subId, row.name)
                     }
                 }
 
-                // 📶 ping — sub uchun yoki AWG uchun
-                ping?.visibility = if (row.subId != null) View.VISIBLE else View.GONE
+                // 📶 ping — sub, AWG yoki manual uchun
+                val showPing = row.subId != null || row.isManual
+                ping?.visibility = if (showPing) View.VISIBLE else View.GONE
                 ping?.setOnClickListener {
-                    val sid = row.subId ?: return@setOnClickListener
-                    if (sid == Row.AWG_HEADER_ID) {
-                        pingAwgAll()
-                    } else {
-                        pingSubscription(sid, row.name)
+                    when {
+                        row.isManual -> pingManualAll()
+                        row.subId == Row.AWG_HEADER_ID -> pingAwgAll()
+                        row.subId != null -> pingSubscription(row.subId, row.name)
                     }
                 }
 
