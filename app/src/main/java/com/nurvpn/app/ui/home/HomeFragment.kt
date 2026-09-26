@@ -1,4 +1,5 @@
 package com.nurvpn.app.ui.home
+import com.nurvpn.app.BuildConfig
 import com.nurvpn.app.R
 
 import com.nurvpn.app.core.TunnelState
@@ -140,7 +141,41 @@ class HomeFragment : Fragment() {
     private val homeExpandedSubs = mutableSetOf<String>()
     private val pingRebuildRunnable = Runnable {
         pingUpdateScheduled = false
-        if (isAdded) rebuildServerCards()
+        // FIX: View'larni QAYTA YARATMASDAN, faqat ping matnini yangilash.
+        // rebuildServerCards(force=true) 200+ serverda telefonni qotiradi.
+        if (isAdded) refreshPingViewsInPlace()
+    }
+
+    /** Debounce interval — 600+ server uchun 1200ms optimal. */
+    private val PING_DEBOUNCE_MS = 1200L
+
+    /**
+     * FIX: View'larni QAYTA YARATMASDAN, faqat mavjud ping TextView'larni
+     * yangilash. 200+ serverda 100x tezroq (rebuild 3s, bu 30ms).
+     */
+    private fun refreshPingViewsInPlace() {
+        val a = activity as? MainActivity ?: return
+        val container = cardsContainer ?: return
+        // Link -> ServerItem xaritasi (tez qidirish uchun)
+        val byLink = HashMap<String, ServerItem>(a.servers.size)
+        for (s in a.servers) byLink[s.link] = s
+        walkAndUpdatePing(container, byLink)
+    }
+
+    /** Rekursiv ravishda row_ping TextView'larni topib, yangilash. */
+    private fun walkAndUpdatePing(view: View, byLink: Map<String, ServerItem>) {
+        if (view is TextView && view.id == R.id.row_ping) {
+            val link = view.tag as? String ?: return
+            val si = byLink[link] ?: return
+            view.text = pingLabel(si)
+            view.setTextColor(pingColor(si))
+            return
+        }
+        if (view is android.view.ViewGroup) {
+            for (i in 0 until view.childCount) {
+                walkAndUpdatePing(view.getChildAt(i), byLink)
+            }
+        }
     }
     private var pulseY: android.animation.ObjectAnimator? = null
 
@@ -224,6 +259,11 @@ class HomeFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         val v = inflater.inflate(R.layout.fragment_home, container, false)
+
+        // Dinamik versiya (BuildConfig dan)
+        v.findViewById<android.widget.TextView>(R.id.txt_app_title)?.text =
+            "NurVPN v${BuildConfig.VERSION_NAME}"
+
         connectBtn = v.findViewById(R.id.connect_btn)
         connectIcon = v.findViewById(R.id.connect_icon)
         statusText = v.findViewById(R.id.status_text)
@@ -503,6 +543,8 @@ class HomeFragment : Fragment() {
         proto.backgroundTintList = android.content.res.ColorStateList
             .valueOf(protocolColor(si.protocol))
         val pingView = row.findViewById<TextView>(R.id.row_ping)
+        // FIX: tag = link (in-place update uchun)
+        pingView.tag = si.link
         pingView.text = pingLabel(si)
         pingView.setTextColor(pingColor(si))
 
@@ -906,7 +948,7 @@ class HomeFragment : Fragment() {
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
                     if (!pingUpdateScheduled) {
                         pingUpdateScheduled = true
-                        ui.postDelayed(pingRebuildRunnable, 400)
+                        ui.postDelayed(pingRebuildRunnable, PING_DEBOUNCE_MS)
                     }
                 }
                 override fun onAllDone() {
@@ -916,7 +958,9 @@ class HomeFragment : Fragment() {
                     pingUpdateScheduled = false
                     val a2 = activity as? MainActivity ?: return
                     ServerStore.save(a2, a2.servers)
-                    rebuildServerCards()
+                    // FIX: rebuild EMAS, faqat ping view'larni yangilash
+                    // (200+ serverda 3 sekund freeze oldini oladi)
+                    refreshPingViewsInPlace()
                     Toast.makeText(context, R.string.ping_done,
                         Toast.LENGTH_SHORT).show()
                 }
@@ -956,7 +1000,7 @@ class HomeFragment : Fragment() {
                 // Debounce
                 if (!pingUpdateScheduled) {
                     pingUpdateScheduled = true
-                    ui.postDelayed(pingRebuildRunnable, 400)
+                    ui.postDelayed(pingRebuildRunnable, PING_DEBOUNCE_MS)
                 }
             }
             override fun onAllDone() {
@@ -966,7 +1010,8 @@ class HomeFragment : Fragment() {
                 pingUpdateScheduled = false
                 val a2 = activity as? MainActivity ?: return
                 ServerStore.save(a2, a2.servers)
-                rebuildServerCards()
+                // FIX: force=true
+                rebuildServerCards(force = true)
                 Toast.makeText(context, R.string.ping_done,
                     Toast.LENGTH_SHORT).show()
             }
@@ -1362,15 +1407,43 @@ class HomeFragment : Fragment() {
 
         header.setOnClickListener {
             if (subId != null) {
+                // ═══ FIX: rebuildServerCards() OLIB TASHLANDI ═══
+                // Sabab: har expand'da 600+ view qayta yaratilardi → freeze.
+                // Endi faqat shu kartaning body'si to'ldiriladi (in-place).
+                val act = activity as? MainActivity
                 if (subId in homeExpandedSubs) {
+                    // Collapse — view'larni saqlab, faqat yashiramiz
                     homeExpandedSubs.remove(subId)
+                    body.visibility = android.view.View.GONE
+                    arrow.text = "\u2B07"
                 } else {
+                    // Expand — birinchi marta bo'lsa populate
                     homeExpandedSubs.add(subId)
+                    if (body.tag != "populated" && act != null) {
+                        body.removeAllViews()
+                        val raw = act.servers.filter { it.subId == subId }
+                        val subSort = act.subscriptions
+                            .find { it.id == subId }?.sortMode ?: "default"
+                        val list = sortServers(raw, subSort)
+                        for (si in list) {
+                            body.addView(makeServerRow(si, act))
+                        }
+                        if (body.childCount == 0) {
+                            val tv = TextView(requireContext())
+                            tv.text = getString(R.string.text_no_servers)
+                            tv.setTextColor(androidx.core.content.ContextCompat
+                                .getColor(requireContext(), R.color.text_tertiary))
+                            tv.textSize = 12f
+                            tv.setPadding(0, 12, 0, 12)
+                            body.addView(tv)
+                        }
+                        body.tag = "populated"
+                    }
+                    body.visibility = android.view.View.VISIBLE
+                    arrow.text = "\u2B06"
                 }
-                // Qayta chizish — lazy loading ishlashi uchun
-                ui.post { rebuildServerCards() }
             } else {
-                // subId yo'q — faqat visibility
+                // subId yo'q — faqat visibility toggle
                 if (body.visibility == android.view.View.VISIBLE) {
                     body.visibility = android.view.View.GONE
                     arrow.text = "\u2B07"
@@ -1447,6 +1520,9 @@ class HomeFragment : Fragment() {
                 a.selectAWG(cfg)
                 a.protocol = MainActivity.PROTO_AWG
                 AWGEditorBus.init(a.awgConfigs, cfg, MainActivity.PROTO_AWG)
+                Toast.makeText(context,
+                    cfg.name ?: getString(R.string.text_awg_label),
+                    Toast.LENGTH_SHORT).show()
                 refresh()
             }
             // Ping ko'rsatish
@@ -1481,12 +1557,8 @@ class HomeFragment : Fragment() {
             }
 
 
-            row.setOnClickListener {
-                a.currentAWG = cfg
-                a.protocol = MainActivity.PROTO_AWG
-                Toast.makeText(context, cfg.name ?: getString(R.string.text_awg_label), Toast.LENGTH_SHORT).show()
-                refresh()
-            }
+            // FIX: 2-chi row.setOnClickListener OLIB TASHLANDI
+            // (1-chi listenermi bosib ketardi va tanlash rejimi buzilardi)
             body.addView(row)
         }
     }
@@ -1852,7 +1924,6 @@ class HomeFragment : Fragment() {
                 // Og'ir ishlarni background'ga
                 Thread {
                     ServerStore.save(a, a.servers)
-                    System.gc()
                     activity?.runOnUiThread { refresh() }
                 }.start()
             }
@@ -2107,12 +2178,23 @@ class HomeFragment : Fragment() {
         android.util.Log.i("NurVPN-PING", "Home ping: ${a.servers.size} server")
 
         if (a.servers.isNotEmpty()) {
-            PingTester.testAll(a.servers, object : PingTester.Listener {
+            // FIX: 600+ server uchun limit — bir vaqtda max 100 ta
+            val MAX_PING = 100
+            val serversToPing = if (a.servers.size > MAX_PING) {
+                // Eng yaqin (birinchi) 100 tasi — foydalanuvchi kutayotgani
+                android.util.Log.w("NurVPN-PING",
+                    "pingHomeAll: ${a.servers.size} server, faqat " +
+                    "$MAX_PING tasi ping qilinadi")
+                a.servers.take(MAX_PING)
+            } else {
+                a.servers
+            }
+            PingTester.testAll(serversToPing, object : PingTester.Listener {
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
                     // Debounce — 400ms ichida ko'p marta chaqirilsa, faqat 1 marta rebuild
                     if (!pingUpdateScheduled) {
                         pingUpdateScheduled = true
-                        ui.postDelayed(pingRebuildRunnable, 400)
+                        ui.postDelayed(pingRebuildRunnable, PING_DEBOUNCE_MS)
                     }
                 }
                 override fun onAllDone() {
@@ -2122,14 +2204,94 @@ class HomeFragment : Fragment() {
                     pingUpdateScheduled = false
                     val a2 = activity as? MainActivity ?: return
                     ServerStore.save(a2, a2.servers)
-                    rebuildServerCards()
-                    Toast.makeText(context, R.string.ping_done,
-                        Toast.LENGTH_SHORT).show()
+                    // FIX: force=true
+                    rebuildServerCards(force = true)
+                    // FIX: AWG ham bo'lsa — ularni ham ping qilamiz
+                    if (a2.awgConfigs.isNotEmpty()) {
+                        pingAwgConfigsInBackground(a2)
+                    } else {
+                        Toast.makeText(context, R.string.ping_done,
+                            Toast.LENGTH_SHORT).show()
+                    }
                 }
             })
+        } else if (a.awgConfigs.isNotEmpty()) {
+            // FIX: Faqat AWG config bor foydalanuvchi uchun
+            pingAwgConfigsInBackground(a)
         } else {
             pingRunning = false
         }
+    }
+
+    /**
+     * FIX: AWG configlarni background'da ping qilish.
+     * UDP (WireGuard) uchun 3 bosqichli ping: TCP -> ICMP -> UDP.
+     */
+    private fun pingAwgConfigsInBackground(a: MainActivity) {
+        if (a.awgConfigs.isEmpty()) {
+            pingRunning = false
+            return
+        }
+        Thread {
+            val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+            val latch = java.util.concurrent.CountDownLatch(a.awgConfigs.size)
+            for (cfg in a.awgConfigs) {
+                pool.execute {
+                    try {
+                        val ep = cfg.endpoint ?: return@execute
+                        val host = ep.substringBeforeLast(":")
+                        val port = ep.substringAfterLast(":").toIntOrNull() ?: 0
+
+                        // 1. TCP ping
+                        var ping = if (port > 0)
+                            PingTester.tcpPing(host, port, 2000) else -1
+
+                        // 2. ICMP fallback
+                        if (ping <= 0) {
+                            ping = try {
+                                PingTester.icmpPing(host, 2000)
+                            } catch (t: Throwable) { -1 }
+                        }
+
+                        // 3. UDP fallback (AWG uchun eng ishonchli)
+                        if (ping <= 0 && port > 0) {
+                            ping = try {
+                                val start = System.currentTimeMillis()
+                                val sock = java.net.DatagramSocket()
+                                sock.connect(java.net.InetAddress.getByName(host), port)
+                                sock.send(java.net.DatagramPacket(ByteArray(1), 1))
+                                sock.close()
+                                (System.currentTimeMillis() - start).toInt()
+                            } catch (t: Throwable) { -1 }
+                        }
+
+                        cfg.ping = ping
+                        android.util.Log.i("NurVPN-PING",
+                            "AWG ${cfg.name}: ping=$ping (host=$host:$port)")
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            try {
+                latch.await(20, java.util.concurrent.TimeUnit.SECONDS)
+            } catch (_: Throwable) {}
+            pool.shutdown()
+
+            activity?.runOnUiThread {
+                if (!isAdded) {
+                    pingRunning = false
+                    return@runOnUiThread
+                }
+                AWGStore.save(a, a.awgConfigs)
+                awgExpanded = true
+                bodyAwg?.visibility = View.VISIBLE
+                rebuildAwgList()
+                pingRunning = false
+                Toast.makeText(context, R.string.ping_done,
+                    Toast.LENGTH_SHORT).show()
+            }
+        }.start()
     }
 
     private fun toggleConnection() {

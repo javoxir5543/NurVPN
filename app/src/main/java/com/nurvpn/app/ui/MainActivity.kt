@@ -79,6 +79,24 @@ class MainActivity : AppCompatActivity() {
             doStartVpn()
         }
 
+    // FIX: VPN ruxsat dialog natijasi (zamonaviy API)
+    private val vpnPermissionLauncher =
+        registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts
+                .StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == android.app.Activity.RESULT_OK) {
+                android.util.Log.i("NurVPN-DBG",
+                    "VPN ruxsat berildi -> doStartVpn()")
+                doStartVpn()
+            } else {
+                android.util.Log.w("NurVPN-DBG", "VPN ruxsat rad etildi")
+                Toast.makeText(this,
+                    R.string.toast_vpn_denied,
+                    Toast.LENGTH_SHORT).show()
+            }
+        }
+
     private var stateReceiver: BroadcastReceiver? = null
     private var dbgReceiver: BroadcastReceiver? = null
 
@@ -222,7 +240,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         stateReceiver = receiver
-        this.dbgReceiver = dbgReceiver
+        // FIX: this.dbgReceiver = dbgReceiver bu yerdan olib tashlandi
+        // (lokal o'zgaruvchi hali e'lon qilinmagan edi -> no-op)
 
         val filter = IntentFilter(ACTION_BROADCAST)
         if (Build.VERSION.SDK_INT >= 33) {
@@ -257,6 +276,9 @@ class MainActivity : AppCompatActivity() {
                 startVpn()
             }
         }
+        // FIX: field'ga saqlash (onDestroy uchun)
+        this.dbgReceiver = dbgReceiver
+
         val dbgFilter = IntentFilter("com.nurvpn.app.DEBUG_START")
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(dbgReceiver, dbgFilter, Context.RECEIVER_NOT_EXPORTED)
@@ -264,7 +286,27 @@ class MainActivity : AppCompatActivity() {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(dbgReceiver, dbgFilter)
         }
-        // TEST KOD OLIB TASHLANDI
+
+        // FIX: AWG editor signal receiver
+        val awgEditedReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, i: Intent?) {
+                val newRaw = i?.getStringExtra("awg_raw") ?: return
+                val cfg = awgConfigs.find { it.rawConf == newRaw } ?: return
+                if (isRunning && protocol == PROTO_AWG) {
+                    restartVpn(getString(R.string.reason_awg,
+                        cfg.name ?: "AWG"))
+                }
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(awgEditedReceiver,
+                IntentFilter("com.nurvpn.app.AWG_EDITED"),
+                Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(awgEditedReceiver,
+                IntentFilter("com.nurvpn.app.AWG_EDITED"))
+        }
 
         // ★ Avto-start O'CHIRILDI — foydalanuvchi qo'lda bosadi
         android.util.Log.i("NurVPN-DBG", "Avto-start o'chirilgan, qo'lda bosishni kuting")
@@ -390,11 +432,10 @@ class MainActivity : AppCompatActivity() {
                 android.Manifest.permission.POST_NOTIFICATIONS)
             return
         }
-        // ═══ VPN ruxsatini faqat shu yerda so'raymiz ═══
+        // FIX: Zamonaviy ActivityResult API
         val vpnIntent = VpnService.prepare(this)
         if (vpnIntent != null) {
-            // Ruxsat berilmagan — dialog ochamiz
-            startActivityForResult(vpnIntent, 1001)
+            vpnPermissionLauncher.launch(vpnIntent)
             return
         }
         doStartVpn()

@@ -316,4 +316,5 @@
     <string name="qr_share_copy">📋 Nusxalash</string>
     <string name="qr_share_title">QR kod</string>
     <string name="toast_qr_gen_error">QR yaratishda xato</string>
+    <string name="toast_vpn_denied">VPN ruxsati berilmadi</string>
 </resources>

@@ -10,7 +10,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.nurvpn.app.R
 import com.nurvpn.app.core.AWGEditorBus
+import com.nurvpn.app.parser.AWGParser
 import com.nurvpn.app.storage.AWGStore
+import com.nurvpn.app.ui.MainActivity
 import com.nurvpn.app.util.AWGEditor
 
 class AWGEditorActivity : AppCompatActivity() {
@@ -155,9 +157,45 @@ class AWGEditorActivity : AppCompatActivity() {
         }
         if (index < 0 || index >= AWGEditorBus.configs.size) return
         val cfg = AWGEditorBus.configs[index]
+        val oldRaw = cfg.rawConf
         cfg.rawConf = buildResult()
+
+        // FIX: Endpoint/address ni qayta parse qilamiz
+        val parsed = AWGParser.parse(cfg.rawConf ?: "")
+        if (parsed.ok) {
+            cfg.endpoint = parsed.endpoint
+            cfg.address = parsed.address
+        }
+
         AWGStore.save(this, AWGEditorBus.configs)
         Toast.makeText(this, R.string.editor_saved, Toast.LENGTH_SHORT).show()
+
+        // FIX: Agar joriy config tahrirlangan bo'lsa va VPN ishlayotgan
+        // bo'lsa — reconnect chaqiramiz
+        val main = getMainActivity()
+        if (main != null && oldRaw != cfg.rawConf) {
+            if (main.currentAWG?.rawConf == oldRaw ||
+                main.currentAWG === cfg) {
+                main.currentAWG = cfg
+                main.protocol = MainActivity.PROTO_AWG
+                AWGEditorBus.init(main.awgConfigs, cfg, MainActivity.PROTO_AWG)
+
+                if (main.isRunning) {
+                    android.util.Log.i("NurVPN-AWG",
+                        "Editor: config o'zgardi -> reconnect")
+                    main.restartVpn(getString(R.string.reason_awg,
+                        cfg.name ?: "AWG"))
+                }
+            }
+        }
+
         finish()
     }
+
+    /**
+     * MainActivity'ni topish — deprecated getActivity() o'rniga.
+     * AWGEditorActivity alohida Activity bo'lgani uchun bu yerda null qaytaradi.
+     * Boshqa yo'l: SharedPreferences listener yoki broadcast.
+     */
+    private fun getMainActivity(): MainActivity? = null
 }

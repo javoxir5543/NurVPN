@@ -300,8 +300,14 @@ class ServersFragment : Fragment() {
             return
         }
 
-        // ═══ Serverlar (barcha protokollar: TCP + ICMP) ═══
-        val pingable = a.servers
+        // FIX: 600+ server uchun limit — bir vaqtda max 100
+        val MAX_PING = 100
+        val pingable = if (a.servers.size > MAX_PING) {
+            android.util.Log.w("NurVPN-PING",
+                "ServersFragment.pingAll: ${a.servers.size} server, " +
+                "faqat $MAX_PING tasi")
+            a.servers.take(MAX_PING)
+        } else a.servers
 
         if (pingable.isNotEmpty()) {
             var scheduled = false
@@ -311,7 +317,7 @@ class ServersFragment : Fragment() {
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
                     if (!scheduled) {
                         scheduled = true
-                        h.postDelayed({ scheduled = false; runnable.run() }, 400)
+                        h.postDelayed({ scheduled = false; runnable.run() }, 1200)
                     }
                 }
                 override fun onAllDone() {
@@ -1066,15 +1072,29 @@ class ServersFragment : Fragment() {
                 }
             }
 
-            for ((subId, list) in grouped) {
-                val sub = if (subId != null) a.subscriptions.find { it.id == subId } else null
-                val title = sub?.name ?: frag.getString(R.string.manual_added)
-                val icon = if (sub != null) "📡" else "🔧"
-                val key = subId ?: "manual"
-                val isExpanded = expandedSubscriptions.contains(key)
-                rows.add(Row.Header(subId, "$icon $title", list.size, false, isExpanded))
+            // FIX: Obuna tartibini `order` field bo'yicha (Home bilan bir xil)
+            val sortedSubIds = a.subscriptions
+                .sortedBy { it.order }
+                .map { it.id }
+
+            for (subId in sortedSubIds) {
+                val list = grouped[subId] ?: continue
+                val sub = a.subscriptions.find { it.id == subId } ?: continue
+                val isExpanded = expandedSubscriptions.contains(subId)
+                rows.add(Row.Header(subId, "📡 ${sub.name}", list.size, false, isExpanded))
                 if (isExpanded) {
                     for (si in list) rows.add(Row.Item(si))
+                }
+            }
+
+            // Qo'lda qo'shilgan serverlar — oxirida
+            grouped[null]?.let { manualList ->
+                val isExpanded = expandedSubscriptions.contains("manual")
+                rows.add(Row.Header(null,
+                    "🔧 ${frag.getString(R.string.manual_added)}",
+                    manualList.size, false, isExpanded))
+                if (isExpanded) {
+                    for (si in manualList) rows.add(Row.Item(si))
                 }
             }
 
@@ -1311,8 +1331,13 @@ class ServersFragment : Fragment() {
         fun pingSubscription(subId: String, subName: String) {
             val a = act ?: return
             val ctx = context ?: return
-            // ⭐ Avtomatik ping_asc — eng tez birinchi
-            // ⭐ Sevimlilar kartasi uchun maxsus
+
+            // FIX: Debounce — 400ms ichida bir marta rebuild (UI freeze oldini olish)
+            var scheduled = false
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+            val rebuildRunnable = Runnable { notifyDataSetChanged() }
+
+            // Sevimlilar kartasi uchun maxsus
             if (subId == "fav_card") {
                 val favs = a.servers.filter { it.favorite }
                 if (favs.isEmpty()) {
@@ -1327,9 +1352,17 @@ class ServersFragment : Fragment() {
                     "Ping favorites: ${favs.size}")
                 PingTester.testAll(favs, object : PingTester.Listener {
                     override fun onPingUpdate(item: ServerItem, ping: Int) {
-                        notifyDataSetChanged()
+                        // FIX: debounce
+                        if (!scheduled) {
+                            scheduled = true
+                            handler.postDelayed({
+                                scheduled = false
+                                rebuildRunnable.run()
+                            }, 1200)
+                        }
                     }
                     override fun onAllDone() {
+                        handler.removeCallbacksAndMessages(null)
                         ServerStore.save(a, a.servers)
                         notifyDataSetChanged()
                         Toast.makeText(ctx, R.string.ping_done,
@@ -1339,9 +1372,19 @@ class ServersFragment : Fragment() {
                 return
             }
 
-            SubscriptionStore.setSortMode(ctx, subId, "ping_asc")
+            // FIX: Auto ping_asc sort OLIB TASHLANDI (ping tugagach qo'llaniladi).
+            // Sort ping davomida UI'ni qotiradi.
             a.subscriptions = SubscriptionStore.load(a)
             var servers = a.servers.filter { it.subId == subId }
+
+            // FIX: 600+ server uchun limit — bir vaqtda max 100
+            val MAX_PING_SUB = 100
+            if (servers.size > MAX_PING_SUB) {
+                android.util.Log.w("NurVPN-PING",
+                    "pingSub: ${servers.size} ta, faqat $MAX_PING_SUB tasi")
+                servers = servers.take(MAX_PING_SUB)
+            }
+
             android.util.Log.i("NurVPN-PING",
                 "pingSub: subId=$subId, matched=${servers.size}, total=${a.servers.size}")
             if (servers.isEmpty()) {
@@ -1371,10 +1414,22 @@ class ServersFragment : Fragment() {
 
             PingTester.testAll(servers, object : PingTester.Listener {
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
-                    notifyDataSetChanged()
+                    // FIX: debounce — 400ms ichida bir marta
+                    if (!scheduled) {
+                        scheduled = true
+                        handler.postDelayed({
+                            scheduled = false
+                            rebuildRunnable.run()
+                        }, 1200)
+                    }
                 }
                 override fun onAllDone() {
+                    handler.removeCallbacksAndMessages(null)
                     ServerStore.save(a, a.servers)
+                    // FIX: Ping tugagach — sort qilib yangilash (rebuild EMAS)
+                    SubscriptionStore.setSortMode(ctx, subId, "ping_asc")
+                    a.subscriptions = SubscriptionStore.load(a)
+                    // Yengil yangilash — adapter'ning hozirgi view'larini yangilash
                     notifyDataSetChanged()
                     Toast.makeText(ctx, R.string.ping_done,
                         Toast.LENGTH_SHORT).show()

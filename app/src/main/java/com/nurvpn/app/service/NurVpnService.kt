@@ -137,6 +137,9 @@ class NurVpnService : VpnService() {
     private var server: CommandServer? = null
     private var underlyingNetwork: android.net.Network? = null
 
+    /** Lifecycle-aware underlying network callback (memory leak oldini olish). */
+    private var underlyingCallback: android.net.ConnectivityManager.NetworkCallback? = null
+
     // ═══════ PLATFORM INTERFACE ═══════
     private val platform = object : PlatformInterface {
 
@@ -675,6 +678,14 @@ class NurVpnService : VpnService() {
         if (intent?.getBooleanExtra(MainActivity.EXTRA_STOP, false) == true) {
             val stopGen = intent?.getLongExtra("generation", 0L) ?: 0L
             Log.i(TAG, "STOP so'rovi gen=$stopGen")
+
+            // FIX: Race condition — eski STOP'ni e'tiborsiz qoldirish
+            if (stopGen > 0L && stopGen < serviceGeneration) {
+                Log.w(TAG, "STOP[$stopGen] eskirgan " +
+                    "(hozirgi gen=$serviceGeneration), e'tiborsiz")
+                return START_STICKY
+            }
+
             lastToggleTime = now
             isTransitioning = true
             broadcast("disconnected")
@@ -850,6 +861,62 @@ class NurVpnService : VpnService() {
     }
 
     // ═══════ CONNECT ═══════
+    /**
+     * Underlying network'ni o'rnatish + o'zgarishlarni kuzatish.
+     * Wi-Fi <-> Cellular almashganda tunnel avtomatik yangilanadi.
+     */
+    private fun setupUnderlyingNetwork() {
+        if (underlyingCallback != null) {
+            Log.i(TAG, "setupUnderlyingNetwork: allaqachon faol")
+            return
+        }
+        try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE)
+                as android.net.ConnectivityManager
+            underlyingNetwork = cm.activeNetwork
+            Log.i(TAG, "initial underlyingNetwork = $underlyingNetwork")
+
+            val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: android.net.Network) {
+                    underlyingNetwork = network
+                    Log.i(TAG, "underlyingNetwork yangilandi: $network")
+                }
+                override fun onLost(network: android.net.Network) {
+                    if (underlyingNetwork == network) {
+                        underlyingNetwork = null
+                        Log.w(TAG, "underlyingNetwork yo'qoldi: $network")
+                    }
+                }
+            }
+            underlyingCallback = cb
+
+            val req = android.net.NetworkRequest.Builder()
+                .addCapability(
+                    android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addCapability(
+                    android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                .build()
+            cm.registerNetworkCallback(req, cb)
+            Log.i(TAG, "underlyingNetwork callback ro'yxatga olindi")
+        } catch (t: Throwable) {
+            Log.e(TAG, "setupUnderlyingNetwork xato", t)
+        }
+    }
+
+    /** Callback'ni ro'yxatdan chiqarish (memory leak oldini olish). */
+    private fun teardownUnderlyingNetwork() {
+        val cb = underlyingCallback ?: return
+        try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE)
+                as android.net.ConnectivityManager
+            cm.unregisterNetworkCallback(cb)
+            Log.i(TAG, "underlyingNetwork callback olib tashlandi")
+        } catch (t: Throwable) {
+            Log.w(TAG, "teardown xato: ${t.message}")
+        }
+        underlyingCallback = null
+    }
+
     private fun connect(intent: Intent?) {
         val link = intent?.getStringExtra(MainActivity.EXTRA_LINK)
         val awg = intent?.getStringExtra(MainActivity.EXTRA_AWG)
@@ -858,6 +925,9 @@ class NurVpnService : VpnService() {
             .getString("dns", "1.1.1.1") ?: "1.1.1.1"
 
         try {
+            // FIX: underlyingNetwork'ni o'rnatish (openTun() dan OLDIN)
+            setupUnderlyingNetwork()
+
             if (link == null && awg == null) {
                 throw Exception(getString(R.string.error_no_server))
             }
@@ -866,12 +936,8 @@ class NurVpnService : VpnService() {
                 Log.i(TAG, "AWG rejimi: ${awg.length} belgi config")
                 SingBoxConfig.buildAwgConfig(awg)
             } else {
-                val cacheDirSafe = File(filesDir, "cache").apply { mkdirs() }
-                val cachePath = File(cacheDirSafe, "cache.db").absolutePath
-                runCatching {
-                    if (!File(cachePath).exists()) File(cachePath).createNewFile()
-                }
-                SingBoxConfig.buildFullConfig(link!!, dns, cachePath)
+                // FIX: cachePath olib tashlandi (config'da cache_file yo'q)
+                SingBoxConfig.buildFullConfig(link!!, dns)
             }
             val cfgJson = cfg.toString(2)
             Log.i(TAG, "Config tayyor: ${cfgJson.length} belgi")
@@ -954,6 +1020,8 @@ class NurVpnService : VpnService() {
     }
 
     private fun cleanup() {
+        // FIX: underlyingNetwork callback'ni ham tozalash
+        teardownUnderlyingNetwork()
         runCatching { server?.closeService() }
         runCatching { server?.close() }
         runCatching { tun?.close() }

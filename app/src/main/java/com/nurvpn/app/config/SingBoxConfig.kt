@@ -100,15 +100,12 @@ object SingBoxConfig {
                     ?: throw ParseException("reality pbk yo'q"))
                 if (q["sid"] != null) r.put("short_id", q["sid"])
                 tls.put("reality", r)
+                // FIX: tls.utls FAQAT bir marta o'rnatiladi
                 if (!tls.has("utls")) {
                     tls.put("utls", JSONObject()
                         .put("enabled", true)
                         .put("fingerprint", q["fp"] ?: "chrome"))
                 }
-                // ★ X25519MLKEM768 ni o'chirish (eski serverlar uchun)
-                tls.put("utls", JSONObject()
-                    .put("enabled", true)
-                    .put("fingerprint", q["fp"] ?: "chrome"))
             }
             if (q["insecure"] == "1") tls.put("insecure", true)
             o.put("tls", tls)
@@ -611,7 +608,7 @@ object SingBoxConfig {
     }
 
     @Throws(ParseException::class)
-    fun buildFullConfig(link: String, dns: String, cachePath: String): JSONObject {
+    fun buildFullConfig(link: String, dns: String): JSONObject {
         val root = JSONObject()
         val serverHost = extractServerHost(link)
 
