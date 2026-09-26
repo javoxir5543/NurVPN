@@ -4396,7 +4396,7 @@ class AWGEditorActivity : AppCompatActivity() {
 
 ## 📄 `com/nurvpn/app/ui/home/HomeFragment.kt`
 
-*2525 qator*
+*2528 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.home
@@ -5276,11 +5276,14 @@ class HomeFragment : Fragment() {
         }
         Toast.makeText(context, R.string.ping_started,
             Toast.LENGTH_SHORT).show()
+        // AWG ni sort mode bo'yicha saralash (UI thread da)
+        val ctx0 = requireContext()
+        val awgSorted = AwgSortStore.sort(a.awgConfigs, AwgSortStore.getMode(ctx0))
         Thread {
             // Parallel ping (4 thread)
             val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
-            val latch = java.util.concurrent.CountDownLatch(a.awgConfigs.size)
-            for (cfg in a.awgConfigs) {
+            val latch = java.util.concurrent.CountDownLatch(awgSorted.size)
+        for (cfg in awgSorted) {
                 pool.execute {
                     try {
                         val ep = cfg.endpoint ?: return@execute
@@ -7097,7 +7100,7 @@ object QrShowDialog {
 
 ## 📄 `com/nurvpn/app/ui/servers/ServersFragment.kt`
 
-*1925 qator*
+*1992 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.servers
@@ -8033,7 +8036,8 @@ class ServersFragment : Fragment() {
             val name: String,
             val count: Int,
             val isAwg: Boolean,
-            val isExpanded: Boolean = false
+            val isExpanded: Boolean = false,
+            val isManual: Boolean = false
         ) : Row()
         class Item(val data: Any) : Row()
     }
@@ -8190,11 +8194,22 @@ class ServersFragment : Fragment() {
             }
 
             // Qo'lda qo'shilgan serverlar — oxirida
-            grouped[null]?.let { manualList ->
+            grouped[null]?.let { manualListRaw ->
+                // Manual sort mode qo'llash
+                val manualSortMode = frag.requireContext()
+                    .getSharedPreferences("manual_sort", android.content.Context.MODE_PRIVATE)
+                    .getString("mode", "default") ?: "default"
+                val manualList = when (manualSortMode) {
+                    "name_asc" -> manualListRaw.sortedBy { it.displayName().lowercase() }
+                    "name_desc" -> manualListRaw.sortedByDescending { it.displayName().lowercase() }
+                    "ping_asc" -> manualListRaw.sortedBy { if (it.ping < 0) Int.MAX_VALUE else it.ping }
+                    "ping_desc" -> manualListRaw.sortedByDescending { it.ping }
+                    else -> manualListRaw
+                }
                 val isExpanded = expandedSubscriptions.contains("manual")
                 rows.add(Row.Header(null,
                     "🔧 ${frag.getString(R.string.manual_added)}",
-                    manualList.size, false, isExpanded))
+                    manualList.size, false, isExpanded, isManual = true))
                 if (isExpanded) {
                     for (si in manualList) rows.add(Row.Item(si))
                 }
@@ -8596,6 +8611,61 @@ class ServersFragment : Fragment() {
             }.start()
         }
 
+        /** Manual serverlarni ping qilish. */
+        fun pingManualAll() {
+            val a = act ?: return
+            val ctx = context ?: return
+            val manual = a.servers.filter { it.subId == null }
+            if (manual.isEmpty()) {
+                Toast.makeText(ctx, R.string.text_no_servers,
+                    Toast.LENGTH_SHORT).show()
+                return
+            }
+            Toast.makeText(ctx,
+                ctx.getString(R.string.ping_sub_started,
+                    ctx.getString(R.string.manual_added), manual.size),
+                Toast.LENGTH_SHORT).show()
+            android.util.Log.i("NurVPN-PING", "Manual ping: ${manual.size}")
+            PingTester.testAll(manual, object : PingTester.Listener {
+                override fun onPingUpdate(item: ServerItem, ping: Int) {
+                    notifyDataSetChanged()
+                }
+                override fun onAllDone() {
+                    ServerStore.save(a, a.servers)
+                    notifyDataSetChanged()
+                    Toast.makeText(ctx, R.string.ping_done,
+                        Toast.LENGTH_SHORT).show()
+                }
+            })
+        }
+
+        /** Manual serverlar uchun sozlama dialogi (sort). */
+        private fun showManualSettingsDialog() {
+            val ctx = context ?: return
+            val current = AwgSortStore.getMode(ctx)
+            val modes = arrayOf(
+                "default" to ctx.getString(R.string.sort_default),
+                "ping_asc" to ctx.getString(R.string.sort_ping_asc),
+                "ping_desc" to ctx.getString(R.string.sort_ping_desc),
+                "name_asc" to ctx.getString(R.string.sort_name_asc),
+                "name_desc" to ctx.getString(R.string.sort_name_desc)
+            )
+            val labels = modes.map { it.second }.toTypedArray()
+            val idx = modes.indexOfFirst { it.first == current }.coerceAtLeast(0)
+
+            androidx.appcompat.app.AlertDialog.Builder(ctx)
+                .setTitle(R.string.sort_title)
+                .setSingleChoiceItems(labels, idx) { d, which ->
+                    // Manual uchun alohida sort mode saqlaymiz
+                    ctx.getSharedPreferences("manual_sort", android.content.Context.MODE_PRIVATE)
+                        .edit().putString("mode", modes[which].first).apply()
+                    rebuild()
+                    d.dismiss()
+                }
+                .setNegativeButton(R.string.dialog_no, null)
+                .show()
+        }
+
         private fun showAwgSettingsDialogServer() {
             val ctx = context ?: return
             val current = AwgSortStore.getMode(ctx)
@@ -8690,25 +8760,25 @@ class ServersFragment : Fragment() {
                     }
                 }
 
-                // ⚙️ sozlama (faqat sub uchun)
-                settings?.visibility = if (row.subId != null) View.VISIBLE else View.GONE
+                // ⚙️ sozlama (sub, AWG yoki manual uchun)
+                val showSettings = row.subId != null || row.isManual
+                settings?.visibility = if (showSettings) View.VISIBLE else View.GONE
                 settings?.setOnClickListener {
-                    val sid = row.subId ?: return@setOnClickListener
-                    if (sid == Row.AWG_HEADER_ID) {
-                        showAwgSettingsDialogServer()
-                    } else {
-                        showSubSettingsDialogServer(sid, row.name)
+                    when {
+                        row.isManual -> showManualSettingsDialog()
+                        row.subId == Row.AWG_HEADER_ID -> showAwgSettingsDialogServer()
+                        row.subId != null -> showSubSettingsDialogServer(row.subId, row.name)
                     }
                 }
 
-                // 📶 ping — sub uchun yoki AWG uchun
-                ping?.visibility = if (row.subId != null) View.VISIBLE else View.GONE
+                // 📶 ping — sub, AWG yoki manual uchun
+                val showPing = row.subId != null || row.isManual
+                ping?.visibility = if (showPing) View.VISIBLE else View.GONE
                 ping?.setOnClickListener {
-                    val sid = row.subId ?: return@setOnClickListener
-                    if (sid == Row.AWG_HEADER_ID) {
-                        pingAwgAll()
-                    } else {
-                        pingSubscription(sid, row.name)
+                    when {
+                        row.isManual -> pingManualAll()
+                        row.subId == Row.AWG_HEADER_ID -> pingAwgAll()
+                        row.subId != null -> pingSubscription(row.subId, row.name)
                     }
                 }
 
@@ -9030,7 +9100,7 @@ class ServersFragment : Fragment() {
 
 ## 📄 `com/nurvpn/app/ui/settings/SettingsFragment.kt`
 
-*593 qator*
+*603 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.settings
@@ -9513,8 +9583,18 @@ class SettingsFragment : Fragment() {
                 }
                 v2.findViewById<TextView>(R.id.leak_ipv6)?.text =
                     "IPv6: $ipv6Text$ipv6Icon"
+                // DNS — status bo'yicha tarjima
+                val dnsText = when (r.dnsStatus) {
+                    "vpn_off" -> getString(R.string.leak_dns_vpn_off)
+                    "timeout" -> getString(R.string.leak_dns_timeout)
+                    "error" -> getString(R.string.leak_dns_error)
+                    "empty" -> getString(R.string.leak_dns_empty)
+                    "leaked" -> "${r.dns} ❌"
+                    "ok" -> "${r.dns} ✅"
+                    else -> r.dns + if (r.dnsOk) " ✅" else " ⚠️"
+                }
                 v2.findViewById<TextView>(R.id.leak_dns)?.text =
-                    "DNS: ${r.dns}" + if (r.dnsOk) " ✅" else " ⚠️"
+                    getString(R.string.leak_dns_label) + ": " + dnsText
             }
         }
     }
@@ -10654,7 +10734,7 @@ object CountryLookup {
 
 ## 📄 `com/nurvpn/app/util/LeakTester.kt`
 
-*191 qator*
+*239 qator*
 
 ```kotlin
 package com.nurvpn.app.util
@@ -10676,6 +10756,17 @@ class LeakResult {
     var ipv4: String = "—"; var ipv4Ok = false
     var ipv6: String = "—"; var ipv6Ok = false
     var dns: String = "—"; var dnsOk = false
+
+    /**
+     * DNS test statusi (tarjima uchun):
+     * - "ok"         — muvaffaqiyatli
+     * - "vpn_off"    — VPN o'chiq
+     * - "timeout"    — vaqt tugadi
+     * - "error"      — xato
+     * - "empty"      — javob bo'sh
+     * - "leaked"     — leak aniqlandi
+     */
+    var dnsStatus: String = ""
 }
 
 
@@ -10709,31 +10800,67 @@ object LeakTester {
         return (first and 0xE0) == 0x20
     }
 
+
+    /** HTTP GET (timeout va UA bilan). */
+    private fun httpGet(urlStr: String): String? {
+        return try {
+            val url = URL(urlStr)
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13)")
+            conn.setRequestProperty("Accept", "application/json, text/plain, */*")
+            val code = conn.responseCode
+            val body = if (code in 200..299) {
+                conn.inputStream.bufferedReader().readText()
+            } else {
+                conn.errorStream?.bufferedReader()?.readText()
+            }
+            conn.disconnect()
+            body
+        } catch (t: Throwable) {
+            Log.e(TAG, "httpGet xato ($urlStr): ${t.message}")
+            null
+        }
+    }
+
     /**
      * HAQIQIY DNS LEAK TESTI (bash.ws orqali).
-     * Token olib, 5 ta maxsus subdomain'ga DNS so'rov yuboradi.
-     * bash.ws resolver'larni qayd qiladi va JSON'da qaytaradi.
+     * - Timeout 5s (connect va read)
+     * - User-Agent (server bloklamasin)
+     * - VPN holati tekshiruvi
      */
-    private fun realDnsLeakTest(): Pair<String, Boolean> {
+
+    private fun realDnsLeakTest(): Triple<String, Boolean, String> {
+        // VPN o'chiq bo'lsa — test ma'nosiz
+        if (!lastVpnActive) {
+            return Triple("", false, "vpn_off")
+        }
+
         return try {
-            val token = URL("https://bash.ws/id").readText().trim()
+            // 1. Token olish
+            val token = httpGet("https://bash.ws/id")?.trim()
+                ?: return Triple("", false, "error")
             if (token.isEmpty()) {
                 Log.w(TAG, "bash.ws: token bo'sh")
-                return "—" to false
+                return Triple("", false, "error")
             }
             Log.i(TAG, "bash.ws token: $token")
 
+            // 2. 5 ta DNS so'rov
             for (i in 1..5) {
                 try {
                     InetAddress.getByName("$i.$token.bash.ws")
-                } catch (t: Throwable) {
-                    // Ba'zi resolver'lar NXDOMAIN qaytaradi — normal
-                }
+                } catch (_: Throwable) {}
             }
 
-            Thread.sleep(2000)
+            // 3. Tarqalish uchun kutish
+            Thread.sleep(3000)
 
-            val jsonText = URL("https://bash.ws/dnsleak/test/$token?json").readText()
+            // 4. Natija olish
+            val jsonText = httpGet("https://bash.ws/dnsleak/test/$token?json")
+                ?: return Triple("", false, "timeout")
             val arr = JSONArray(jsonText)
 
             val resolvers = mutableListOf<String>()
@@ -10755,7 +10882,7 @@ object LeakTester {
 
             Log.i(TAG, "DNS test: ${resolvers.size} resolver, conclusion='$conclusion'")
 
-            if (resolvers.isEmpty()) return "—" to false
+            if (resolvers.isEmpty()) return Triple("", false, "empty")
 
             val ok = when {
                 conclusion.contains("not leaked", ignoreCase = true) -> true
@@ -10768,10 +10895,10 @@ object LeakTester {
             } else {
                 "${resolvers.take(2).joinToString(", ")} +${resolvers.size - 2}"
             }
-            summary to ok
+            Triple(summary, ok, if (ok) "ok" else "leaked")
         } catch (t: Throwable) {
             Log.e(TAG, "realDnsLeakTest xato: ${t.message}", t)
-            "—" to false
+            Triple("", false, "error")
         }
     }
 
@@ -10815,9 +10942,10 @@ object LeakTester {
                 }
 
                 // DNS — haqiqiy test (bash.ws)
-                val (dnsSummary, dnsOk) = realDnsLeakTest()
+                val (dnsSummary, dnsOk, dnsStatus) = realDnsLeakTest()
                 r.dns = dnsSummary
                 r.dnsOk = dnsOk
+                r.dnsStatus = dnsStatus
             } catch (t: Throwable) {
                 Log.e(TAG, "test xato: ${t.message}", t)
             }
@@ -11093,4 +11221,4 @@ object ThemeHelper {
 ---
 
 
-**Jami qatorlar:** 10674
+**Jami qatorlar:** 10802
