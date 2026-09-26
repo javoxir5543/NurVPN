@@ -313,4 +313,9 @@
     <string name="qr_share_title">QR code</string>
     <string name="toast_qr_gen_error">QR generation error</string>
     <string name="sort_title">Sort</string>
+    <string name="leak_dns_label">DNS</string>
+    <string name="leak_dns_vpn_off">VPN off ⚠️</string>
+    <string name="leak_dns_timeout">Timeout ⚠️</string>
+    <string name="leak_dns_error">Error ⚠️</string>
+    <string name="leak_dns_empty">No response ⚠️</string>
 </resources>

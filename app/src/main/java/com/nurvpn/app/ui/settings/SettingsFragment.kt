@@ -478,8 +478,18 @@ class SettingsFragment : Fragment() {
                 }
                 v2.findViewById<TextView>(R.id.leak_ipv6)?.text =
                     "IPv6: $ipv6Text$ipv6Icon"
+                // DNS — status bo'yicha tarjima
+                val dnsText = when (r.dnsStatus) {
+                    "vpn_off" -> getString(R.string.leak_dns_vpn_off)
+                    "timeout" -> getString(R.string.leak_dns_timeout)
+                    "error" -> getString(R.string.leak_dns_error)
+                    "empty" -> getString(R.string.leak_dns_empty)
+                    "leaked" -> "${r.dns} ❌"
+                    "ok" -> "${r.dns} ✅"
+                    else -> r.dns + if (r.dnsOk) " ✅" else " ⚠️"
+                }
                 v2.findViewById<TextView>(R.id.leak_dns)?.text =
-                    "DNS: ${r.dns}" + if (r.dnsOk) " ✅" else " ⚠️"
+                    getString(R.string.leak_dns_label) + ": " + dnsText
             }
         }
     }

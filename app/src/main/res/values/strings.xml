@@ -318,4 +318,9 @@
     <string name="toast_qr_gen_error">QR yaratishda xato</string>
     <string name="toast_vpn_denied">VPN ruxsati berilmadi</string>
     <string name="sort_title">Saralash</string>
+    <string name="leak_dns_label">DNS</string>
+    <string name="leak_dns_vpn_off">VPN o\'chiq ⚠️</string>
+    <string name="leak_dns_timeout">Vaqt tugadi ⚠️</string>
+    <string name="leak_dns_error">Xato ⚠️</string>
+    <string name="leak_dns_empty">Javob yo\'q ⚠️</string>
 </resources>

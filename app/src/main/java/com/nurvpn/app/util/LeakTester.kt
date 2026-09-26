@@ -17,6 +17,17 @@ class LeakResult {
     var ipv4: String = "—"; var ipv4Ok = false
     var ipv6: String = "—"; var ipv6Ok = false
     var dns: String = "—"; var dnsOk = false
+
+    /**
+     * DNS test statusi (tarjima uchun):
+     * - "ok"         — muvaffaqiyatli
+     * - "vpn_off"    — VPN o'chiq
+     * - "timeout"    — vaqt tugadi
+     * - "error"      — xato
+     * - "empty"      — javob bo'sh
+     * - "leaked"     — leak aniqlandi
+     */
+    var dnsStatus: String = ""
 }
 
 
@@ -82,18 +93,19 @@ object LeakTester {
      * - VPN holati tekshiruvi
      */
 
-    private fun realDnsLeakTest(): Pair<String, Boolean> {
+    private fun realDnsLeakTest(): Triple<String, Boolean, String> {
         // VPN o'chiq bo'lsa — test ma'nosiz
         if (!lastVpnActive) {
-            return "VPN o'chiq" to false
+            return Triple("", false, "vpn_off")
         }
 
         return try {
             // 1. Token olish
-            val token = httpGet("https://bash.ws/id")?.trim() ?: return "Xato: token yo'q" to false
+            val token = httpGet("https://bash.ws/id")?.trim()
+                ?: return Triple("", false, "error")
             if (token.isEmpty()) {
                 Log.w(TAG, "bash.ws: token bo'sh")
-                return "—" to false
+                return Triple("", false, "error")
             }
             Log.i(TAG, "bash.ws token: $token")
 
@@ -109,7 +121,7 @@ object LeakTester {
 
             // 4. Natija olish
             val jsonText = httpGet("https://bash.ws/dnsleak/test/$token?json")
-                ?: return "Xato: javob yo'q" to false
+                ?: return Triple("", false, "timeout")
             val arr = JSONArray(jsonText)
 
             val resolvers = mutableListOf<String>()
@@ -131,7 +143,7 @@ object LeakTester {
 
             Log.i(TAG, "DNS test: ${resolvers.size} resolver, conclusion='$conclusion'")
 
-            if (resolvers.isEmpty()) return "—" to false
+            if (resolvers.isEmpty()) return Triple("", false, "empty")
 
             val ok = when {
                 conclusion.contains("not leaked", ignoreCase = true) -> true
@@ -144,10 +156,10 @@ object LeakTester {
             } else {
                 "${resolvers.take(2).joinToString(", ")} +${resolvers.size - 2}"
             }
-            summary to ok
+            Triple(summary, ok, if (ok) "ok" else "leaked")
         } catch (t: Throwable) {
             Log.e(TAG, "realDnsLeakTest xato: ${t.message}", t)
-            "Xato: ${t.message?.take(40) ?: "noma'lum"}" to false
+            Triple("", false, "error")
         }
     }
 
@@ -191,9 +203,10 @@ object LeakTester {
                 }
 
                 // DNS — haqiqiy test (bash.ws)
-                val (dnsSummary, dnsOk) = realDnsLeakTest()
+                val (dnsSummary, dnsOk, dnsStatus) = realDnsLeakTest()
                 r.dns = dnsSummary
                 r.dnsOk = dnsOk
+                r.dnsStatus = dnsStatus
             } catch (t: Throwable) {
                 Log.e(TAG, "test xato: ${t.message}", t)
             }
