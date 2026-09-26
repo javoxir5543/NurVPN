@@ -25,7 +25,8 @@
 - **Ping test** — TCP + ICMP
 - **Split Tunneling** — Whitelist/Blacklist
 - **DNS leak + IPv6 himoya**
-- **QR skaner** — link va AWG config
+- **QR skaner** — link va AWG config'larni skanerlash
+- **QR orqali ulashish** — server, AWG config yoki obunani QR kod orqali ulashish
 - **Ochiq manbalar** — 10+ bepul obuna (butunlay o'chirish mumkin)
 - **AI Selector** — eng yaxshi server avtomatik tanlash
 - **Pauza/Davom etish** — notification panel

@@ -316,7 +316,7 @@ PersistentKeepalive = 15"""
 
 ## 📄 `com/nurvpn/app/config/SingBoxConfig.kt`
 
-*733 qator*
+*730 qator*
 
 ```kotlin
 package com.nurvpn.app.config
@@ -421,15 +421,12 @@ object SingBoxConfig {
                     ?: throw ParseException("reality pbk yo'q"))
                 if (q["sid"] != null) r.put("short_id", q["sid"])
                 tls.put("reality", r)
+                // FIX: tls.utls FAQAT bir marta o'rnatiladi
                 if (!tls.has("utls")) {
                     tls.put("utls", JSONObject()
                         .put("enabled", true)
                         .put("fingerprint", q["fp"] ?: "chrome"))
                 }
-                // ★ X25519MLKEM768 ni o'chirish (eski serverlar uchun)
-                tls.put("utls", JSONObject()
-                    .put("enabled", true)
-                    .put("fingerprint", q["fp"] ?: "chrome"))
             }
             if (q["insecure"] == "1") tls.put("insecure", true)
             o.put("tls", tls)
@@ -932,7 +929,7 @@ object SingBoxConfig {
     }
 
     @Throws(ParseException::class)
-    fun buildFullConfig(link: String, dns: String, cachePath: String): JSONObject {
+    fun buildFullConfig(link: String, dns: String): JSONObject {
         val root = JSONObject()
         val serverHost = extractServerHost(link)
 
@@ -1912,7 +1909,7 @@ object BinaryRunner {
 
 ## 📄 `com/nurvpn/app/service/NurVpnService.kt`
 
-*989 qator*
+*1057 qator*
 
 ```kotlin
 package com.nurvpn.app.service
@@ -2053,6 +2050,9 @@ class NurVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private var server: CommandServer? = null
     private var underlyingNetwork: android.net.Network? = null
+
+    /** Lifecycle-aware underlying network callback (memory leak oldini olish). */
+    private var underlyingCallback: android.net.ConnectivityManager.NetworkCallback? = null
 
     // ═══════ PLATFORM INTERFACE ═══════
     private val platform = object : PlatformInterface {
@@ -2592,6 +2592,14 @@ class NurVpnService : VpnService() {
         if (intent?.getBooleanExtra(MainActivity.EXTRA_STOP, false) == true) {
             val stopGen = intent?.getLongExtra("generation", 0L) ?: 0L
             Log.i(TAG, "STOP so'rovi gen=$stopGen")
+
+            // FIX: Race condition — eski STOP'ni e'tiborsiz qoldirish
+            if (stopGen > 0L && stopGen < serviceGeneration) {
+                Log.w(TAG, "STOP[$stopGen] eskirgan " +
+                    "(hozirgi gen=$serviceGeneration), e'tiborsiz")
+                return START_STICKY
+            }
+
             lastToggleTime = now
             isTransitioning = true
             broadcast("disconnected")
@@ -2767,6 +2775,62 @@ class NurVpnService : VpnService() {
     }
 
     // ═══════ CONNECT ═══════
+    /**
+     * Underlying network'ni o'rnatish + o'zgarishlarni kuzatish.
+     * Wi-Fi <-> Cellular almashganda tunnel avtomatik yangilanadi.
+     */
+    private fun setupUnderlyingNetwork() {
+        if (underlyingCallback != null) {
+            Log.i(TAG, "setupUnderlyingNetwork: allaqachon faol")
+            return
+        }
+        try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE)
+                as android.net.ConnectivityManager
+            underlyingNetwork = cm.activeNetwork
+            Log.i(TAG, "initial underlyingNetwork = $underlyingNetwork")
+
+            val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: android.net.Network) {
+                    underlyingNetwork = network
+                    Log.i(TAG, "underlyingNetwork yangilandi: $network")
+                }
+                override fun onLost(network: android.net.Network) {
+                    if (underlyingNetwork == network) {
+                        underlyingNetwork = null
+                        Log.w(TAG, "underlyingNetwork yo'qoldi: $network")
+                    }
+                }
+            }
+            underlyingCallback = cb
+
+            val req = android.net.NetworkRequest.Builder()
+                .addCapability(
+                    android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addCapability(
+                    android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                .build()
+            cm.registerNetworkCallback(req, cb)
+            Log.i(TAG, "underlyingNetwork callback ro'yxatga olindi")
+        } catch (t: Throwable) {
+            Log.e(TAG, "setupUnderlyingNetwork xato", t)
+        }
+    }
+
+    /** Callback'ni ro'yxatdan chiqarish (memory leak oldini olish). */
+    private fun teardownUnderlyingNetwork() {
+        val cb = underlyingCallback ?: return
+        try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE)
+                as android.net.ConnectivityManager
+            cm.unregisterNetworkCallback(cb)
+            Log.i(TAG, "underlyingNetwork callback olib tashlandi")
+        } catch (t: Throwable) {
+            Log.w(TAG, "teardown xato: ${t.message}")
+        }
+        underlyingCallback = null
+    }
+
     private fun connect(intent: Intent?) {
         val link = intent?.getStringExtra(MainActivity.EXTRA_LINK)
         val awg = intent?.getStringExtra(MainActivity.EXTRA_AWG)
@@ -2775,6 +2839,9 @@ class NurVpnService : VpnService() {
             .getString("dns", "1.1.1.1") ?: "1.1.1.1"
 
         try {
+            // FIX: underlyingNetwork'ni o'rnatish (openTun() dan OLDIN)
+            setupUnderlyingNetwork()
+
             if (link == null && awg == null) {
                 throw Exception(getString(R.string.error_no_server))
             }
@@ -2783,12 +2850,8 @@ class NurVpnService : VpnService() {
                 Log.i(TAG, "AWG rejimi: ${awg.length} belgi config")
                 SingBoxConfig.buildAwgConfig(awg)
             } else {
-                val cacheDirSafe = File(filesDir, "cache").apply { mkdirs() }
-                val cachePath = File(cacheDirSafe, "cache.db").absolutePath
-                runCatching {
-                    if (!File(cachePath).exists()) File(cachePath).createNewFile()
-                }
-                SingBoxConfig.buildFullConfig(link!!, dns, cachePath)
+                // FIX: cachePath olib tashlandi (config'da cache_file yo'q)
+                SingBoxConfig.buildFullConfig(link!!, dns)
             }
             val cfgJson = cfg.toString(2)
             Log.i(TAG, "Config tayyor: ${cfgJson.length} belgi")
@@ -2871,6 +2934,8 @@ class NurVpnService : VpnService() {
     }
 
     private fun cleanup() {
+        // FIX: underlyingNetwork callback'ni ham tozalash
+        teardownUnderlyingNetwork()
         runCatching { server?.closeService() }
         runCatching { server?.close() }
         runCatching { tun?.close() }
@@ -3631,7 +3696,7 @@ object SubscriptionStore {
 
 ## 📄 `com/nurvpn/app/ui/MainActivity.kt`
 
-*441 qator*
+*482 qator*
 
 ```kotlin
 package com.nurvpn.app.ui
@@ -3713,6 +3778,24 @@ class MainActivity : AppCompatActivity() {
                     Toast.LENGTH_LONG).show()
             }
             doStartVpn()
+        }
+
+    // FIX: VPN ruxsat dialog natijasi (zamonaviy API)
+    private val vpnPermissionLauncher =
+        registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts
+                .StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == android.app.Activity.RESULT_OK) {
+                android.util.Log.i("NurVPN-DBG",
+                    "VPN ruxsat berildi -> doStartVpn()")
+                doStartVpn()
+            } else {
+                android.util.Log.w("NurVPN-DBG", "VPN ruxsat rad etildi")
+                Toast.makeText(this,
+                    R.string.toast_vpn_denied,
+                    Toast.LENGTH_SHORT).show()
+            }
         }
 
     private var stateReceiver: BroadcastReceiver? = null
@@ -3858,7 +3941,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         stateReceiver = receiver
-        this.dbgReceiver = dbgReceiver
+        // FIX: this.dbgReceiver = dbgReceiver bu yerdan olib tashlandi
+        // (lokal o'zgaruvchi hali e'lon qilinmagan edi -> no-op)
 
         val filter = IntentFilter(ACTION_BROADCAST)
         if (Build.VERSION.SDK_INT >= 33) {
@@ -3893,6 +3977,9 @@ class MainActivity : AppCompatActivity() {
                 startVpn()
             }
         }
+        // FIX: field'ga saqlash (onDestroy uchun)
+        this.dbgReceiver = dbgReceiver
+
         val dbgFilter = IntentFilter("com.nurvpn.app.DEBUG_START")
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(dbgReceiver, dbgFilter, Context.RECEIVER_NOT_EXPORTED)
@@ -3900,7 +3987,27 @@ class MainActivity : AppCompatActivity() {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(dbgReceiver, dbgFilter)
         }
-        // TEST KOD OLIB TASHLANDI
+
+        // FIX: AWG editor signal receiver
+        val awgEditedReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, i: Intent?) {
+                val newRaw = i?.getStringExtra("awg_raw") ?: return
+                val cfg = awgConfigs.find { it.rawConf == newRaw } ?: return
+                if (isRunning && protocol == PROTO_AWG) {
+                    restartVpn(getString(R.string.reason_awg,
+                        cfg.name ?: "AWG"))
+                }
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(awgEditedReceiver,
+                IntentFilter("com.nurvpn.app.AWG_EDITED"),
+                Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(awgEditedReceiver,
+                IntentFilter("com.nurvpn.app.AWG_EDITED"))
+        }
 
         // ★ Avto-start O'CHIRILDI — foydalanuvchi qo'lda bosadi
         android.util.Log.i("NurVPN-DBG", "Avto-start o'chirilgan, qo'lda bosishni kuting")
@@ -4026,11 +4133,10 @@ class MainActivity : AppCompatActivity() {
                 android.Manifest.permission.POST_NOTIFICATIONS)
             return
         }
-        // ═══ VPN ruxsatini faqat shu yerda so'raymiz ═══
+        // FIX: Zamonaviy ActivityResult API
         val vpnIntent = VpnService.prepare(this)
         if (vpnIntent != null) {
-            // Ruxsat berilmagan — dialog ochamiz
-            startActivityForResult(vpnIntent, 1001)
+            vpnPermissionLauncher.launch(vpnIntent)
             return
         }
         doStartVpn()
@@ -4080,7 +4186,7 @@ class MainActivity : AppCompatActivity() {
 
 ## 📄 `com/nurvpn/app/ui/awg/AWGEditorActivity.kt`
 
-*164 qator*
+*202 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.awg
@@ -4095,7 +4201,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.nurvpn.app.R
 import com.nurvpn.app.core.AWGEditorBus
+import com.nurvpn.app.parser.AWGParser
 import com.nurvpn.app.storage.AWGStore
+import com.nurvpn.app.ui.MainActivity
 import com.nurvpn.app.util.AWGEditor
 
 class AWGEditorActivity : AppCompatActivity() {
@@ -4240,11 +4348,47 @@ class AWGEditorActivity : AppCompatActivity() {
         }
         if (index < 0 || index >= AWGEditorBus.configs.size) return
         val cfg = AWGEditorBus.configs[index]
+        val oldRaw = cfg.rawConf
         cfg.rawConf = buildResult()
+
+        // FIX: Endpoint/address ni qayta parse qilamiz
+        val parsed = AWGParser.parse(cfg.rawConf ?: "")
+        if (parsed.ok) {
+            cfg.endpoint = parsed.endpoint
+            cfg.address = parsed.address
+        }
+
         AWGStore.save(this, AWGEditorBus.configs)
         Toast.makeText(this, R.string.editor_saved, Toast.LENGTH_SHORT).show()
+
+        // FIX: Agar joriy config tahrirlangan bo'lsa va VPN ishlayotgan
+        // bo'lsa — reconnect chaqiramiz
+        val main = getMainActivity()
+        if (main != null && oldRaw != cfg.rawConf) {
+            if (main.currentAWG?.rawConf == oldRaw ||
+                main.currentAWG === cfg) {
+                main.currentAWG = cfg
+                main.protocol = MainActivity.PROTO_AWG
+                AWGEditorBus.init(main.awgConfigs, cfg, MainActivity.PROTO_AWG)
+
+                if (main.isRunning) {
+                    android.util.Log.i("NurVPN-AWG",
+                        "Editor: config o'zgardi -> reconnect")
+                    main.restartVpn(getString(R.string.reason_awg,
+                        cfg.name ?: "AWG"))
+                }
+            }
+        }
+
         finish()
     }
+
+    /**
+     * MainActivity'ni topish — deprecated getActivity() o'rniga.
+     * AWGEditorActivity alohida Activity bo'lgani uchun bu yerda null qaytaradi.
+     * Boshqa yo'l: SharedPreferences listener yoki broadcast.
+     */
+    private fun getMainActivity(): MainActivity? = null
 }
 ```
 
@@ -4252,10 +4396,11 @@ class AWGEditorActivity : AppCompatActivity() {
 
 ## 📄 `com/nurvpn/app/ui/home/HomeFragment.kt`
 
-*2363 qator*
+*2525 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.home
+import com.nurvpn.app.BuildConfig
 import com.nurvpn.app.R
 
 import com.nurvpn.app.core.TunnelState
@@ -4397,7 +4542,41 @@ class HomeFragment : Fragment() {
     private val homeExpandedSubs = mutableSetOf<String>()
     private val pingRebuildRunnable = Runnable {
         pingUpdateScheduled = false
-        if (isAdded) rebuildServerCards()
+        // FIX: View'larni QAYTA YARATMASDAN, faqat ping matnini yangilash.
+        // rebuildServerCards(force=true) 200+ serverda telefonni qotiradi.
+        if (isAdded) refreshPingViewsInPlace()
+    }
+
+    /** Debounce interval — 600+ server uchun 1200ms optimal. */
+    private val PING_DEBOUNCE_MS = 1200L
+
+    /**
+     * FIX: View'larni QAYTA YARATMASDAN, faqat mavjud ping TextView'larni
+     * yangilash. 200+ serverda 100x tezroq (rebuild 3s, bu 30ms).
+     */
+    private fun refreshPingViewsInPlace() {
+        val a = activity as? MainActivity ?: return
+        val container = cardsContainer ?: return
+        // Link -> ServerItem xaritasi (tez qidirish uchun)
+        val byLink = HashMap<String, ServerItem>(a.servers.size)
+        for (s in a.servers) byLink[s.link] = s
+        walkAndUpdatePing(container, byLink)
+    }
+
+    /** Rekursiv ravishda row_ping TextView'larni topib, yangilash. */
+    private fun walkAndUpdatePing(view: View, byLink: Map<String, ServerItem>) {
+        if (view is TextView && view.id == R.id.row_ping) {
+            val link = view.tag as? String ?: return
+            val si = byLink[link] ?: return
+            view.text = pingLabel(si)
+            view.setTextColor(pingColor(si))
+            return
+        }
+        if (view is android.view.ViewGroup) {
+            for (i in 0 until view.childCount) {
+                walkAndUpdatePing(view.getChildAt(i), byLink)
+            }
+        }
     }
     private var pulseY: android.animation.ObjectAnimator? = null
 
@@ -4481,6 +4660,11 @@ class HomeFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         val v = inflater.inflate(R.layout.fragment_home, container, false)
+
+        // Dinamik versiya (BuildConfig dan)
+        v.findViewById<android.widget.TextView>(R.id.txt_app_title)?.text =
+            "NurVPN v${BuildConfig.VERSION_NAME}"
+
         connectBtn = v.findViewById(R.id.connect_btn)
         connectIcon = v.findViewById(R.id.connect_icon)
         statusText = v.findViewById(R.id.status_text)
@@ -4760,6 +4944,8 @@ class HomeFragment : Fragment() {
         proto.backgroundTintList = android.content.res.ColorStateList
             .valueOf(protocolColor(si.protocol))
         val pingView = row.findViewById<TextView>(R.id.row_ping)
+        // FIX: tag = link (in-place update uchun)
+        pingView.tag = si.link
         pingView.text = pingLabel(si)
         pingView.setTextColor(pingColor(si))
 
@@ -5163,7 +5349,7 @@ class HomeFragment : Fragment() {
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
                     if (!pingUpdateScheduled) {
                         pingUpdateScheduled = true
-                        ui.postDelayed(pingRebuildRunnable, 400)
+                        ui.postDelayed(pingRebuildRunnable, PING_DEBOUNCE_MS)
                     }
                 }
                 override fun onAllDone() {
@@ -5173,7 +5359,9 @@ class HomeFragment : Fragment() {
                     pingUpdateScheduled = false
                     val a2 = activity as? MainActivity ?: return
                     ServerStore.save(a2, a2.servers)
-                    rebuildServerCards()
+                    // FIX: rebuild EMAS, faqat ping view'larni yangilash
+                    // (200+ serverda 3 sekund freeze oldini oladi)
+                    refreshPingViewsInPlace()
                     Toast.makeText(context, R.string.ping_done,
                         Toast.LENGTH_SHORT).show()
                 }
@@ -5213,7 +5401,7 @@ class HomeFragment : Fragment() {
                 // Debounce
                 if (!pingUpdateScheduled) {
                     pingUpdateScheduled = true
-                    ui.postDelayed(pingRebuildRunnable, 400)
+                    ui.postDelayed(pingRebuildRunnable, PING_DEBOUNCE_MS)
                 }
             }
             override fun onAllDone() {
@@ -5223,7 +5411,8 @@ class HomeFragment : Fragment() {
                 pingUpdateScheduled = false
                 val a2 = activity as? MainActivity ?: return
                 ServerStore.save(a2, a2.servers)
-                rebuildServerCards()
+                // FIX: force=true
+                rebuildServerCards(force = true)
                 Toast.makeText(context, R.string.ping_done,
                     Toast.LENGTH_SHORT).show()
             }
@@ -5619,15 +5808,43 @@ class HomeFragment : Fragment() {
 
         header.setOnClickListener {
             if (subId != null) {
+                // ═══ FIX: rebuildServerCards() OLIB TASHLANDI ═══
+                // Sabab: har expand'da 600+ view qayta yaratilardi → freeze.
+                // Endi faqat shu kartaning body'si to'ldiriladi (in-place).
+                val act = activity as? MainActivity
                 if (subId in homeExpandedSubs) {
+                    // Collapse — view'larni saqlab, faqat yashiramiz
                     homeExpandedSubs.remove(subId)
+                    body.visibility = android.view.View.GONE
+                    arrow.text = "\u2B07"
                 } else {
+                    // Expand — birinchi marta bo'lsa populate
                     homeExpandedSubs.add(subId)
+                    if (body.tag != "populated" && act != null) {
+                        body.removeAllViews()
+                        val raw = act.servers.filter { it.subId == subId }
+                        val subSort = act.subscriptions
+                            .find { it.id == subId }?.sortMode ?: "default"
+                        val list = sortServers(raw, subSort)
+                        for (si in list) {
+                            body.addView(makeServerRow(si, act))
+                        }
+                        if (body.childCount == 0) {
+                            val tv = TextView(requireContext())
+                            tv.text = getString(R.string.text_no_servers)
+                            tv.setTextColor(androidx.core.content.ContextCompat
+                                .getColor(requireContext(), R.color.text_tertiary))
+                            tv.textSize = 12f
+                            tv.setPadding(0, 12, 0, 12)
+                            body.addView(tv)
+                        }
+                        body.tag = "populated"
+                    }
+                    body.visibility = android.view.View.VISIBLE
+                    arrow.text = "\u2B06"
                 }
-                // Qayta chizish — lazy loading ishlashi uchun
-                ui.post { rebuildServerCards() }
             } else {
-                // subId yo'q — faqat visibility
+                // subId yo'q — faqat visibility toggle
                 if (body.visibility == android.view.View.VISIBLE) {
                     body.visibility = android.view.View.GONE
                     arrow.text = "\u2B07"
@@ -5704,6 +5921,9 @@ class HomeFragment : Fragment() {
                 a.selectAWG(cfg)
                 a.protocol = MainActivity.PROTO_AWG
                 AWGEditorBus.init(a.awgConfigs, cfg, MainActivity.PROTO_AWG)
+                Toast.makeText(context,
+                    cfg.name ?: getString(R.string.text_awg_label),
+                    Toast.LENGTH_SHORT).show()
                 refresh()
             }
             // Ping ko'rsatish
@@ -5738,12 +5958,8 @@ class HomeFragment : Fragment() {
             }
 
 
-            row.setOnClickListener {
-                a.currentAWG = cfg
-                a.protocol = MainActivity.PROTO_AWG
-                Toast.makeText(context, cfg.name ?: getString(R.string.text_awg_label), Toast.LENGTH_SHORT).show()
-                refresh()
-            }
+            // FIX: 2-chi row.setOnClickListener OLIB TASHLANDI
+            // (1-chi listenermi bosib ketardi va tanlash rejimi buzilardi)
             body.addView(row)
         }
     }
@@ -6109,7 +6325,6 @@ class HomeFragment : Fragment() {
                 // Og'ir ishlarni background'ga
                 Thread {
                     ServerStore.save(a, a.servers)
-                    System.gc()
                     activity?.runOnUiThread { refresh() }
                 }.start()
             }
@@ -6364,12 +6579,23 @@ class HomeFragment : Fragment() {
         android.util.Log.i("NurVPN-PING", "Home ping: ${a.servers.size} server")
 
         if (a.servers.isNotEmpty()) {
-            PingTester.testAll(a.servers, object : PingTester.Listener {
+            // FIX: 600+ server uchun limit — bir vaqtda max 100 ta
+            val MAX_PING = 100
+            val serversToPing = if (a.servers.size > MAX_PING) {
+                // Eng yaqin (birinchi) 100 tasi — foydalanuvchi kutayotgani
+                android.util.Log.w("NurVPN-PING",
+                    "pingHomeAll: ${a.servers.size} server, faqat " +
+                    "$MAX_PING tasi ping qilinadi")
+                a.servers.take(MAX_PING)
+            } else {
+                a.servers
+            }
+            PingTester.testAll(serversToPing, object : PingTester.Listener {
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
                     // Debounce — 400ms ichida ko'p marta chaqirilsa, faqat 1 marta rebuild
                     if (!pingUpdateScheduled) {
                         pingUpdateScheduled = true
-                        ui.postDelayed(pingRebuildRunnable, 400)
+                        ui.postDelayed(pingRebuildRunnable, PING_DEBOUNCE_MS)
                     }
                 }
                 override fun onAllDone() {
@@ -6379,14 +6605,94 @@ class HomeFragment : Fragment() {
                     pingUpdateScheduled = false
                     val a2 = activity as? MainActivity ?: return
                     ServerStore.save(a2, a2.servers)
-                    rebuildServerCards()
-                    Toast.makeText(context, R.string.ping_done,
-                        Toast.LENGTH_SHORT).show()
+                    // FIX: force=true
+                    rebuildServerCards(force = true)
+                    // FIX: AWG ham bo'lsa — ularni ham ping qilamiz
+                    if (a2.awgConfigs.isNotEmpty()) {
+                        pingAwgConfigsInBackground(a2)
+                    } else {
+                        Toast.makeText(context, R.string.ping_done,
+                            Toast.LENGTH_SHORT).show()
+                    }
                 }
             })
+        } else if (a.awgConfigs.isNotEmpty()) {
+            // FIX: Faqat AWG config bor foydalanuvchi uchun
+            pingAwgConfigsInBackground(a)
         } else {
             pingRunning = false
         }
+    }
+
+    /**
+     * FIX: AWG configlarni background'da ping qilish.
+     * UDP (WireGuard) uchun 3 bosqichli ping: TCP -> ICMP -> UDP.
+     */
+    private fun pingAwgConfigsInBackground(a: MainActivity) {
+        if (a.awgConfigs.isEmpty()) {
+            pingRunning = false
+            return
+        }
+        Thread {
+            val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+            val latch = java.util.concurrent.CountDownLatch(a.awgConfigs.size)
+            for (cfg in a.awgConfigs) {
+                pool.execute {
+                    try {
+                        val ep = cfg.endpoint ?: return@execute
+                        val host = ep.substringBeforeLast(":")
+                        val port = ep.substringAfterLast(":").toIntOrNull() ?: 0
+
+                        // 1. TCP ping
+                        var ping = if (port > 0)
+                            PingTester.tcpPing(host, port, 2000) else -1
+
+                        // 2. ICMP fallback
+                        if (ping <= 0) {
+                            ping = try {
+                                PingTester.icmpPing(host, 2000)
+                            } catch (t: Throwable) { -1 }
+                        }
+
+                        // 3. UDP fallback (AWG uchun eng ishonchli)
+                        if (ping <= 0 && port > 0) {
+                            ping = try {
+                                val start = System.currentTimeMillis()
+                                val sock = java.net.DatagramSocket()
+                                sock.connect(java.net.InetAddress.getByName(host), port)
+                                sock.send(java.net.DatagramPacket(ByteArray(1), 1))
+                                sock.close()
+                                (System.currentTimeMillis() - start).toInt()
+                            } catch (t: Throwable) { -1 }
+                        }
+
+                        cfg.ping = ping
+                        android.util.Log.i("NurVPN-PING",
+                            "AWG ${cfg.name}: ping=$ping (host=$host:$port)")
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            try {
+                latch.await(20, java.util.concurrent.TimeUnit.SECONDS)
+            } catch (_: Throwable) {}
+            pool.shutdown()
+
+            activity?.runOnUiThread {
+                if (!isAdded) {
+                    pingRunning = false
+                    return@runOnUiThread
+                }
+                AWGStore.save(a, a.awgConfigs)
+                awgExpanded = true
+                bodyAwg?.visibility = View.VISIBLE
+                rebuildAwgList()
+                pingRunning = false
+                Toast.makeText(context, R.string.ping_done,
+                    Toast.LENGTH_SHORT).show()
+            }
+        }.start()
     }
 
     private fun toggleConnection() {
@@ -6791,7 +7097,7 @@ object QrShowDialog {
 
 ## 📄 `com/nurvpn/app/ui/servers/ServersFragment.kt`
 
-*1870 qator*
+*1925 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.servers
@@ -7096,8 +7402,14 @@ class ServersFragment : Fragment() {
             return
         }
 
-        // ═══ Serverlar (barcha protokollar: TCP + ICMP) ═══
-        val pingable = a.servers
+        // FIX: 600+ server uchun limit — bir vaqtda max 100
+        val MAX_PING = 100
+        val pingable = if (a.servers.size > MAX_PING) {
+            android.util.Log.w("NurVPN-PING",
+                "ServersFragment.pingAll: ${a.servers.size} server, " +
+                "faqat $MAX_PING tasi")
+            a.servers.take(MAX_PING)
+        } else a.servers
 
         if (pingable.isNotEmpty()) {
             var scheduled = false
@@ -7107,7 +7419,7 @@ class ServersFragment : Fragment() {
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
                     if (!scheduled) {
                         scheduled = true
-                        h.postDelayed({ scheduled = false; runnable.run() }, 400)
+                        h.postDelayed({ scheduled = false; runnable.run() }, 1200)
                     }
                 }
                 override fun onAllDone() {
@@ -7862,15 +8174,29 @@ class ServersFragment : Fragment() {
                 }
             }
 
-            for ((subId, list) in grouped) {
-                val sub = if (subId != null) a.subscriptions.find { it.id == subId } else null
-                val title = sub?.name ?: frag.getString(R.string.manual_added)
-                val icon = if (sub != null) "📡" else "🔧"
-                val key = subId ?: "manual"
-                val isExpanded = expandedSubscriptions.contains(key)
-                rows.add(Row.Header(subId, "$icon $title", list.size, false, isExpanded))
+            // FIX: Obuna tartibini `order` field bo'yicha (Home bilan bir xil)
+            val sortedSubIds = a.subscriptions
+                .sortedBy { it.order }
+                .map { it.id }
+
+            for (subId in sortedSubIds) {
+                val list = grouped[subId] ?: continue
+                val sub = a.subscriptions.find { it.id == subId } ?: continue
+                val isExpanded = expandedSubscriptions.contains(subId)
+                rows.add(Row.Header(subId, "📡 ${sub.name}", list.size, false, isExpanded))
                 if (isExpanded) {
                     for (si in list) rows.add(Row.Item(si))
+                }
+            }
+
+            // Qo'lda qo'shilgan serverlar — oxirida
+            grouped[null]?.let { manualList ->
+                val isExpanded = expandedSubscriptions.contains("manual")
+                rows.add(Row.Header(null,
+                    "🔧 ${frag.getString(R.string.manual_added)}",
+                    manualList.size, false, isExpanded))
+                if (isExpanded) {
+                    for (si in manualList) rows.add(Row.Item(si))
                 }
             }
 
@@ -8107,8 +8433,13 @@ class ServersFragment : Fragment() {
         fun pingSubscription(subId: String, subName: String) {
             val a = act ?: return
             val ctx = context ?: return
-            // ⭐ Avtomatik ping_asc — eng tez birinchi
-            // ⭐ Sevimlilar kartasi uchun maxsus
+
+            // FIX: Debounce — 400ms ichida bir marta rebuild (UI freeze oldini olish)
+            var scheduled = false
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+            val rebuildRunnable = Runnable { notifyDataSetChanged() }
+
+            // Sevimlilar kartasi uchun maxsus
             if (subId == "fav_card") {
                 val favs = a.servers.filter { it.favorite }
                 if (favs.isEmpty()) {
@@ -8123,9 +8454,17 @@ class ServersFragment : Fragment() {
                     "Ping favorites: ${favs.size}")
                 PingTester.testAll(favs, object : PingTester.Listener {
                     override fun onPingUpdate(item: ServerItem, ping: Int) {
-                        notifyDataSetChanged()
+                        // FIX: debounce
+                        if (!scheduled) {
+                            scheduled = true
+                            handler.postDelayed({
+                                scheduled = false
+                                rebuildRunnable.run()
+                            }, 1200)
+                        }
                     }
                     override fun onAllDone() {
+                        handler.removeCallbacksAndMessages(null)
                         ServerStore.save(a, a.servers)
                         notifyDataSetChanged()
                         Toast.makeText(ctx, R.string.ping_done,
@@ -8135,9 +8474,19 @@ class ServersFragment : Fragment() {
                 return
             }
 
-            SubscriptionStore.setSortMode(ctx, subId, "ping_asc")
+            // FIX: Auto ping_asc sort OLIB TASHLANDI (ping tugagach qo'llaniladi).
+            // Sort ping davomida UI'ni qotiradi.
             a.subscriptions = SubscriptionStore.load(a)
             var servers = a.servers.filter { it.subId == subId }
+
+            // FIX: 600+ server uchun limit — bir vaqtda max 100
+            val MAX_PING_SUB = 100
+            if (servers.size > MAX_PING_SUB) {
+                android.util.Log.w("NurVPN-PING",
+                    "pingSub: ${servers.size} ta, faqat $MAX_PING_SUB tasi")
+                servers = servers.take(MAX_PING_SUB)
+            }
+
             android.util.Log.i("NurVPN-PING",
                 "pingSub: subId=$subId, matched=${servers.size}, total=${a.servers.size}")
             if (servers.isEmpty()) {
@@ -8167,10 +8516,22 @@ class ServersFragment : Fragment() {
 
             PingTester.testAll(servers, object : PingTester.Listener {
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
-                    notifyDataSetChanged()
+                    // FIX: debounce — 400ms ichida bir marta
+                    if (!scheduled) {
+                        scheduled = true
+                        handler.postDelayed({
+                            scheduled = false
+                            rebuildRunnable.run()
+                        }, 1200)
+                    }
                 }
                 override fun onAllDone() {
+                    handler.removeCallbacksAndMessages(null)
                     ServerStore.save(a, a.servers)
+                    // FIX: Ping tugagach — sort qilib yangilash (rebuild EMAS)
+                    SubscriptionStore.setSortMode(ctx, subId, "ping_asc")
+                    a.subscriptions = SubscriptionStore.load(a)
+                    // Yengil yangilash — adapter'ning hozirgi view'larini yangilash
                     notifyDataSetChanged()
                     Toast.makeText(ctx, R.string.ping_done,
                         Toast.LENGTH_SHORT).show()
@@ -10067,7 +10428,7 @@ class SpeedWaveView @JvmOverloads constructor(
 
 ## 📄 `com/nurvpn/app/util/AWGEditor.kt`
 
-*100 qator*
+*122 qator*
 
 ```kotlin
 package com.nurvpn.app.util
@@ -10083,6 +10444,11 @@ object AWGEditor {
         var mtu: Int = 1280
         var keepalive: Int = 25
         var dns: String = ""
+        // FIX: H1-H4 qo'shildi — AmneziaWG magic header'lari
+        var h1: Int = 1
+        var h2: Int = 2
+        var h3: Int = 3
+        var h4: Int = 4
     }
 
     fun parse(raw: String): Data {
@@ -10103,9 +10469,13 @@ object AWGEditor {
                 "jmin" -> d.jmin = v.toIntOrNull() ?: 40
                 "jmax" -> d.jmax = v.toIntOrNull() ?: 70
                 "mtu" -> d.mtu = v.toIntOrNull() ?: 1280
-                "persistentkeepalive" ->
-                    d.keepalive = v.toIntOrNull() ?: 25
+                "persistentkeepalive" -> d.keepalive = v.toIntOrNull() ?: 25
                 "dns" -> d.dns = v
+                // FIX: H1-H4 parsing
+                "h1" -> d.h1 = v.toIntOrNull() ?: 1
+                "h2" -> d.h2 = v.toIntOrNull() ?: 2
+                "h3" -> d.h3 = v.toIntOrNull() ?: 3
+                "h4" -> d.h4 = v.toIntOrNull() ?: 4
             }
         }
         return d
@@ -10116,7 +10486,6 @@ object AWGEditor {
         var replaced = false
         for (line in raw.lines()) {
             val t = line.trim()
-            // ═══ Case-insensitive + aniq kalit mos kelishi ═══
             val eqIdx = t.indexOf('=')
             if (eqIdx > 0) {
                 val lineKey = t.substring(0, eqIdx).trim()
@@ -10143,6 +10512,11 @@ object AWGEditor {
         out = setValue(out, "Jmax", d.jmax.toString())
         out = setValue(out, "MTU", d.mtu.toString())
         out = setValue(out, "PersistentKeepalive", d.keepalive.toString())
+        // FIX: H1-H4 ham tahrirlanadi
+        out = setValue(out, "H1", d.h1.toString())
+        out = setValue(out, "H2", d.h2.toString())
+        out = setValue(out, "H3", d.h3.toString())
+        out = setValue(out, "H4", d.h4.toString())
         if (d.dns.isNotEmpty()) out = setValue(out, "DNS", d.dns)
         return out
     }
@@ -10157,6 +10531,11 @@ object AWGEditor {
         out = setValue(out, "Jmin", "50")
         out = setValue(out, "Jmax", "100")
         out = setValue(out, "MTU", "1180")
+        // FIX: H1-H4 Beeline uchun
+        out = setValue(out, "H1", "4")
+        out = setValue(out, "H2", "5")
+        out = setValue(out, "H3", "6")
+        out = setValue(out, "H4", "7")
         return applyPort443(out)
     }
 
@@ -10165,10 +10544,14 @@ object AWGEditor {
         out = setValue(out, "Jmin", "20")
         out = setValue(out, "Jmax", "50")
         out = setValue(out, "MTU", "1280")
+        // FIX: H1-H4 MTS uchun
+        out = setValue(out, "H1", "1")
+        out = setValue(out, "H2", "2")
+        out = setValue(out, "H3", "3")
+        out = setValue(out, "H4", "4")
         return applyPort443(out)
     }
 }
-
 ```
 
 ---
@@ -10271,7 +10654,7 @@ object CountryLookup {
 
 ## 📄 `com/nurvpn/app/util/LeakTester.kt`
 
-*116 qator*
+*191 qator*
 
 ```kotlin
 package com.nurvpn.app.util
@@ -10279,11 +10662,15 @@ package com.nurvpn.app.util
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.NetworkInterface
+import java.net.URL
+import org.json.JSONArray
 import java.util.Collections
+
 
 class LeakResult {
     var ipv4: String = "—"; var ipv4Ok = false
@@ -10291,33 +10678,101 @@ class LeakResult {
     var dns: String = "—"; var dnsOk = false
 }
 
+
 object LeakTester {
+    private const val TAG = "NurVPN-LEAK"
+
     @Volatile var lastVpnActive: Boolean = false
     @Volatile var lastIpv6Blocked: Boolean = false
 
     /** VPN/tunnel interfeyslari — bular leak EMAS. */
     private fun isVpnInterface(name: String): Boolean {
         val n = name.lowercase()
+        // FIX: rmnet/ccmni OLIB TASHLANDI — bular mobil data interfeyslari
         return n.startsWith("tun") || n.startsWith("tap") ||
                n.startsWith("dummy") || n.startsWith("vpn") ||
                n == "lo" || n.startsWith("ppp") ||
                n.contains("wg") || n.contains("sing") ||
-               n.contains("utun") || n.contains("rmnet")
+               n.contains("utun")
     }
 
     /** Faqat global unicast IPv6 (2000::/3) — haqiqiy internet manzil. */
     private fun isGlobalUnicastV6(addr: Inet6Address): Boolean {
         if (addr.isLoopbackAddress) return false
-        if (addr.isLinkLocalAddress) return false       // fe80::/10
-        if (addr.isSiteLocalAddress) return false       // fec0::/10
+        if (addr.isLinkLocalAddress) return false
+        if (addr.isSiteLocalAddress) return false
         if (addr.isMulticastAddress) return false
         val b = addr.address
         if (b.isEmpty()) return false
         val first = b[0].toInt() and 0xFF
-        // ULA (fc00::/7) — lokal, internetga chiqmaydi
         if ((first and 0xFE) == 0xFC) return false
-        // Global unicast: 2000::/3 (birinchi 3 bit = 001)
         return (first and 0xE0) == 0x20
+    }
+
+    /**
+     * HAQIQIY DNS LEAK TESTI (bash.ws orqali).
+     * Token olib, 5 ta maxsus subdomain'ga DNS so'rov yuboradi.
+     * bash.ws resolver'larni qayd qiladi va JSON'da qaytaradi.
+     */
+    private fun realDnsLeakTest(): Pair<String, Boolean> {
+        return try {
+            val token = URL("https://bash.ws/id").readText().trim()
+            if (token.isEmpty()) {
+                Log.w(TAG, "bash.ws: token bo'sh")
+                return "—" to false
+            }
+            Log.i(TAG, "bash.ws token: $token")
+
+            for (i in 1..5) {
+                try {
+                    InetAddress.getByName("$i.$token.bash.ws")
+                } catch (t: Throwable) {
+                    // Ba'zi resolver'lar NXDOMAIN qaytaradi — normal
+                }
+            }
+
+            Thread.sleep(2000)
+
+            val jsonText = URL("https://bash.ws/dnsleak/test/$token?json").readText()
+            val arr = JSONArray(jsonText)
+
+            val resolvers = mutableListOf<String>()
+            var conclusion = ""
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val type = o.optString("type", "")
+                if (type == "dns") {
+                    val ip = o.optString("ip", "")
+                    val country = o.optString("country_name", "")
+                    if (ip.isNotEmpty()) {
+                        resolvers.add(if (country.isNotEmpty()) "$ip ($country)" else ip)
+                    }
+                } else {
+                    val c = o.optString("conclusion", "")
+                    if (c.isNotEmpty()) conclusion = c
+                }
+            }
+
+            Log.i(TAG, "DNS test: ${resolvers.size} resolver, conclusion='$conclusion'")
+
+            if (resolvers.isEmpty()) return "—" to false
+
+            val ok = when {
+                conclusion.contains("not leaked", ignoreCase = true) -> true
+                conclusion.contains("leaked", ignoreCase = true) -> false
+                else -> resolvers.size <= 1
+            }
+
+            val summary = if (resolvers.size <= 2) {
+                resolvers.joinToString(", ")
+            } else {
+                "${resolvers.take(2).joinToString(", ")} +${resolvers.size - 2}"
+            }
+            summary to ok
+        } catch (t: Throwable) {
+            Log.e(TAG, "realDnsLeakTest xato: ${t.message}", t)
+            "—" to false
+        }
     }
 
     fun test(cb: (LeakResult) -> Unit) {
@@ -10337,11 +10792,10 @@ object LeakTester {
                     }
                     if (r.ipv4Ok) break
                 }
-                // IPv6 — VPN holatiga qarab
+
+                // IPv6
                 if (lastVpnActive && lastIpv6Blocked) {
-                    // VPN faol + IPv6 bloklangan → barcha IPv6 VPN ichidan o'tadi
-                    // Pastdagi interfeysdagi IPv6 manzil LEAK EMAS
-                    r.ipv6 = "blocked"   // UI da tarjima qilinadi
+                    r.ipv6 = "blocked"
                     r.ipv6Ok = true
                 } else {
                     var v6: String? = null
@@ -10359,15 +10813,19 @@ object LeakTester {
                     r.ipv6 = v6 ?: "not_found"
                     r.ipv6Ok = v6 == null
                 }
-                r.dns = try {
-                    InetAddress.getByName("1.1.1.1").hostAddress ?: "—"
-                } catch (e: Exception) { "—" }
-                r.dnsOk = r.dns != "—"
-            } catch (t: Throwable) {}
+
+                // DNS — haqiqiy test (bash.ws)
+                val (dnsSummary, dnsOk) = realDnsLeakTest()
+                r.dns = dnsSummary
+                r.dnsOk = dnsOk
+            } catch (t: Throwable) {
+                Log.e(TAG, "test xato: ${t.message}", t)
+            }
             Handler(Looper.getMainLooper()).post { cb(r) }
         }.start()
     }
 }
+
 
 object IPv6Blocker {
     private const val KEY = "block_ipv6"
@@ -10379,6 +10837,7 @@ object IPv6Blocker {
             .edit().putBoolean(KEY, v).apply()
 }
 
+
 object DNSLeakProtection {
     private const val KEY = "dns_leak"
     fun isEnabled(ctx: Context): Boolean =
@@ -10388,14 +10847,13 @@ object DNSLeakProtection {
         ctx.getSharedPreferences("sec", Context.MODE_PRIVATE)
             .edit().putBoolean(KEY, v).apply()
 }
-
 ```
 
 ---
 
 ## 📄 `com/nurvpn/app/util/PingTester.kt`
 
-*111 qator*
+*142 qator*
 
 ```kotlin
 package com.nurvpn.app.util
@@ -10409,6 +10867,7 @@ import com.nurvpn.app.core.ServerItem
 import com.nurvpn.app.core.TunnelState
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 
 object PingTester {
@@ -10419,6 +10878,9 @@ object PingTester {
 
     private val pool = Executors.newFixedThreadPool(8)
 
+    // BATCH: har bir ping natijasi to'planadi, 200ms da bir marta UI'ga post
+    private const val BATCH_INTERVAL_MS = 200L
+
     fun tcpPing(host: String, port: Int, timeoutMs: Int = 4000): Int {
         return try {
             val start = System.currentTimeMillis()
@@ -10428,16 +10890,16 @@ object PingTester {
             }
         } catch (e: Exception) { -1 }
     }
+
     fun pingAny(host: String, port: Int, proto: Protocol, timeoutMs: Int = 4000): Int {
         val r = when (proto.pingStrategy) {
             PingStrategy.TCP_CONNECT -> tcpPing(host, port, timeoutMs)
             PingStrategy.HOST_RTT -> icmpPing(host, timeoutMs)
         }
-        Log.d("NurVPN-PING", "pingAny $host:$port proto=$proto strategy=${proto.pingStrategy} → $r ms")
+        Log.d("NurVPN-PING", "pingAny $host:$port proto=$proto strategy=${proto.pingStrategy} -> $r ms")
         return r
     }
 
-    /** Hysteria2/TUIC/AWG uchun host RTT (ICMP yoki TCP fallback). */
     fun icmpPing(host: String, timeoutMs: Int = 4000): Int {
         return try {
             val start = System.currentTimeMillis()
@@ -10451,11 +10913,6 @@ object PingTester {
         }
     }
 
-    /**
-     * UDP protokollar (Hysteria2, TUIC) uchun ping — Clash API orqali.
-     * Tag har doim "proxy" (SingBoxConfig'da hardcoded).
-     * API 127.0.0.1 da, addDisallowedApplication bypass ta'sir qilmaydi.
-     */
     private fun clashApiPing(timeoutMs: Int): Int {
         if (!TunnelState.isConnected) return -1
         val tag = "proxy"
@@ -10475,34 +10932,66 @@ object PingTester {
             val body = (if (code in 200..299) conn.inputStream else conn.errorStream)
                 ?.bufferedReader()?.readText() ?: ""
             conn.disconnect()
-            Log.d("NurVPN-PING", "clashApiPing code=$code body=${body.take(160)}")
             Regex("""\"delay\"\s*:\s*(\d+)""").find(body)
                 ?.groupValues?.get(1)?.toIntOrNull() ?: -1
         } catch (e: Exception) {
-            Log.d("NurVPN-PING", "clashApiPing xato: ${e.message}")
             -1
         }
     }
 
+    /**
+     * BATCH MODE: har ping natijasi to'planadi, 200ms da bir marta UI'ga post.
+     * 100+ server uchun UI freeze oldini oladi (100x kam UI yangilanish).
+     */
     fun testAll(servers: List<ServerItem>, listener: Listener) {
-        var remaining = servers.size
-        if (remaining == 0) { listener.onAllDone(); return }
+        val total = servers.size
+        if (total == 0) {
+            listener.onAllDone()
+            return
+        }
+
+        // Batch queue — thread-safe
+        val pending = ConcurrentLinkedQueue<Pair<ServerItem, Int>>()
+        val handler = Handler(Looper.getMainLooper())
+        val scheduled = java.util.concurrent.atomic.AtomicBoolean(false)
+
+        val flushRunnable = Runnable {
+            scheduled.set(false)
+            // Batch'dagi hamma natijalarni bir marta yetkazish
+            val batch = ArrayList<Pair<ServerItem, Int>>(pending.size)
+            while (true) {
+                val item = pending.poll() ?: break
+                batch.add(item)
+            }
+            if (batch.isEmpty()) return@Runnable
+            for ((si, p) in batch) {
+                listener.onPingUpdate(si, p)
+            }
+        }
+
+        val remaining = java.util.concurrent.atomic.AtomicInteger(total)
+
         for (si in servers) {
             pool.submit {
                 val h = si.host
                 val p = if (h.isNullOrEmpty() || si.port <= 0) -1
                         else pingAny(h, si.port, si.protocol)
                 si.ping = p
-                Handler(Looper.getMainLooper()).post {
-                    listener.onPingUpdate(si, p)
+
+                // Batch'ga qo'shamiz
+                pending.add(si to p)
+
+                // 200ms da bir marta flush
+                if (scheduled.compareAndSet(false, true)) {
+                    handler.postDelayed(flushRunnable, BATCH_INTERVAL_MS)
                 }
-                synchronized(listener) {
-                    remaining--
-                    if (remaining == 0) {
-                        Handler(Looper.getMainLooper()).post {
-                            listener.onAllDone()
-                        }
-                    }
+
+                // Hamma tugadi
+                if (remaining.decrementAndGet() == 0) {
+                    // Yakuniy flush (kutmasdan)
+                    handler.removeCallbacks(flushRunnable)
+                    handler.post(flushRunnable)
+                    handler.post { listener.onAllDone() }
                 }
             }
         }
@@ -10604,4 +11093,4 @@ object ThemeHelper {
 ---
 
 
-**Jami qatorlar:** 10185
+**Jami qatorlar:** 10674

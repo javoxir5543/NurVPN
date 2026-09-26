@@ -25,7 +25,8 @@
 - **Ping test** — TCP + ICMP
 - **Split Tunneling** — Whitelist/Blacklist
 - **DNS leak + IPv6 protection**
-- **QR scanner** — links and AWG configs
+- **QR scanner** — scan links and AWG configs
+- **QR sharing** — share server, AWG config, or subscription via QR code
 - **Open sources** — 10+ free subscriptions (can be fully disabled/removed)
 - **AI Selector** — auto-select best server
 - **Pause/Resume** — notification panel
@@ -55,7 +56,7 @@
 ### Download APK
 
 1. Go to **Releases** section
-2. Download **app-arm64-v8a-release.apk** (modern phones, 84 MB)
+2. Download **app-arm64-v8a-release.apk** (modern phones, ~84 MB)
 3. Or **app-armeabi-v7a-release.apk** (older phones, 76 MB)
 4. Install it
 
