@@ -50,31 +50,66 @@ object LeakTester {
         return (first and 0xE0) == 0x20
     }
 
+
+    /** HTTP GET (timeout va UA bilan). */
+    private fun httpGet(urlStr: String): String? {
+        return try {
+            val url = URL(urlStr)
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13)")
+            conn.setRequestProperty("Accept", "application/json, text/plain, */*")
+            val code = conn.responseCode
+            val body = if (code in 200..299) {
+                conn.inputStream.bufferedReader().readText()
+            } else {
+                conn.errorStream?.bufferedReader()?.readText()
+            }
+            conn.disconnect()
+            body
+        } catch (t: Throwable) {
+            Log.e(TAG, "httpGet xato ($urlStr): ${t.message}")
+            null
+        }
+    }
+
     /**
      * HAQIQIY DNS LEAK TESTI (bash.ws orqali).
-     * Token olib, 5 ta maxsus subdomain'ga DNS so'rov yuboradi.
-     * bash.ws resolver'larni qayd qiladi va JSON'da qaytaradi.
+     * - Timeout 5s (connect va read)
+     * - User-Agent (server bloklamasin)
+     * - VPN holati tekshiruvi
      */
+
     private fun realDnsLeakTest(): Pair<String, Boolean> {
+        // VPN o'chiq bo'lsa — test ma'nosiz
+        if (!lastVpnActive) {
+            return "VPN o'chiq" to false
+        }
+
         return try {
-            val token = URL("https://bash.ws/id").readText().trim()
+            // 1. Token olish
+            val token = httpGet("https://bash.ws/id")?.trim() ?: return "Xato: token yo'q" to false
             if (token.isEmpty()) {
                 Log.w(TAG, "bash.ws: token bo'sh")
                 return "—" to false
             }
             Log.i(TAG, "bash.ws token: $token")
 
+            // 2. 5 ta DNS so'rov
             for (i in 1..5) {
                 try {
                     InetAddress.getByName("$i.$token.bash.ws")
-                } catch (t: Throwable) {
-                    // Ba'zi resolver'lar NXDOMAIN qaytaradi — normal
-                }
+                } catch (_: Throwable) {}
             }
 
-            Thread.sleep(2000)
+            // 3. Tarqalish uchun kutish
+            Thread.sleep(3000)
 
-            val jsonText = URL("https://bash.ws/dnsleak/test/$token?json").readText()
+            // 4. Natija olish
+            val jsonText = httpGet("https://bash.ws/dnsleak/test/$token?json")
+                ?: return "Xato: javob yo'q" to false
             val arr = JSONArray(jsonText)
 
             val resolvers = mutableListOf<String>()
@@ -112,7 +147,7 @@ object LeakTester {
             summary to ok
         } catch (t: Throwable) {
             Log.e(TAG, "realDnsLeakTest xato: ${t.message}", t)
-            "—" to false
+            "Xato: ${t.message?.take(40) ?: "noma'lum"}" to false
         }
     }
 
