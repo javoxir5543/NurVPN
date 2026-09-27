@@ -389,7 +389,7 @@ object ServerLinkParser {
     private fun parseSs(link: String, subId: String?): ServerItem? {
         val si = ServerItem(link)
         si.subId = subId
-        si.protocol = Protocol.SS_2022
+        si.protocol = Protocol.fromUri(link)
 
         var body = link.removePrefix("ss://")
         val hash = body.indexOf('#')

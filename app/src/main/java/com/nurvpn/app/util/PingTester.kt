@@ -43,16 +43,30 @@ object PingTester {
     }
 
     fun icmpPing(host: String, timeoutMs: Int = 4000): Int {
-        return try {
+        // 1) isReachable (ba'zan ishlaydi)
+        try {
             val start = System.currentTimeMillis()
             val addr = java.net.InetAddress.getByName(host)
             if (addr.isReachable(timeoutMs)) {
-                (System.currentTimeMillis() - start).toInt()
-            } else -1
-        } catch (e: Exception) {
-            Log.d("NurVPN-PING", "icmpPing fail $host: ${e.message}")
-            -1
+                val rtt = (System.currentTimeMillis() - start).toInt()
+                Log.d("NurVPN-PING", "icmpPing($host) isReachable -> $rtt ms")
+                return rtt
+            }
+        } catch (t: Throwable) {
+            Log.d("NurVPN-PING", "icmpPing isReachable fail: ${t.message}")
         }
+
+        // 2) TCP fallback: 443 -> 80
+        for (testPort in intArrayOf(443, 80)) {
+            val r = tcpPing(host, testPort, timeoutMs)
+            if (r > 0) {
+                Log.d("NurVPN-PING", "icmpPing($host) tcp:$testPort -> $r ms")
+                return r
+            }
+        }
+
+        Log.d("NurVPN-PING", "icmpPing($host) -> -1 (barcha urinishlar)")
+        return -1
     }
 
     private fun clashApiPing(timeoutMs: Int): Int {
