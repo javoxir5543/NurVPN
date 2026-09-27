@@ -43,6 +43,7 @@ import com.nurvpn.app.parser.SubscriptionLinkExtractor
 import com.nurvpn.app.parser.ServerLinkParser
 import com.nurvpn.app.parser.decodeBase64Safely
 import com.nurvpn.app.storage.ServerStore
+import com.nurvpn.app.storage.HwidStore
 import com.nurvpn.app.core.Subscription
 import com.nurvpn.app.storage.SubscriptionStore
 
@@ -1693,7 +1694,9 @@ class HomeFragment : Fragment() {
 
     /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
     private fun getHwid(): String {
-        val ctx = requireContext()
+        // ★ HWID o'chirilgan bo'lsa — bo'sh string
+        if (!HwidStore.isEnabled(requireContext())) return ""
+                val ctx = requireContext()
         // ANDROID_ID — qurilma uchun barqaror
         val androidId = try {
             android.provider.Settings.Secure.getString(
@@ -1731,8 +1734,8 @@ class HomeFragment : Fragment() {
                 conn.setRequestProperty("User-Agent", "INCY/1.0.0 (Linux; Android 13)")
                 conn.setRequestProperty("Accept", "*/*")
                 // HWID (server talab qiladi)
-                conn.setRequestProperty("x-hwid", getHwid())
-                conn.setRequestProperty("x-device-id", getHwid())
+                run { val hw = getHwid(); if (hw.isNotEmpty()) { conn.setRequestProperty("x-hwid", hw) } }
+                // x-device-id x-hwid bilan birga yuboriladi (yuqoriga qarang)
                 conn.setRequestProperty("x-platform", "android")
                 conn.setRequestProperty("x-client", "incy")
                 conn.setRequestProperty("accept", "*/*")

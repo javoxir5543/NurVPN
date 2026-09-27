@@ -323,4 +323,6 @@
     <string name="leak_dns_timeout">Vaqt tugadi ⚠️</string>
     <string name="leak_dns_error">Xato ⚠️</string>
     <string name="leak_dns_empty">Javob yo\'q ⚠️</string>
+    <string name="hwid_title">HWID (Device ID)</string>
+    <string name="hwid_desc">Obuna serverlariga qurilma ID sini yuborish. O\'chirilsa — qurilmalar limiti tekshirilmaydi.</string>
 </resources>

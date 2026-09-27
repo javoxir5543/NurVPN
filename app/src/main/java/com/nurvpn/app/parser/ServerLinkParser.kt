@@ -37,69 +37,97 @@ object ServerLinkParser {
         }
     }
 
-    /** Xray JSON config → URI string → ServerItem. */
+    /** Xray JSON config -> URI string -> ServerItem. */
     private fun parseXrayJson(json: String, subId: String?): ServerItem? {
         return try {
             val root = org.json.JSONObject(json)
             val outbounds = root.optJSONArray("outbounds") ?: return null
-            // Proxy outbound topamiz (direct/block/fragment emas)
             var proxy: org.json.JSONObject? = null
             for (i in 0 until outbounds.length()) {
                 val ob = outbounds.getJSONObject(i)
                 val proto = ob.optString("protocol", "")
                 if (proto in listOf("vless", "vmess", "trojan", "shadowsocks")) {
-                    proxy = ob
-                    break
+                    proxy = ob; break
                 }
             }
             val ob = proxy ?: return null
-
             val protocol = ob.optString("protocol")
             val settings = ob.optJSONObject("settings") ?: return null
             val stream = ob.optJSONObject("streamSettings")
-
-            // DEBUG: barcha JSON key larni logga chiqaramiz
-            val dbgKeys = mutableListOf<String>()
-            val kit = root.keys()
-            while (kit.hasNext()) dbgKeys.add(kit.next())
-            android.util.Log.i("NurVPN-PARSE", "JSON root keys: $dbgKeys")
-            for (k in dbgKeys) {
-                val v = root.opt(k)
-                if (v is String) android.util.Log.i("NurVPN-PARSE", "  root.$k = $v")
-            }
-            val obKeys = mutableListOf<String>()
-            val oit = ob.keys()
-            while (oit.hasNext()) obKeys.add(oit.next())
-            android.util.Log.i("NurVPN-PARSE", "outbound keys: $obKeys")
-            for (k in obKeys) {
-                val v = ob.opt(k)
-                if (v is String) android.util.Log.i("NurVPN-PARSE", "  ob.$k = $v")
-            }
-            // Nomni turli maydonlardan izlaymiz
             val remark = listOf("remarks","remark","tag","name","title","label","ps","displayName","serverName","country")
-                .firstNotNullOfOrNull { k ->
-                    val v = root.optString(k, "")
-                    if (v.isNotBlank() && !v.startsWith("http")) v else null
-                } ?: listOf("remarks","remark","tag","name","title","label")
-                .firstNotNullOfOrNull { k ->
-                    val v = ob.optString(k, "")
-                    if (v.isNotBlank() && !v.startsWith("http")) v else null
-                } ?: ""
-            android.util.Log.i("NurVPN-PARSE", "Extracted remark='$remark'")
+                .firstNotNullOfOrNull { k -> val v = root.optString(k, ""); if (v.isNotBlank() && !v.startsWith("http")) v else null }
+                ?: ""
             val link = when (protocol) {
-                "vless" -> buildVlessUri(settings, stream, remark)
-                else -> {
-                    android.util.Log.w("NurVPN-PARSE", "JSON protocol qollab-quvvatlanmaydi: $protocol")
-                    return null
-                }
+                "vless"       -> buildVlessUri(settings, stream, remark)
+                "vmess"       -> buildVmessUri(settings, stream, remark)
+                "trojan"      -> buildTrojanUri(settings, stream, remark)
+                "shadowsocks" -> buildShadowsocksUri(settings, stream, remark)
+                else -> return null
             } ?: return null
-
-            android.util.Log.i("NurVPN-PARSE", "Xray JSON → URI: ${link.take(80)}...")
             parseStandard(link, subId)
-        } catch (t: Throwable) {
-            android.util.Log.e("NurVPN-PARSE", "Xray JSON parse xato", t)
-            null
+        } catch (t: Throwable) { null }
+    }
+
+    private fun buildVmessUri(s: org.json.JSONObject, st: org.json.JSONObject?, rm: String?): String? {
+        val vn = s.optJSONArray("vnext") ?: return null
+        if (vn.length() == 0) return null
+        val n = vn.getJSONObject(0)
+        val addr = n.optString("address", ""); val port = n.optInt("port", 443)
+        val u = n.optJSONArray("users") ?: return null
+        if (u.length() == 0) return null
+        val us = u.getJSONObject(0)
+        val id = us.optString("id", "")
+        if (id.isEmpty() || addr.isEmpty()) return null
+        val net = st?.optString("network", "tcp") ?: "tcp"
+        val sec = st?.optString("security", "none") ?: "none"
+        val q = mutableListOf("encryption=${us.optString("security","auto").ifEmpty{"auto"}}", "type=$net")
+        if (sec == "tls") q.add("security=tls")
+        if (net == "ws") {
+            val w = st?.optJSONObject("wsSettings")
+            val h = w?.optString("host", "") ?: ""
+            val pa = w?.optString("path", "") ?: ""
+            if (h.isNotEmpty()) q.add("host=${java.net.URLEncoder.encode(h,"UTF-8")}")
+            if (pa.isNotEmpty()) q.add("path=${java.net.URLEncoder.encode(pa,"UTF-8")}")
         }
+        if (sec == "tls") {
+            val sn = st?.optJSONObject("tlsSettings")?.optString("serverName","")?.trim() ?: ""
+            if (sn.isNotEmpty()) q.add("sni=${java.net.URLEncoder.encode(sn,"UTF-8")}")
+        }
+        val name = rm?.takeIf { it.isNotBlank() } ?: addr
+        return "vmess://$id@$addr:$port?${q.joinToString("&")}#${java.net.URLEncoder.encode(name,"UTF-8").replace("+","%20")}"
+    }
+
+    private fun buildTrojanUri(s: org.json.JSONObject, st: org.json.JSONObject?, rm: String?): String? {
+        val sv = s.optJSONArray("servers") ?: return null
+        if (sv.length() == 0) return null
+        val n = sv.getJSONObject(0)
+        val addr = n.optString("address", ""); val port = n.optInt("port", 443)
+        val pw = n.optString("password", "")
+        if (addr.isEmpty() || pw.isEmpty()) return null
+        val net = st?.optString("network", "tcp") ?: "tcp"
+        val sec = st?.optString("security", "tls") ?: "tls"
+        val q = mutableListOf("type=$net")
+        if (sec.isNotEmpty()) q.add("security=$sec")
+        val sn = st?.optJSONObject("tlsSettings")?.optString("serverName","")?.trim() ?: addr
+        if (sn.isNotEmpty()) q.add("sni=${java.net.URLEncoder.encode(sn,"UTF-8")}")
+        val name = rm?.takeIf { it.isNotBlank() } ?: addr
+        val e = java.net.URLEncoder.encode(pw, "UTF-8")
+        return "trojan://$e@$addr:$port?${q.joinToString("&")}#${java.net.URLEncoder.encode(name,"UTF-8").replace("+","%20")}"
+    }
+
+    private fun buildShadowsocksUri(s: org.json.JSONObject, st: org.json.JSONObject?, rm: String?): String? {
+        val sv = s.optJSONArray("servers") ?: return null
+        if (sv.length() == 0) return null
+        val n = sv.getJSONObject(0)
+        val addr = n.optString("address", ""); val port = n.optInt("port", 8388)
+        val m = n.optString("method", "aes-256-gcm")
+        val pw = n.optString("password", "")
+        if (addr.isEmpty() || pw.isEmpty()) return null
+        val ui = "$m:$pw"
+        val b64 = android.util.Base64.encodeToString(ui.toByteArray(Charsets.UTF_8),
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
+        val name = rm?.takeIf { it.isNotBlank() } ?: addr
+        return "ss://$b64@$addr:$port#${java.net.URLEncoder.encode(name,"UTF-8").replace("+","%20")}"
     }
 
     /** Xray VLESS settings → vless:// URI. */
@@ -428,4 +456,3 @@ object ServerLinkParser {
 }
 
 // ═══════════ SUBSCRIPTION (obuna) ═══════════
-

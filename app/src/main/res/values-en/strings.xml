@@ -318,4 +318,6 @@
     <string name="leak_dns_timeout">Timeout ⚠️</string>
     <string name="leak_dns_error">Error ⚠️</string>
     <string name="leak_dns_empty">No response ⚠️</string>
+    <string name="hwid_title">HWID (Device ID)</string>
+    <string name="hwid_desc">Send device ID to subscription servers. If disabled — device limit is not checked.</string>
 </resources>

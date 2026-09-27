@@ -35,6 +35,7 @@ import com.nurvpn.app.ui.split.SplitAppsActivity
 import com.nurvpn.app.ui.awg.AWGEditorActivity
 import com.nurvpn.app.storage.OpenSourceStore
 import com.nurvpn.app.storage.SplitTunnelStore
+import com.nurvpn.app.storage.HwidStore
 import com.nurvpn.app.util.DNSLeakProtection
 import com.nurvpn.app.util.IPv6Blocker
 import com.nurvpn.app.util.LeakResult
@@ -358,6 +359,22 @@ class SettingsFragment : Fragment() {
         dnsLeakSwitch?.setOnCheckedChangeListener { _, ch ->
             if (binding) return@setOnCheckedChangeListener
             DNSLeakProtection.setEnabled(requireContext(), ch)
+        }
+
+        // ═══ HWID switch ═══
+        try {
+            val hwidSwitch = v.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(
+                R.id.hwid_switch)
+            hwidSwitch?.apply {
+                isSaveEnabled = false
+                isChecked = HwidStore.isEnabled(requireContext())
+                setOnCheckedChangeListener { _, ch ->
+                    if (binding) return@setOnCheckedChangeListener
+                    HwidStore.setEnabled(requireContext(), ch)
+                }
+            }
+        } catch (t: Throwable) {
+            android.util.Log.w("NurVPN-HWID", "HWID switch xato: ${t.message}")
         }
 
         v.findViewById<Button>(R.id.leak_test_btn)

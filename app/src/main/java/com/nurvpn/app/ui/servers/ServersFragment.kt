@@ -42,6 +42,7 @@ import com.nurvpn.app.storage.AwgSortStore
 import com.nurvpn.app.storage.OpenSourceCatalog
 import com.nurvpn.app.storage.OpenSourceStore
 import com.nurvpn.app.storage.ServerStore
+import com.nurvpn.app.storage.HwidStore
 import com.nurvpn.app.storage.SubscriptionStore
 import com.nurvpn.app.ui.MainActivity
 import com.nurvpn.app.ui.awg.AWGEditorActivity
@@ -731,7 +732,9 @@ class ServersFragment : Fragment() {
 
     /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
     private fun getHwid(): String {
-        val ctx = requireContext()
+        // ★ HWID o'chirilgan bo'lsa — bo'sh string
+        if (!HwidStore.isEnabled(requireContext())) return ""
+                val ctx = requireContext()
         // ANDROID_ID — qurilma uchun barqaror
         val androidId = try {
             android.provider.Settings.Secure.getString(
@@ -843,7 +846,7 @@ class ServersFragment : Fragment() {
             c.setRequestProperty("User-Agent", "v2rayTun/3.6.0 (Linux; Android 13; SM-S918B)")
             c.setRequestProperty("Accept", "*/*")
             c.setRequestProperty("Accept-Encoding", "identity")
-            c.setRequestProperty("x-hwid", getHwid())
+            run { val hw = getHwid(); if (hw.isNotEmpty()) { c.setRequestProperty("x-hwid", hw) } }
             c.setRequestProperty("x-device-os", "Android")
             c.setRequestProperty("x-ver-os", android.os.Build.VERSION.RELEASE ?: "13")
             c.setRequestProperty("x-device-model", android.os.Build.MODEL ?: "SM-S918B")

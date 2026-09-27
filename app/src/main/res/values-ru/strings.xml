@@ -318,4 +318,6 @@
     <string name="leak_dns_timeout">Время истекло ⚠️</string>
     <string name="leak_dns_error">Ошибка ⚠️</string>
     <string name="leak_dns_empty">Нет ответа ⚠️</string>
+    <string name="hwid_title">HWID (ID устройства)</string>
+    <string name="hwid_desc">Отправлять ID устройства на серверы подписки. Если выключено — лимит устройств не проверяется.</string>
 </resources>

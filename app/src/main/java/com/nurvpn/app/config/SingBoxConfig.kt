@@ -559,7 +559,7 @@ object SingBoxConfig {
                     .put("server", "1.1.1.1")
                     .put("detour", "proxy")))
             .put("final", "dns-remote")
-            .put("strategy", "prefer_ipv4"))
+            .put("strategy", "ipv4_only"))
 
         root.put("log", JSONObject()
             .put("level", "info")
@@ -641,7 +641,7 @@ object SingBoxConfig {
                     .put("tag", "dns-direct")))
             .put("rules", dnsRules)
             .put("final", "dns-remote")
-            .put("strategy", "prefer_ipv4"))
+            .put("strategy", "ipv4_only"))
 
         // ═══ CACHE — o'chirildi (Android'da flock timeout beradi) ═══
         // experimental/cache_file UMUMAN YO'Q.
@@ -663,7 +663,7 @@ object SingBoxConfig {
             .put("address", JSONArray().put("172.19.0.1/30").put("fdfe:dcba:9876::1/126"))
             .put("auto_route", true)
             .put("mtu", 1500)
-            .put("auto_route", true)
+            
             .put("strict_route", false)
             .put("stack", "gvisor"))
         root.put("inbounds", inbounds)
@@ -726,4 +726,3 @@ object SingBoxConfig {
 
 
 // ═══════════ MAIN ACTIVITY ═══════════
-
