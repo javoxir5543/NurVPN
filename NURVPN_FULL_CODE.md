@@ -2,7 +2,7 @@
 
 > Barcha Kotlin fayllar bitta faylda. Avtomatik yaratilgan.
 
-**Jami fayllar:** 45
+**Jami fayllar:** 46
 
 ---
 
@@ -32,6 +32,7 @@ com/nurvpn/app/service/NurVpnTileService.kt
 com/nurvpn/app/storage/AWGStore.kt
 com/nurvpn/app/storage/AppListLoader.kt
 com/nurvpn/app/storage/AwgSortStore.kt
+com/nurvpn/app/storage/HwidStore.kt
 com/nurvpn/app/storage/MetricsStore.kt
 com/nurvpn/app/storage/OpenSourceSubscriptions.kt
 com/nurvpn/app/storage/ServerStore.kt
@@ -316,7 +317,7 @@ PersistentKeepalive = 15"""
 
 ## 📄 `com/nurvpn/app/config/SingBoxConfig.kt`
 
-*730 qator*
+*729 qator*
 
 ```kotlin
 package com.nurvpn.app.config
@@ -880,7 +881,7 @@ object SingBoxConfig {
                     .put("server", "1.1.1.1")
                     .put("detour", "proxy")))
             .put("final", "dns-remote")
-            .put("strategy", "prefer_ipv4"))
+            .put("strategy", "ipv4_only"))
 
         root.put("log", JSONObject()
             .put("level", "info")
@@ -962,7 +963,7 @@ object SingBoxConfig {
                     .put("tag", "dns-direct")))
             .put("rules", dnsRules)
             .put("final", "dns-remote")
-            .put("strategy", "prefer_ipv4"))
+            .put("strategy", "ipv4_only"))
 
         // ═══ CACHE — o'chirildi (Android'da flock timeout beradi) ═══
         // experimental/cache_file UMUMAN YO'Q.
@@ -984,7 +985,7 @@ object SingBoxConfig {
             .put("address", JSONArray().put("172.19.0.1/30").put("fdfe:dcba:9876::1/126"))
             .put("auto_route", true)
             .put("mtu", 1500)
-            .put("auto_route", true)
+            
             .put("strict_route", false)
             .put("stack", "gvisor"))
         root.put("inbounds", inbounds)
@@ -1047,7 +1048,6 @@ object SingBoxConfig {
 
 
 // ═══════════ MAIN ACTIVITY ═══════════
-
 ```
 
 ---
@@ -1404,7 +1404,7 @@ fun decodeBase64Safely(value: String): String {
 
 ## 📄 `com/nurvpn/app/parser/ServerLinkParser.kt`
 
-*432 qator*
+*459 qator*
 
 ```kotlin
 package com.nurvpn.app.parser
@@ -1446,69 +1446,97 @@ object ServerLinkParser {
         }
     }
 
-    /** Xray JSON config → URI string → ServerItem. */
+    /** Xray JSON config -> URI string -> ServerItem. */
     private fun parseXrayJson(json: String, subId: String?): ServerItem? {
         return try {
             val root = org.json.JSONObject(json)
             val outbounds = root.optJSONArray("outbounds") ?: return null
-            // Proxy outbound topamiz (direct/block/fragment emas)
             var proxy: org.json.JSONObject? = null
             for (i in 0 until outbounds.length()) {
                 val ob = outbounds.getJSONObject(i)
                 val proto = ob.optString("protocol", "")
                 if (proto in listOf("vless", "vmess", "trojan", "shadowsocks")) {
-                    proxy = ob
-                    break
+                    proxy = ob; break
                 }
             }
             val ob = proxy ?: return null
-
             val protocol = ob.optString("protocol")
             val settings = ob.optJSONObject("settings") ?: return null
             val stream = ob.optJSONObject("streamSettings")
-
-            // DEBUG: barcha JSON key larni logga chiqaramiz
-            val dbgKeys = mutableListOf<String>()
-            val kit = root.keys()
-            while (kit.hasNext()) dbgKeys.add(kit.next())
-            android.util.Log.i("NurVPN-PARSE", "JSON root keys: $dbgKeys")
-            for (k in dbgKeys) {
-                val v = root.opt(k)
-                if (v is String) android.util.Log.i("NurVPN-PARSE", "  root.$k = $v")
-            }
-            val obKeys = mutableListOf<String>()
-            val oit = ob.keys()
-            while (oit.hasNext()) obKeys.add(oit.next())
-            android.util.Log.i("NurVPN-PARSE", "outbound keys: $obKeys")
-            for (k in obKeys) {
-                val v = ob.opt(k)
-                if (v is String) android.util.Log.i("NurVPN-PARSE", "  ob.$k = $v")
-            }
-            // Nomni turli maydonlardan izlaymiz
             val remark = listOf("remarks","remark","tag","name","title","label","ps","displayName","serverName","country")
-                .firstNotNullOfOrNull { k ->
-                    val v = root.optString(k, "")
-                    if (v.isNotBlank() && !v.startsWith("http")) v else null
-                } ?: listOf("remarks","remark","tag","name","title","label")
-                .firstNotNullOfOrNull { k ->
-                    val v = ob.optString(k, "")
-                    if (v.isNotBlank() && !v.startsWith("http")) v else null
-                } ?: ""
-            android.util.Log.i("NurVPN-PARSE", "Extracted remark='$remark'")
+                .firstNotNullOfOrNull { k -> val v = root.optString(k, ""); if (v.isNotBlank() && !v.startsWith("http")) v else null }
+                ?: ""
             val link = when (protocol) {
-                "vless" -> buildVlessUri(settings, stream, remark)
-                else -> {
-                    android.util.Log.w("NurVPN-PARSE", "JSON protocol qollab-quvvatlanmaydi: $protocol")
-                    return null
-                }
+                "vless"       -> buildVlessUri(settings, stream, remark)
+                "vmess"       -> buildVmessUri(settings, stream, remark)
+                "trojan"      -> buildTrojanUri(settings, stream, remark)
+                "shadowsocks" -> buildShadowsocksUri(settings, stream, remark)
+                else -> return null
             } ?: return null
-
-            android.util.Log.i("NurVPN-PARSE", "Xray JSON → URI: ${link.take(80)}...")
             parseStandard(link, subId)
-        } catch (t: Throwable) {
-            android.util.Log.e("NurVPN-PARSE", "Xray JSON parse xato", t)
-            null
+        } catch (t: Throwable) { null }
+    }
+
+    private fun buildVmessUri(s: org.json.JSONObject, st: org.json.JSONObject?, rm: String?): String? {
+        val vn = s.optJSONArray("vnext") ?: return null
+        if (vn.length() == 0) return null
+        val n = vn.getJSONObject(0)
+        val addr = n.optString("address", ""); val port = n.optInt("port", 443)
+        val u = n.optJSONArray("users") ?: return null
+        if (u.length() == 0) return null
+        val us = u.getJSONObject(0)
+        val id = us.optString("id", "")
+        if (id.isEmpty() || addr.isEmpty()) return null
+        val net = st?.optString("network", "tcp") ?: "tcp"
+        val sec = st?.optString("security", "none") ?: "none"
+        val q = mutableListOf("encryption=${us.optString("security","auto").ifEmpty{"auto"}}", "type=$net")
+        if (sec == "tls") q.add("security=tls")
+        if (net == "ws") {
+            val w = st?.optJSONObject("wsSettings")
+            val h = w?.optString("host", "") ?: ""
+            val pa = w?.optString("path", "") ?: ""
+            if (h.isNotEmpty()) q.add("host=${java.net.URLEncoder.encode(h,"UTF-8")}")
+            if (pa.isNotEmpty()) q.add("path=${java.net.URLEncoder.encode(pa,"UTF-8")}")
         }
+        if (sec == "tls") {
+            val sn = st?.optJSONObject("tlsSettings")?.optString("serverName","")?.trim() ?: ""
+            if (sn.isNotEmpty()) q.add("sni=${java.net.URLEncoder.encode(sn,"UTF-8")}")
+        }
+        val name = rm?.takeIf { it.isNotBlank() } ?: addr
+        return "vmess://$id@$addr:$port?${q.joinToString("&")}#${java.net.URLEncoder.encode(name,"UTF-8").replace("+","%20")}"
+    }
+
+    private fun buildTrojanUri(s: org.json.JSONObject, st: org.json.JSONObject?, rm: String?): String? {
+        val sv = s.optJSONArray("servers") ?: return null
+        if (sv.length() == 0) return null
+        val n = sv.getJSONObject(0)
+        val addr = n.optString("address", ""); val port = n.optInt("port", 443)
+        val pw = n.optString("password", "")
+        if (addr.isEmpty() || pw.isEmpty()) return null
+        val net = st?.optString("network", "tcp") ?: "tcp"
+        val sec = st?.optString("security", "tls") ?: "tls"
+        val q = mutableListOf("type=$net")
+        if (sec.isNotEmpty()) q.add("security=$sec")
+        val sn = st?.optJSONObject("tlsSettings")?.optString("serverName","")?.trim() ?: addr
+        if (sn.isNotEmpty()) q.add("sni=${java.net.URLEncoder.encode(sn,"UTF-8")}")
+        val name = rm?.takeIf { it.isNotBlank() } ?: addr
+        val e = java.net.URLEncoder.encode(pw, "UTF-8")
+        return "trojan://$e@$addr:$port?${q.joinToString("&")}#${java.net.URLEncoder.encode(name,"UTF-8").replace("+","%20")}"
+    }
+
+    private fun buildShadowsocksUri(s: org.json.JSONObject, st: org.json.JSONObject?, rm: String?): String? {
+        val sv = s.optJSONArray("servers") ?: return null
+        if (sv.length() == 0) return null
+        val n = sv.getJSONObject(0)
+        val addr = n.optString("address", ""); val port = n.optInt("port", 8388)
+        val m = n.optString("method", "aes-256-gcm")
+        val pw = n.optString("password", "")
+        if (addr.isEmpty() || pw.isEmpty()) return null
+        val ui = "$m:$pw"
+        val b64 = android.util.Base64.encodeToString(ui.toByteArray(Charsets.UTF_8),
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
+        val name = rm?.takeIf { it.isNotBlank() } ?: addr
+        return "ss://$b64@$addr:$port#${java.net.URLEncoder.encode(name,"UTF-8").replace("+","%20")}"
     }
 
     /** Xray VLESS settings → vless:// URI. */
@@ -1770,7 +1798,7 @@ object ServerLinkParser {
     private fun parseSs(link: String, subId: String?): ServerItem? {
         val si = ServerItem(link)
         si.subId = subId
-        si.protocol = Protocol.SS_2022
+        si.protocol = Protocol.fromUri(link)
 
         var body = link.removePrefix("ss://")
         val hash = body.indexOf('#')
@@ -1837,7 +1865,6 @@ object ServerLinkParser {
 }
 
 // ═══════════ SUBSCRIPTION (obuna) ═══════════
-
 ```
 
 ---
@@ -1909,7 +1936,7 @@ object BinaryRunner {
 
 ## 📄 `com/nurvpn/app/service/NurVpnService.kt`
 
-*1057 qator*
+*1056 qator*
 
 ```kotlin
 package com.nurvpn.app.service
@@ -3244,6 +3271,36 @@ object AwgSortStore {
 
 ---
 
+## 📄 `com/nurvpn/app/storage/HwidStore.kt`
+
+*22 qator*
+
+```kotlin
+package com.nurvpn.app.storage
+
+import android.content.Context
+
+/**
+ * HWID (Device ID) yuborishni boshqaradi.
+ * Ba'zi subscription provider'lar qurilma limitini HWID orqali tekshiradi.
+ * Sukut bo'yicha: YOQILGAN (true).
+ */
+object HwidStore {
+    private const val PREFS = "nurvpn_hwid"
+    private const val KEY_ENABLED = "enabled"
+
+    fun isEnabled(ctx: Context): Boolean =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_ENABLED, true)   // ★ default ON
+
+    fun setEnabled(ctx: Context, enabled: Boolean) =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_ENABLED, enabled).apply()
+}
+```
+
+---
+
 ## 📄 `com/nurvpn/app/storage/MetricsStore.kt`
 
 *52 qator*
@@ -4396,7 +4453,7 @@ class AWGEditorActivity : AppCompatActivity() {
 
 ## 📄 `com/nurvpn/app/ui/home/HomeFragment.kt`
 
-*2528 qator*
+*2530 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.home
@@ -4444,6 +4501,7 @@ import com.nurvpn.app.parser.SubscriptionLinkExtractor
 import com.nurvpn.app.parser.ServerLinkParser
 import com.nurvpn.app.parser.decodeBase64Safely
 import com.nurvpn.app.storage.ServerStore
+import com.nurvpn.app.storage.HwidStore
 import com.nurvpn.app.core.Subscription
 import com.nurvpn.app.storage.SubscriptionStore
 
@@ -6094,7 +6152,9 @@ class HomeFragment : Fragment() {
 
     /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
     private fun getHwid(): String {
-        val ctx = requireContext()
+        // ★ HWID o'chirilgan bo'lsa — bo'sh string
+        if (!HwidStore.isEnabled(requireContext())) return ""
+                val ctx = requireContext()
         // ANDROID_ID — qurilma uchun barqaror
         val androidId = try {
             android.provider.Settings.Secure.getString(
@@ -6132,8 +6192,8 @@ class HomeFragment : Fragment() {
                 conn.setRequestProperty("User-Agent", "INCY/1.0.0 (Linux; Android 13)")
                 conn.setRequestProperty("Accept", "*/*")
                 // HWID (server talab qiladi)
-                conn.setRequestProperty("x-hwid", getHwid())
-                conn.setRequestProperty("x-device-id", getHwid())
+                run { val hw = getHwid(); if (hw.isNotEmpty()) { conn.setRequestProperty("x-hwid", hw) } }
+                // x-device-id x-hwid bilan birga yuboriladi (yuqoriga qarang)
                 conn.setRequestProperty("x-platform", "android")
                 conn.setRequestProperty("x-client", "incy")
                 conn.setRequestProperty("accept", "*/*")
@@ -7100,7 +7160,7 @@ object QrShowDialog {
 
 ## 📄 `com/nurvpn/app/ui/servers/ServersFragment.kt`
 
-*1992 qator*
+*1994 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.servers
@@ -7147,6 +7207,7 @@ import com.nurvpn.app.storage.AwgSortStore
 import com.nurvpn.app.storage.OpenSourceCatalog
 import com.nurvpn.app.storage.OpenSourceStore
 import com.nurvpn.app.storage.ServerStore
+import com.nurvpn.app.storage.HwidStore
 import com.nurvpn.app.storage.SubscriptionStore
 import com.nurvpn.app.ui.MainActivity
 import com.nurvpn.app.ui.awg.AWGEditorActivity
@@ -7836,7 +7897,9 @@ class ServersFragment : Fragment() {
 
     /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
     private fun getHwid(): String {
-        val ctx = requireContext()
+        // ★ HWID o'chirilgan bo'lsa — bo'sh string
+        if (!HwidStore.isEnabled(requireContext())) return ""
+                val ctx = requireContext()
         // ANDROID_ID — qurilma uchun barqaror
         val androidId = try {
             android.provider.Settings.Secure.getString(
@@ -7948,7 +8011,7 @@ class ServersFragment : Fragment() {
             c.setRequestProperty("User-Agent", "v2rayTun/3.6.0 (Linux; Android 13; SM-S918B)")
             c.setRequestProperty("Accept", "*/*")
             c.setRequestProperty("Accept-Encoding", "identity")
-            c.setRequestProperty("x-hwid", getHwid())
+            run { val hw = getHwid(); if (hw.isNotEmpty()) { c.setRequestProperty("x-hwid", hw) } }
             c.setRequestProperty("x-device-os", "Android")
             c.setRequestProperty("x-ver-os", android.os.Build.VERSION.RELEASE ?: "13")
             c.setRequestProperty("x-device-model", android.os.Build.MODEL ?: "SM-S918B")
@@ -9100,7 +9163,7 @@ class ServersFragment : Fragment() {
 
 ## 📄 `com/nurvpn/app/ui/settings/SettingsFragment.kt`
 
-*603 qator*
+*619 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.settings
@@ -9140,6 +9203,7 @@ import com.nurvpn.app.ui.split.SplitAppsActivity
 import com.nurvpn.app.ui.awg.AWGEditorActivity
 import com.nurvpn.app.storage.OpenSourceStore
 import com.nurvpn.app.storage.SplitTunnelStore
+import com.nurvpn.app.storage.HwidStore
 import com.nurvpn.app.util.DNSLeakProtection
 import com.nurvpn.app.util.IPv6Blocker
 import com.nurvpn.app.util.LeakResult
@@ -9463,6 +9527,22 @@ class SettingsFragment : Fragment() {
         dnsLeakSwitch?.setOnCheckedChangeListener { _, ch ->
             if (binding) return@setOnCheckedChangeListener
             DNSLeakProtection.setEnabled(requireContext(), ch)
+        }
+
+        // ═══ HWID switch ═══
+        try {
+            val hwidSwitch = v.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(
+                R.id.hwid_switch)
+            hwidSwitch?.apply {
+                isSaveEnabled = false
+                isChecked = HwidStore.isEnabled(requireContext())
+                setOnCheckedChangeListener { _, ch ->
+                    if (binding) return@setOnCheckedChangeListener
+                    HwidStore.setEnabled(requireContext(), ch)
+                }
+            }
+        } catch (t: Throwable) {
+            android.util.Log.w("NurVPN-HWID", "HWID switch xato: ${t.message}")
         }
 
         v.findViewById<Button>(R.id.leak_test_btn)
@@ -10981,7 +11061,7 @@ object DNSLeakProtection {
 
 ## 📄 `com/nurvpn/app/util/PingTester.kt`
 
-*142 qator*
+*155 qator*
 
 ```kotlin
 package com.nurvpn.app.util
@@ -11029,16 +11109,30 @@ object PingTester {
     }
 
     fun icmpPing(host: String, timeoutMs: Int = 4000): Int {
-        return try {
+        // 1) isReachable (ba'zan ishlaydi)
+        try {
             val start = System.currentTimeMillis()
             val addr = java.net.InetAddress.getByName(host)
             if (addr.isReachable(timeoutMs)) {
-                (System.currentTimeMillis() - start).toInt()
-            } else -1
-        } catch (e: Exception) {
-            Log.d("NurVPN-PING", "icmpPing fail $host: ${e.message}")
-            -1
+                val rtt = (System.currentTimeMillis() - start).toInt()
+                Log.d("NurVPN-PING", "icmpPing($host) isReachable -> $rtt ms")
+                return rtt
+            }
+        } catch (t: Throwable) {
+            Log.d("NurVPN-PING", "icmpPing isReachable fail: ${t.message}")
         }
+
+        // 2) TCP fallback: 443 -> 80
+        for (testPort in intArrayOf(443, 80)) {
+            val r = tcpPing(host, testPort, timeoutMs)
+            if (r > 0) {
+                Log.d("NurVPN-PING", "icmpPing($host) tcp:$testPort -> $r ms")
+                return r
+            }
+        }
+
+        Log.d("NurVPN-PING", "icmpPing($host) -> -1 (barcha urinishlar)")
+        return -1
     }
 
     private fun clashApiPing(timeoutMs: Int): Int {
@@ -11221,4 +11315,4 @@ object ThemeHelper {
 ---
 
 
-**Jami qatorlar:** 10802
+**Jami qatorlar:** 10882
