@@ -32,3 +32,6 @@ build2.log
 
 # Boshqa loyihalar
 NekoBoxForAndroid/
+
+# Lokal backup skript (GitHub'da kerak emas)
+NURVPN-BACKUP-FULL.sh
