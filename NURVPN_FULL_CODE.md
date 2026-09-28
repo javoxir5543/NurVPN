@@ -1154,7 +1154,7 @@ enum class Protocol(
 
 ## 📄 `com/nurvpn/app/core/ServerItem.kt`
 
-*50 qator*
+*74 qator*
 
 ```kotlin
 package com.nurvpn.app.core
@@ -1171,8 +1171,32 @@ class ServerItem(@JvmField var link: String) {
     var ping: Int = -1
     var subId: String? = null
     var favorite: Boolean = false
+    /** Transport turi: tcp, ws, grpc, xhttp, quic, httpupgrade, split, ... */
+    var transport: String = ""
 
-    
+    /**
+     * Transport bo'sh bo'lsa — link dan avtomatik aniqlaydi.
+     * Eski serverlar uchun (transport maydonisiz saqlangan).
+     */
+    fun ensureTransport() {
+        if (transport.isNotEmpty()) return
+        val l = link.lowercase()
+        transport = when {
+            l.startsWith("hysteria2://") || l.startsWith("hy2://") -> "quic"
+            l.startsWith("tuic://") -> "quic"
+            l.contains("type=ws") || l.contains("type=websocket") -> "ws"
+            l.contains("type=grpc") -> "grpc"
+            l.contains("type=xhttp") -> "xhttp"
+            l.contains("type=httpupgrade") -> "httpupgrade"
+            l.contains("type=splithttp") -> "split"
+            l.contains("type=kcp") -> "kcp"
+            l.contains("type=quic") -> "quic"
+            l.contains("security=reality") -> "reality"
+            l.contains("security=tls") -> "tls"
+            else -> "tcp"
+        }
+    }
+
     var protocol: Protocol = Protocol.VLESS_REALITY
 
     fun flag(): String {
@@ -1404,7 +1428,7 @@ fun decodeBase64Safely(value: String): String {
 
 ## 📄 `com/nurvpn/app/parser/ServerLinkParser.kt`
 
-*459 qator*
+*509 qator*
 
 ```kotlin
 package com.nurvpn.app.parser
@@ -1698,7 +1722,57 @@ object ServerLinkParser {
         val cc = CountryLookup.lookup(si.host)
         si.countryCode = cc[0]
         si.country = cc[1]
+
+        // ═══ TRANSPORT PARSE ═══
+        si.transport = detectTransport(link, si.protocol)
+
         return si
+    }
+
+    /**
+     * Link va protokoldan transport turini aniqlaydi.
+     * Misol: vless://...?type=ws → "ws"
+     *        hysteria2://... → "quic"
+     *        vless://...?type=grpc → "grpc"
+     */
+    private fun detectTransport(link: String, proto: Protocol): String {
+        // UDP/QUIC protokollar
+        return when (proto) {
+            Protocol.HYSTERIA2 -> "quic"
+            Protocol.TUIC -> "quic"
+            Protocol.SS_2022 -> {
+                if (link.startsWith("ss://")) "tcp" else "quic"
+            }
+            else -> {
+                // TCP-based protokollar — query dan type ni o'qiymiz
+                try {
+                    val qIdx = link.indexOf('?')
+                    if (qIdx < 0) return "tcp"
+                    val qs = link.substring(qIdx + 1).substringBefore('#')
+                    for (pair in qs.split("&")) {
+                        if (pair.startsWith("type=")) {
+                            val t = pair.substring(5).lowercase()
+                            return when (t) {
+                                "ws", "websocket" -> "ws"
+                                "grpc" -> "grpc"
+                                "xhttp" -> "xhttp"
+                                "httpupgrade" -> "httpupgrade"
+                                "splithttp" -> "split"
+                                "quic" -> "quic"
+                                "kcp" -> "kcp"
+                                "http" -> "http"
+                                "tcp" -> "tcp"
+                                else -> t
+                            }
+                        }
+                    }
+                    // security=reality → reality (transport emas, lekin ko'rsatish uchun)
+                    if (qs.contains("security=reality")) return "reality"
+                    if (qs.contains("security=tls")) return "tls"
+                } catch (_: Throwable) {}
+                "tcp"
+            }
+        }
     }
 
     private fun parseVmessV1(decoded: String, remark: String?,
@@ -3547,7 +3621,7 @@ object OpenSourceStore {
 
 ## 📄 `com/nurvpn/app/storage/ServerStore.kt`
 
-*59 qator*
+*63 qator*
 
 ```kotlin
 package com.nurvpn.app.storage
@@ -3576,6 +3650,7 @@ object ServerStore {
             o.put("ping", si.ping)
             o.put("subId", si.subId ?: JSONObject.NULL)
             o.put("favorite", si.favorite)
+            o.put("transport", si.transport)
             arr.put(o)
         }
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
@@ -3601,6 +3676,9 @@ object ServerStore {
                 si.subId = if (o.has("subId") && !o.isNull("subId"))
                     o.getString("subId") else null
                 si.protocol = Protocol.fromUri(o.getString("link"))
+                si.transport = o.optString("transport", "")
+                // Eski serverlar uchun — transport bo'sh bo'lsa, link dan aniqlash
+                si.ensureTransport()
                 Log.d("NurVPN-PING", "load: ${si.host}:${si.port} proto=${si.protocol} link=${o.getString("link").take(20)}…")
                 out.add(si)
             }
@@ -4453,7 +4531,7 @@ class AWGEditorActivity : AppCompatActivity() {
 
 ## 📄 `com/nurvpn/app/ui/home/HomeFragment.kt`
 
-*2530 qator*
+*2615 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.home
@@ -4918,6 +4996,7 @@ class HomeFragment : Fragment() {
         // ═══ 0. SEVIMLILAR KARTASI (birinchi) ═══
         val favServers = a.servers.filter { it.favorite }
         if (favServers.isNotEmpty()) {
+            homeExpandedSubs.add("fav_card")
             val favCard = makeExpandableCard(
                 "\u2B50", getString(R.string.fav_card_title),
                 favServers.size, "fav_card")
@@ -4925,6 +5004,8 @@ class HomeFragment : Fragment() {
             for (si in favServers) {
                 favBody.addView(makeServerRow(si, a))
             }
+            favBody.visibility = android.view.View.VISIBLE
+            favBody.tag = "populated"
             container.addView(favCard)
         }
 
@@ -4972,22 +5053,25 @@ class HomeFragment : Fragment() {
             container.addView(card)
         }
 
-        // ═══ 2. QO'LDA QO'SHILGAN — KARTASIZ, TO'G'RIDAN-TO'G'RI ═══
-        val manual = a.servers.filter { it.subId == null }
-        if (manual.isNotEmpty()) {
-            // Kichik sarlavha
-            val label = TextView(requireContext())
-            label.text = getString(R.string.text_manual_count, manual.size)
-            label.setTextColor(androidx.core.content.ContextCompat
-                .getColor(requireContext(), R.color.text_secondary))
-            label.textSize = 12f
-            label.setPadding(4, 20, 4, 6)
-            container.addView(label)
-
-            // Serverlar to'g'ridan-to'g'ri (kartasiz)
+        // ═══ 2. QO'LDA QO'SHILGAN — KARTA BILAN ═══
+        val manualRaw = a.servers.filter { it.subId == null }
+        if (manualRaw.isNotEmpty()) {
+            // Manual sort mode qo'llash
+            val manualSortMode = requireContext()
+                .getSharedPreferences("manual_sort", android.content.Context.MODE_PRIVATE)
+                .getString("mode", "default") ?: "default"
+            val manual = sortServers(manualRaw, manualSortMode)
+            homeExpandedSubs.add("manual_card")
+            val manualCard = makeExpandableCard(
+                "\uD83D\uDD27", getString(R.string.manual_added),
+                manual.size, "manual_card")
+            val manualBody = manualCard.getChildAt(1) as LinearLayout
             for (si in manual) {
-                container.addView(makeServerRow(si, a))
+                manualBody.addView(makeServerRow(si, a))
             }
+            manualBody.visibility = android.view.View.VISIBLE
+            manualBody.tag = "populated"
+            container.addView(manualCard)
         }
     }
 
@@ -4998,7 +5082,8 @@ class HomeFragment : Fragment() {
         row.findViewById<TextView>(R.id.row_name).text = si.displayName()
         row.findViewById<TextView>(R.id.row_host).text = si.host ?: ""
         val proto = row.findViewById<TextView>(R.id.row_proto)
-        proto.text = protocolLabel(si.protocol)
+        proto.text = protocolLabel(si.protocol) +
+            (if (si.transport.isNotEmpty()) " / " + transportLabel(si.transport) else "")
         proto.backgroundTintList = android.content.res.ColorStateList
             .valueOf(protocolColor(si.protocol))
         val pingView = row.findViewById<TextView>(R.id.row_ping)
@@ -5387,6 +5472,69 @@ class HomeFragment : Fragment() {
                     Toast.LENGTH_SHORT).show()
             }
         }.start()
+    }
+
+    /** Qo'lda qo'shilgan serverlarni ping qilish (Home ekran). */
+    private fun pingManualHome() {
+        val a = activity as? MainActivity ?: return
+        val manual = a.servers.filter { it.subId == null }
+        if (manual.isEmpty()) {
+            Toast.makeText(context, R.string.text_no_servers,
+                Toast.LENGTH_SHORT).show()
+            return
+        }
+        Toast.makeText(context,
+            getString(R.string.ping_sub_started,
+                getString(R.string.manual_added), manual.size),
+            Toast.LENGTH_SHORT).show()
+        android.util.Log.i("NurVPN-PING", "Home manual ping: ${manual.size}")
+        PingTester.testAll(manual, object : PingTester.Listener {
+            override fun onPingUpdate(item: ServerItem, ping: Int) {
+                if (!pingUpdateScheduled) {
+                    pingUpdateScheduled = true
+                    ui.postDelayed(pingRebuildRunnable, PING_DEBOUNCE_MS)
+                }
+            }
+            override fun onAllDone() {
+                pingRunning = false
+                if (!isAdded) return
+                ui.removeCallbacks(pingRebuildRunnable)
+                pingUpdateScheduled = false
+                val a2 = activity as? MainActivity ?: return
+                ServerStore.save(a2, a2.servers)
+                Toast.makeText(context, R.string.ping_done,
+                    Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    /** Qo'lda qo'shilgan serverlar uchun sort dialogi. */
+    private fun showManualSettingsDialog() {
+        val ctx = requireContext()
+        val current = ctx.getSharedPreferences("manual_sort",
+            android.content.Context.MODE_PRIVATE)
+            .getString("mode", "default") ?: "default"
+        val modes = arrayOf(
+            "default" to getString(R.string.sort_default),
+            "ping_asc" to getString(R.string.sort_ping_asc),
+            "ping_desc" to getString(R.string.sort_ping_desc),
+            "name_asc" to getString(R.string.sort_name_asc),
+            "name_desc" to getString(R.string.sort_name_desc)
+        )
+        val labels = modes.map { it.second }.toTypedArray()
+        val idx = modes.indexOfFirst { it.first == current }.coerceAtLeast(0)
+
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle(R.string.sort_title)
+            .setSingleChoiceItems(labels, idx) { d, which ->
+                ctx.getSharedPreferences("manual_sort",
+                    android.content.Context.MODE_PRIVATE)
+                    .edit().putString("mode", modes[which].first).apply()
+                rebuildServerCards(force = true)
+                d.dismiss()
+            }
+            .setNegativeButton(R.string.dialog_no, null)
+            .show()
     }
 
     /** Faqat shu obuna serverlarini ping qilish (Home ekran). */
@@ -5818,10 +5966,10 @@ class HomeFragment : Fragment() {
             isFocusable = true
         }
         settingsBtn.setOnClickListener {
-            if (subId == "awg_card") {
-                showAwgSettingsDialog()
-            } else if (subId != null) {
-                showSubSettingsDialog(subId, title)
+            when {
+                subId == "awg_card" -> showAwgSettingsDialog()
+                subId == "manual_card" -> showManualSettingsDialog()
+                subId != null -> showSubSettingsDialog(subId, title)
             }
         }
 
@@ -5840,13 +5988,19 @@ class HomeFragment : Fragment() {
             it.isEnabled = false
             it.postDelayed({ it.isEnabled = true; it.alpha = 1f }, 800)
             it.alpha = 0.5f
-            pingSubscriptionHome(subId, title)
+            if (subId == "manual_card") {
+                pingManualHome()
+            } else {
+                pingSubscriptionHome(subId, title)
+            }
         }
 
         header.addView(iconBox)
         header.addView(titles)
+        // Ping tugmasi: subscription + fav_card + manual_card
         if (subId != null && subId != "awg_card") header.addView(pingBtn)
-        if (subId != null) header.addView(settingsBtn)
+        // Sozlama: subscription + manual_card (fav_card da emas)
+        if (subId != null && subId != "fav_card" && subId != "awg_card") header.addView(settingsBtn)
         header.addView(arrow)
 
         // Body — ochilgan holatni saqlash
@@ -6033,6 +6187,23 @@ class HomeFragment : Fragment() {
         Protocol.HYSTERIA2 -> "HY2"
         Protocol.TUIC -> "TUIC"
     }
+
+    /** Transport turini qisqa ko'rinishda qaytaradi (chip uchun). */
+    private fun transportLabel(t: String): String = when (t.lowercase()) {
+        "ws", "websocket" -> "WS"
+        "grpc" -> "gRPC"
+        "xhttp" -> "XHTTP"
+        "httpupgrade" -> "HU"
+        "split", "splithttp" -> "SPLIT"
+        "quic" -> "QUIC"
+        "kcp" -> "KCP"
+        "http" -> "HTTP"
+        "reality" -> "REALITY"
+        "tls" -> "TLS"
+        "tcp" -> "TCP"
+        else -> t.uppercase()
+    }
+
 
     private fun protocolColor(p: Protocol): Int = when (p) {
         Protocol.VLESS_REALITY -> 0xFF4A9EFF.toInt()
@@ -6643,16 +6814,8 @@ class HomeFragment : Fragment() {
 
         if (a.servers.isNotEmpty()) {
             // FIX: 600+ server uchun limit — bir vaqtda max 100 ta
-            val MAX_PING = 100
-            val serversToPing = if (a.servers.size > MAX_PING) {
-                // Eng yaqin (birinchi) 100 tasi — foydalanuvchi kutayotgani
-                android.util.Log.w("NurVPN-PING",
-                    "pingHomeAll: ${a.servers.size} server, faqat " +
-                    "$MAX_PING tasi ping qilinadi")
-                a.servers.take(MAX_PING)
-            } else {
-                a.servers
-            }
+            // Barcha serverlarni ping qilamiz (limit olib tashlandi)
+            val serversToPing = a.servers
             PingTester.testAll(serversToPing, object : PingTester.Listener {
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
                     // Debounce — 400ms ichida ko'p marta chaqirilsa, faqat 1 marta rebuild
@@ -7160,7 +7323,7 @@ object QrShowDialog {
 
 ## 📄 `com/nurvpn/app/ui/servers/ServersFragment.kt`
 
-*1994 qator*
+*2003 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.servers
@@ -7466,14 +7629,8 @@ class ServersFragment : Fragment() {
             return
         }
 
-        // FIX: 600+ server uchun limit — bir vaqtda max 100
-        val MAX_PING = 100
-        val pingable = if (a.servers.size > MAX_PING) {
-            android.util.Log.w("NurVPN-PING",
-                "ServersFragment.pingAll: ${a.servers.size} server, " +
-                "faqat $MAX_PING tasi")
-            a.servers.take(MAX_PING)
-        } else a.servers
+        // Barcha serverlarni ping qilamiz (limit olib tashlandi)
+        val pingable = a.servers
 
         if (pingable.isNotEmpty()) {
             var scheduled = false
@@ -8377,19 +8534,23 @@ class ServersFragment : Fragment() {
                 h.aiScore.visibility = View.VISIBLE
                 when (s.protocol) {
                     Protocol.VLESS_REALITY -> {
-                        h.aiScore.text = "VLESS"
+                        h.aiScore.text = "VLESS" +
+                            (if (s.transport.isNotEmpty()) " / " + transportLabelServer(s.transport) else "")
                         h.aiScore.setTextColor(0xFF4A9EFF.toInt())
                     }
                     Protocol.VMESS -> {
-                        h.aiScore.text = "VMESS"
+                        h.aiScore.text = "VMESS" +
+                            (if (s.transport.isNotEmpty()) " / " + transportLabelServer(s.transport) else "")
                         h.aiScore.setTextColor(0xFF4A9EFF.toInt())
                     }
                     Protocol.TROJAN -> {
-                        h.aiScore.text = "TROJAN"
+                        h.aiScore.text = "TROJAN" +
+                            (if (s.transport.isNotEmpty()) " / " + transportLabelServer(s.transport) else "")
                         h.aiScore.setTextColor(0xFF4A9EFF.toInt())
                     }
                     Protocol.HYSTERIA2 -> {
-                        h.aiScore.text = "HY2"
+                        h.aiScore.text = "HY2" +
+                            (if (s.transport.isNotEmpty()) " / " + transportLabelServer(s.transport) else "")
                         h.aiScore.setTextColor(0xFF9B59B6.toInt())
                     }
                     Protocol.TUIC -> {
@@ -8445,6 +8606,22 @@ class ServersFragment : Fragment() {
                 frag.refresh()
             }
             h.itemView.setOnLongClickListener { showMenu(s); true }
+        }
+
+        /** Transport turini qisqa ko'rinishda qaytaradi (chip uchun). */
+        private fun transportLabelServer(t: String): String = when (t.lowercase()) {
+            "ws", "websocket" -> "WS"
+            "grpc" -> "gRPC"
+            "xhttp" -> "XHTTP"
+            "httpupgrade" -> "HU"
+            "split", "splithttp" -> "SPLIT"
+            "quic" -> "QUIC"
+            "kcp" -> "KCP"
+            "http" -> "HTTP"
+            "reality" -> "REALITY"
+            "tls" -> "TLS"
+            "tcp" -> "TCP"
+            else -> t.uppercase()
         }
 
         private fun bindAWG(h: ItemVH, awg: AWGConfig) {
@@ -8558,12 +8735,7 @@ class ServersFragment : Fragment() {
             var servers = a.servers.filter { it.subId == subId }
 
             // FIX: 600+ server uchun limit — bir vaqtda max 100
-            val MAX_PING_SUB = 100
-            if (servers.size > MAX_PING_SUB) {
-                android.util.Log.w("NurVPN-PING",
-                    "pingSub: ${servers.size} ta, faqat $MAX_PING_SUB tasi")
-                servers = servers.take(MAX_PING_SUB)
-            }
+
 
             android.util.Log.i("NurVPN-PING",
                 "pingSub: subId=$subId, matched=${servers.size}, total=${a.servers.size}")
@@ -11315,4 +11487,4 @@ object ThemeHelper {
 ---
 
 
-**Jami qatorlar:** 10882
+**Jami qatorlar:** 11054
