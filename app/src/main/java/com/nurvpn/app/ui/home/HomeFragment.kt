@@ -106,6 +106,7 @@ class HomeFragment : Fragment() {
     private var serverFlag: TextView? = null
     private var serverName: TextView? = null
     private var pingText: TextView? = null
+    private var serverProto: TextView? = null
     private var timerText: TextView? = null
     private var downText: TextView? = null
     private var upText: TextView? = null
@@ -273,6 +274,7 @@ class HomeFragment : Fragment() {
         serverFlag = v.findViewById(R.id.server_flag)
         serverName = v.findViewById(R.id.server_name)
         pingText = v.findViewById(R.id.ping_text)
+        serverProto = v.findViewById(R.id.server_proto)
         timerText = v.findViewById(R.id.timer_text)
         downText = v.findViewById(R.id.down_text)
         upText = v.findViewById(R.id.up_text)
@@ -292,6 +294,16 @@ class HomeFragment : Fragment() {
         v.findViewById<View>(R.id.sel_select_all)?.setOnClickListener { selectAllHome() }
 
         ai = AIServerSelector.get(requireContext().applicationContext)
+
+        // FIX: Globe tugmasi -> GitHub
+        v.findViewById<View>(R.id.btn_globe)?.setOnClickListener {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://github.com/javoxir5543/NurVPN")))
+            } catch (t: Throwable) {
+                Toast.makeText(context, "Brauzer topilmadi", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         connectBtn?.setOnClickListener { toggleConnection() }
         v.findViewById<View>(R.id.btn_ping_home)?.setOnClickListener {
@@ -2433,6 +2445,7 @@ class HomeFragment : Fragment() {
             pingText?.text = getString(R.string.text_awg_label)
             pingText?.setTextColor(androidx.core.content.ContextCompat
                 .getColor(requireContext(), R.color.text_tertiary))
+            serverProto?.text = "AWG / WireGuard"
         } else {
             val srv = a.currentServer
             serverFlag?.text = srv?.flag() ?: "🌍"
@@ -2441,6 +2454,11 @@ class HomeFragment : Fragment() {
             pingText?.setTextColor(if (srv != null) pingColor(srv)
                 else androidx.core.content.ContextCompat
                     .getColor(requireContext(), R.color.text_tertiary))
+            // FIX: protocol / transport ko'rsatish
+            serverProto?.text = if (srv != null) {
+                protocolLabel(srv.protocol) +
+                    (if (srv.transport.isNotEmpty()) " / " + transportLabel(srv.transport) else "")
+            } else ""
         }
 
         awgCount?.text = getString(R.string.text_count_ta, a.awgConfigs.size)
@@ -2593,6 +2611,7 @@ class HomeFragment : Fragment() {
         stopPulse()
         connectBtn = null; connectIcon = null
         statusText = null; serverFlag = null; serverName = null; pingText = null
+        serverProto = null
         timerText = null; downText = null; upText = null
         cardsContainer = null; bodyAwg = null
     }

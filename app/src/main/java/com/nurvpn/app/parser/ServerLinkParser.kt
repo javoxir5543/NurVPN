@@ -18,7 +18,7 @@ object ServerLinkParser {
         if (link.isEmpty()) return null
         return try {
             val trimmed = link.trim()
-            when {
+            val si = when {
                 // ═══ Xray JSON config ═══
                 trimmed.startsWith("{") -> parseXrayJson(trimmed, subId)
                 // ═══ URI links ═══
@@ -31,6 +31,9 @@ object ServerLinkParser {
                 trimmed.startsWith("ss://", true) -> parseSs(trimmed, subId)
                 else -> null
             }
+            // UNIVERSAL FIX: transport bo'sh bo'lsa, link'dan aniqlash
+            si?.ensureTransport()
+            si
         } catch (t: Throwable) {
             android.util.Log.e("NurVPN-PARSE", "parse fail: ${t.message}", t)
             null
@@ -368,6 +371,8 @@ object ServerLinkParser {
         val cc = CountryLookup.lookup(si.host)
         si.countryCode = cc[0]
         si.country = cc[1]
+        // FIX: transport to'ldirish
+        si.ensureTransport()
         return si
     }
 
@@ -432,6 +437,8 @@ object ServerLinkParser {
         }
         si.countryCode = cc[0]
         si.country = cc[1]
+        // FIX: transport to'ldirish
+        si.ensureTransport()
         return si
     }
 
@@ -501,6 +508,8 @@ object ServerLinkParser {
         }
         si.countryCode = cc[0]
         si.country = cc[1]
+        // FIX: transport to'ldirish
+        si.ensureTransport()
         return si
     }
 }
