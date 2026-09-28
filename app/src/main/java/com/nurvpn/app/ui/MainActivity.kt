@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity() {
     @JvmField var protocol: String = PROTO_XRAY
     @JvmField var isRunning = false
     /** Har restart'da oshadi. Faqat eng oxirgi restart ishlaydi. */
-    @Volatile private var restartGeneration = 0L
+    private val restartGeneration = java.util.concurrent.atomic.AtomicLong(0L)
     @JvmField var connectStart: Long = 0
     lateinit var prefs: SharedPreferences
 
@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity() {
 
     private var stateReceiver: BroadcastReceiver? = null
     private var dbgReceiver: BroadcastReceiver? = null
+    private var awgEditedReceiver: BroadcastReceiver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -292,7 +293,7 @@ class MainActivity : AppCompatActivity() {
             override fun onReceive(ctx: Context?, i: Intent?) {
                 val newRaw = i?.getStringExtra("awg_raw") ?: return
                 val cfg = awgConfigs.find { it.rawConf == newRaw } ?: return
-                if (isRunning && protocol == PROTO_AWG) {
+                if (isRunning && protocol == PROTO_AWG && currentAWG === cfg) {
                     restartVpn(getString(R.string.reason_awg,
                         cfg.name ?: "AWG"))
                 }
@@ -307,6 +308,7 @@ class MainActivity : AppCompatActivity() {
             registerReceiver(awgEditedReceiver,
                 IntentFilter("com.nurvpn.app.AWG_EDITED"))
         }
+        this.awgEditedReceiver = awgEditedReceiver
 
         // ★ Avto-start O'CHIRILDI — foydalanuvchi qo'lda bosadi
         android.util.Log.i("NurVPN-DBG", "Avto-start o'chirilgan, qo'lda bosishni kuting")
@@ -385,7 +387,7 @@ class MainActivity : AppCompatActivity() {
     /** VPN ishlab turganda server o'zgarsa — qayta ulanish. */
     fun restartVpn(reason: String) {
         // ═══ GENERATION: faqat eng oxirgi restart ishlaydi ═══
-        val myGen = ++restartGeneration
+        val myGen = restartGeneration.incrementAndGet()
         android.util.Log.i("NurVPN-DBG", "restartVpn[$myGen]: $reason")
         Toast.makeText(this, getString(R.string.toast_reconnecting, reason), Toast.LENGTH_SHORT).show()
 
@@ -401,9 +403,9 @@ class MainActivity : AppCompatActivity() {
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             if (isFinishing || isDestroyed) return@postDelayed
             // ═══ Faqat oxirgi restart davom etadi ═══
-            if (myGen != restartGeneration) {
+            if (myGen != restartGeneration.get()) {
                 android.util.Log.i("NurVPN-DBG",
-                    "restartVpn[$myGen]: bekor (yangi gen $restartGeneration)")
+                    "restartVpn[$myGen]: bekor (yangi gen ${restartGeneration.get()})")
                 return@postDelayed
             }
             connectStart = System.currentTimeMillis()
@@ -470,6 +472,10 @@ class MainActivity : AppCompatActivity() {
         try {
             dbgReceiver?.let { unregisterReceiver(it) }
             dbgReceiver = null
+        } catch (ignored: Throwable) {}
+        try {
+            awgEditedReceiver?.let { unregisterReceiver(it) }
+            awgEditedReceiver = null
         } catch (ignored: Throwable) {}
         stateReceiver = null
     }

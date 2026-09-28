@@ -62,8 +62,8 @@ object SubscriptionStore {
     fun moveSubscription(ctx: Context, subId: String, dir: Int): Boolean {
         val list = load(ctx)
         if (list.isEmpty()) return false
-        // Tartib bo'yicha saralash
-        list.sortBy { it.order }
+        // Tartib bo'yicha saralash (order, keyin id - stabil)
+        list.sortWith(compareBy({ it.order }, { it.id }))
         val idx = list.indexOfFirst { it.id == subId }
         if (idx < 0) return false
         val newIdx = (idx + dir).coerceIn(0, list.size - 1)

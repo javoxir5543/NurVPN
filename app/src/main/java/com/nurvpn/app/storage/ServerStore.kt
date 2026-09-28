@@ -40,9 +40,9 @@ object ServerStore {
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val si = ServerItem(o.getString("link"))
-                si.host = o.optString("host", null)
+                si.host = if (o.isNull("host")) null else o.optString("host")
                 si.port = o.optInt("port", 0)
-                si.remark = o.optString("remark", null)
+                si.remark = if (o.isNull("remark")) null else o.optString("remark")
                 si.countryCode = o.optString("cc", "")
                 si.country = o.optString("country", "")
                 si.ping = o.optInt("ping", -1)

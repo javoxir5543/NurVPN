@@ -34,9 +34,9 @@ object AWGStore {
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val c = AWGConfig(o.optString("raw"))
-                c.name = o.optString("name", null)
-                c.endpoint = o.optString("endpoint", null)
-                c.address = o.optString("address", null)
+                c.name = if (o.isNull("name")) null else o.optString("name")
+                c.endpoint = if (o.isNull("endpoint")) null else o.optString("endpoint")
+                c.address = if (o.isNull("address")) null else o.optString("address")
                 c.favorite = o.optBoolean("favorite", false)
                 c.ping = o.optInt("ping", -1)
                 out.add(c)

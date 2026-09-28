@@ -403,15 +403,24 @@ object SingBoxConfig {
     /** Link'dan server host'ini ajratib olish (route uchun) */
     private fun extractServerHost(link: String): String? {
         return try {
-            val u = java.net.URI(link)
-            val host = u.host
-            if (!host.isNullOrEmpty()) return host
-            // vmess:// uchun base64 decode
+            // vmess:// URI-style yoki Base64
             if (link.startsWith("vmess://")) {
-                val b64 = link.removePrefix("vmess://").substringBefore("#")
-                val json = String(android.util.Base64.decode(b64, android.util.Base64.DEFAULT))
-                org.json.JSONObject(json).optString("add").takeIf { it.isNotEmpty() }
-            } else null
+                val body = link.removePrefix("vmess://").substringBefore("#")
+                if (body.contains("@")) {
+                    // URI-style: uuid@host:port/path?query
+                    var after = body.substringAfter("@")
+                    val qIdx = after.indexOf('?'); if (qIdx > 0) after = after.substring(0, qIdx)
+                    val sIdx = after.indexOf('/'); if (sIdx > 0) after = after.substring(0, sIdx)
+                    after.substringBeforeLast(":").takeIf { it.isNotEmpty() }
+                } else {
+                    // Base64 JSON
+                    val json = String(android.util.Base64.decode(body, android.util.Base64.DEFAULT))
+                    org.json.JSONObject(json).optString("add").takeIf { it.isNotEmpty() }
+                }
+            } else {
+                val u = java.net.URI(link)
+                u.host?.takeIf { it.isNotEmpty() }
+            }
         } catch (e: Throwable) {
             null
         }

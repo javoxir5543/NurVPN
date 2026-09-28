@@ -1,5 +1,6 @@
 package com.nurvpn.app.ui.awg
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -170,32 +171,18 @@ class AWGEditorActivity : AppCompatActivity() {
         AWGStore.save(this, AWGEditorBus.configs)
         Toast.makeText(this, R.string.editor_saved, Toast.LENGTH_SHORT).show()
 
-        // FIX: Agar joriy config tahrirlangan bo'lsa va VPN ishlayotgan
-        // bo'lsa — reconnect chaqiramiz
-        val main = getMainActivity()
-        if (main != null && oldRaw != cfg.rawConf) {
-            if (main.currentAWG?.rawConf == oldRaw ||
-                main.currentAWG === cfg) {
-                main.currentAWG = cfg
-                main.protocol = MainActivity.PROTO_AWG
-                AWGEditorBus.init(main.awgConfigs, cfg, MainActivity.PROTO_AWG)
-
-                if (main.isRunning) {
-                    android.util.Log.i("NurVPN-AWG",
-                        "Editor: config o'zgardi -> reconnect")
-                    main.restartVpn(getString(R.string.reason_awg,
-                        cfg.name ?: "AWG"))
-                }
-            }
+        // FIX: Agar config o'zgargan bo'lsa - MainActivity'ga broadcast
+        // (MainActivity.awgEditedReceiver ushlab oladi va VPN yoniq bo'lsa restart qiladi)
+        if (oldRaw != cfg.rawConf) {
+            android.util.Log.i("NurVPN-AWG",
+                "Editor: config o'zgardi -> broadcast AWG_EDITED")
+            val i = Intent("com.nurvpn.app.AWG_EDITED")
+            i.setPackage(packageName)
+            i.putExtra("awg_raw", cfg.rawConf)
+            sendBroadcast(i)
         }
 
         finish()
     }
 
-    /**
-     * MainActivity'ni topish — deprecated getActivity() o'rniga.
-     * AWGEditorActivity alohida Activity bo'lgani uchun bu yerda null qaytaradi.
-     * Boshqa yo'l: SharedPreferences listener yoki broadcast.
-     */
-    private fun getMainActivity(): MainActivity? = null
 }

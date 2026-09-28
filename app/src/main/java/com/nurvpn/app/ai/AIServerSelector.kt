@@ -27,14 +27,17 @@ class AIServerSelector private constructor(private val ctx: Context) {
     }
 
     fun selectBest(servers: List<ServerItem>, listener: Listener) {
-        listener.onAnalysisStart()
+        // FIX: WeakReference - Fragment detach bo'lsa thread listener'ni
+        // ushlab qolmaydi (60s gacha memory leak oldini oladi)
+        val listenerRef = java.lang.ref.WeakReference(listener)
+        listenerRef.get()?.onAnalysisStart()
         val now = System.currentTimeMillis()
         // ═══ 20 thread pool — parallel ping (13 daq → ~30 sek) ═══
         Thread {
             val candidates = servers.filter { !it.host.isNullOrEmpty() && it.port > 0 }
             if (candidates.isEmpty()) {
                 Handler(Looper.getMainLooper()).post {
-                    listener.onAnalysisComplete(emptyList())
+                    listenerRef.get()?.onAnalysisComplete(emptyList())
                 }
                 return@Thread
             }
@@ -59,7 +62,7 @@ class AIServerSelector private constructor(private val ctx: Context) {
                         results.add(si to score)
                         val done = completed.incrementAndGet()
                         Handler(Looper.getMainLooper()).post {
-                            listener.onServerScored(si, score)
+                            listenerRef.get()?.onServerScored(si, score)
                             if (done % 5 == 0 || done == total) {
                                 Log.i("NurVPN-AI", "AI progress: $done/$total")
                             }
@@ -89,14 +92,15 @@ class AIServerSelector private constructor(private val ctx: Context) {
                     else -> "—"
                 }
                 AIInsights(si.link, score, si.displayName(),
-                    "$pingText • AI ${"%.0f".format(score)}")
+                    "$pingText • AI " +
+                        String.format(java.util.Locale.US, "%.0f", score))
             }
             Log.i("NurVPN-AI", "AI tugadi: ${sorted.size} ta, eng yaxshi: " +
                 "${sorted.firstOrNull()?.first?.displayName()}")
             Handler(Looper.getMainLooper()).post {
-                listener.onAnalysisComplete(ranked)
+                listenerRef.get()?.onAnalysisComplete(ranked)
                 if (sorted.isNotEmpty()) {
-                    listener.onBestSelected(sorted[0].first, ranked[0])
+                    listenerRef.get()?.onBestSelected(sorted[0].first, ranked[0])
                 }
             }
         }.start()

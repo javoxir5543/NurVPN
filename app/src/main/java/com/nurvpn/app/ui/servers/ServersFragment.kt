@@ -57,6 +57,9 @@ class ServersFragment : Fragment() {
     private var rv: RecyclerView? = null
     private var ad: ServerAdapter? = null
     private var search: EditText? = null
+    // FIX #8: search debounce (UI freeze oldini oladi)
+    private var searchRunnable: Runnable? = null
+    private val searchHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     /** AWG .conf fayl tanlash uchun */
     private val awgFilePicker = registerForActivityResult(
@@ -161,7 +164,12 @@ class ServersFragment : Fragment() {
         search?.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {
-                ad?.filter(s?.toString() ?: "")
+                // FIX #8: 250ms debounce - har harf bosilganda rebuild qilmaymiz
+                val q = s?.toString() ?: ""
+                searchRunnable?.let { searchHandler.removeCallbacks(it) }
+                val r = Runnable { ad?.filter(q) }
+                searchRunnable = r
+                searchHandler.postDelayed(r, 250L)
             }
             override fun afterTextChanged(s: Editable?) {}
         })
@@ -724,32 +732,8 @@ class ServersFragment : Fragment() {
     }
 
 
-    /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
-    private fun getHwid(): String {
-        // ★ HWID o'chirilgan bo'lsa — bo'sh string
-        if (!HwidStore.isEnabled(requireContext())) return ""
-                val ctx = requireContext()
-        // ANDROID_ID — qurilma uchun barqaror
-        val androidId = try {
-            android.provider.Settings.Secure.getString(
-                ctx.contentResolver,
-                android.provider.Settings.Secure.ANDROID_ID
-            ) ?: "unknown"
-        } catch (t: Throwable) { "unknown" }
-
-        val model = android.os.Build.MODEL ?: "device"
-        val packageName = ctx.packageName
-
-        // Barqaror hash
-        val raw = "$androidId-$model-$packageName"
-        val hash = java.security.MessageDigest
-            .getInstance("SHA-256")
-            .digest(raw.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-            .take(32)
-
-        return hash
-    }
+    /** HWID — BARQAROR (FIX #12: HwidStore'ga ko'chirildi). */
+    private fun getHwid(): String = HwidStore.getHwid(requireContext())
 
     private fun loadSub(url: String, subName: String?) {
         Toast.makeText(context, R.string.toast_loading, Toast.LENGTH_SHORT).show()

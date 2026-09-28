@@ -139,6 +139,7 @@ class NurVpnService : VpnService() {
 
     /** Lifecycle-aware underlying network callback (memory leak oldini olish). */
     private var underlyingCallback: android.net.ConnectivityManager.NetworkCallback? = null
+    private var ifaceCallback: android.net.ConnectivityManager.NetworkCallback? = null
 
     // ═══════ PLATFORM INTERFACE ═══════
     private val platform = object : PlatformInterface {
@@ -336,11 +337,13 @@ class NurVpnService : VpnService() {
 
         override fun clearDNSCache() { }
 
-        private var ifaceCallback: android.net.ConnectivityManager.NetworkCallback? = null
-
         private fun isTunOrVpn(name: String, caps: android.net.NetworkCapabilities?): Boolean {
-            val tun = name.startsWith("tun") || name.startsWith("ppp") ||
-                name.startsWith("ipsec")
+            // FIX #10: kengaytirilgan prefixlar (wg0, sing0, utun, dummy0)
+            val n = name.lowercase()
+            val tun = n.startsWith("tun") || n.startsWith("ppp") ||
+                n.startsWith("ipsec") || n.startsWith("wg") ||
+                n.startsWith("sing") || n.startsWith("utun") ||
+                n.startsWith("dummy")
             val vpn = caps != null && caps.hasTransport(
                 android.net.NetworkCapabilities.TRANSPORT_VPN)
             val r = tun || vpn
@@ -421,7 +424,7 @@ class NurVpnService : VpnService() {
                         pushDefaultInterface(l)
                     }
                 }
-                ifaceCallback = cb
+                this@NurVpnService.ifaceCallback = cb
                 cm.registerNetworkCallback(req, cb)
             } catch (t: Throwable) {
                 Log.e(TAG, "startDefaultInterfaceMonitor fail", t)
@@ -431,13 +434,13 @@ class NurVpnService : VpnService() {
         override fun closeDefaultInterfaceMonitor(l: InterfaceUpdateListener?) {
             Log.i(TAG, "═══ closeDefaultInterfaceMonitor ═══")
             try {
-                ifaceCallback?.let {
+                this@NurVpnService.ifaceCallback?.let {
                     val cm = getSystemService(Context.CONNECTIVITY_SERVICE)
                         as android.net.ConnectivityManager
                     cm.unregisterNetworkCallback(it)
                 }
             } catch (ignored: Throwable) {}
-            ifaceCallback = null
+            this@NurVpnService.ifaceCallback = null
         }
 
         override fun findConnectionOwner(
@@ -1022,6 +1025,17 @@ class NurVpnService : VpnService() {
     private fun cleanup() {
         // FIX: underlyingNetwork callback'ni ham tozalash
         teardownUnderlyingNetwork()
+        // FIX: ifaceCallback defensive cleanup - libbox closeDefaultInterfaceMonitor
+        // chaqirmagan bo'lsa ham memory leak oldini oladi
+        try {
+            ifaceCallback?.let {
+                val cm = getSystemService(Context.CONNECTIVITY_SERVICE)
+                    as android.net.ConnectivityManager
+                cm.unregisterNetworkCallback(it)
+                Log.w(TAG, "cleanup: ifaceCallback defensive unregister")
+            }
+        } catch (ignored: Throwable) {}
+        ifaceCallback = null
         runCatching { server?.closeService() }
         runCatching { server?.close() }
         runCatching { tun?.close() }

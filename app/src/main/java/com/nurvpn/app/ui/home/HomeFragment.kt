@@ -165,6 +165,8 @@ class HomeFragment : Fragment() {
 
     /** Rekursiv ravishda row_ping TextView'larni topib, yangilash. */
     private fun walkAndUpdatePing(view: View, byLink: Map<String, ServerItem>) {
+        // FIX #15: Fragment detach bo'lsa crash oldini oladi
+        if (!isAdded) return
         if (view is TextView && view.id == R.id.row_ping) {
             val link = view.tag as? String ?: return
             val si = byLink[link] ?: return
@@ -1683,11 +1685,17 @@ class HomeFragment : Fragment() {
         else -> "---"
     }
 
-    private fun pingColor(s: ServerItem): Int = when {
-        s.ping <= 0 || s.ping >= 9999 -> androidx.core.content.ContextCompat.getColor(requireContext(), R.color.text_tertiary)
-        s.ping < 100 -> 0xFFC4F82A.toInt()
-        s.ping < 300 -> 0xFFFFC107.toInt()
-        else -> 0xFFFF5722.toInt()
+    private fun pingColor(s: ServerItem): Int {
+        // FIX #14: context null-safe (Fragment detach'da crash oldini oladi)
+        val c = context
+        return when {
+            s.ping <= 0 || s.ping >= 9999 -> if (c != null)
+                androidx.core.content.ContextCompat.getColor(c, R.color.text_tertiary)
+                else 0xFF9E9E9E.toInt()
+            s.ping < 100 -> 0xFFC4F82A.toInt()
+            s.ping < 300 -> 0xFFFFC107.toInt()
+            else -> 0xFFFF5722.toInt()
+        }
     }
 
     private fun fastConnect() {
@@ -1785,32 +1793,8 @@ class HomeFragment : Fragment() {
     }
 
 
-    /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
-    private fun getHwid(): String {
-        // ★ HWID o'chirilgan bo'lsa — bo'sh string
-        if (!HwidStore.isEnabled(requireContext())) return ""
-                val ctx = requireContext()
-        // ANDROID_ID — qurilma uchun barqaror
-        val androidId = try {
-            android.provider.Settings.Secure.getString(
-                ctx.contentResolver,
-                android.provider.Settings.Secure.ANDROID_ID
-            ) ?: "unknown"
-        } catch (t: Throwable) { "unknown" }
-
-        val model = android.os.Build.MODEL ?: "device"
-        val packageName = ctx.packageName
-
-        // Barqaror hash
-        val raw = "$androidId-$model-$packageName"
-        val hash = java.security.MessageDigest
-            .getInstance("SHA-256")
-            .digest(raw.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-            .take(32)
-
-        return hash
-    }
+    /** HWID — BARQAROR (FIX #12: HwidStore'ga ko'chirildi). */
+    private fun getHwid(): String = HwidStore.getHwid(requireContext())
 
     private fun loadSubscription(url: String, subName: String?) {
         val c = requireContext()
@@ -2224,7 +2208,8 @@ class HomeFragment : Fragment() {
             val m = medals.getOrElse(i) { "  " }
             val ping = ins.summary.substringBefore("\u2022").trim()
             sb.append("$m  ${ins.name}\n")
-            sb.append("      $ping  \u00B7  AI ${"%.0f".format(ins.score)}\n\n")
+            sb.append("      $ping  \u00B7  AI " +
+                String.format(Locale.US, "%.0f", ins.score) + "\n\n")
         }
         androidx.appcompat.app.AlertDialog.Builder(requireContext())
             .setTitle(R.string.dialog_ai_top3)
@@ -2459,7 +2444,9 @@ class HomeFragment : Fragment() {
         }
 
         awgCount?.text = getString(R.string.text_count_ta, a.awgConfigs.size)
-        rebuildServerCards()
+        // FIX #9: rebuildServerCards() bu yerdan OLIB TASHLANDI - debounced
+        // refreshRunnable allaqachon chaqiradi. Ikki marta chaqirilishi 600+
+        // serverda 2x UI freeze beradi.
 
         if (a.isRunning) {
             statusText?.setText(R.string.status_connected)

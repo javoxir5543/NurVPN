@@ -81,7 +81,8 @@ class AICardView @JvmOverloads constructor(
             tv.textSize = 12f
             tv.setPadding(0, 6, 0, 0)
             val medal = when (i) { 0 -> "🥇"; 1 -> "🥈"; else -> "🥉" }
-            tv.text = "$medal ${r.name}  —  ${"%.0f".format(r.score)}"
+            tv.text = "$medal ${r.name}  —  " +
+                String.format(java.util.Locale.US, "%.0f", r.score)
             tv.setTextColor(androidx.core.content.ContextCompat
                 .getColor(context, R.color.text_secondary))
             rankingBox.addView(tv)
