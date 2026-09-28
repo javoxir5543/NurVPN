@@ -289,7 +289,57 @@ object ServerLinkParser {
         val cc = CountryLookup.lookup(si.host)
         si.countryCode = cc[0]
         si.country = cc[1]
+
+        // ═══ TRANSPORT PARSE ═══
+        si.transport = detectTransport(link, si.protocol)
+
         return si
+    }
+
+    /**
+     * Link va protokoldan transport turini aniqlaydi.
+     * Misol: vless://...?type=ws → "ws"
+     *        hysteria2://... → "quic"
+     *        vless://...?type=grpc → "grpc"
+     */
+    private fun detectTransport(link: String, proto: Protocol): String {
+        // UDP/QUIC protokollar
+        return when (proto) {
+            Protocol.HYSTERIA2 -> "quic"
+            Protocol.TUIC -> "quic"
+            Protocol.SS_2022 -> {
+                if (link.startsWith("ss://")) "tcp" else "quic"
+            }
+            else -> {
+                // TCP-based protokollar — query dan type ni o'qiymiz
+                try {
+                    val qIdx = link.indexOf('?')
+                    if (qIdx < 0) return "tcp"
+                    val qs = link.substring(qIdx + 1).substringBefore('#')
+                    for (pair in qs.split("&")) {
+                        if (pair.startsWith("type=")) {
+                            val t = pair.substring(5).lowercase()
+                            return when (t) {
+                                "ws", "websocket" -> "ws"
+                                "grpc" -> "grpc"
+                                "xhttp" -> "xhttp"
+                                "httpupgrade" -> "httpupgrade"
+                                "splithttp" -> "split"
+                                "quic" -> "quic"
+                                "kcp" -> "kcp"
+                                "http" -> "http"
+                                "tcp" -> "tcp"
+                                else -> t
+                            }
+                        }
+                    }
+                    // security=reality → reality (transport emas, lekin ko'rsatish uchun)
+                    if (qs.contains("security=reality")) return "reality"
+                    if (qs.contains("security=tls")) return "tls"
+                } catch (_: Throwable) {}
+                "tcp"
+            }
+        }
     }
 
     private fun parseVmessV1(decoded: String, remark: String?,

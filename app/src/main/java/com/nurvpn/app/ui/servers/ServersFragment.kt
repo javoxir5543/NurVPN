@@ -301,14 +301,8 @@ class ServersFragment : Fragment() {
             return
         }
 
-        // FIX: 600+ server uchun limit — bir vaqtda max 100
-        val MAX_PING = 100
-        val pingable = if (a.servers.size > MAX_PING) {
-            android.util.Log.w("NurVPN-PING",
-                "ServersFragment.pingAll: ${a.servers.size} server, " +
-                "faqat $MAX_PING tasi")
-            a.servers.take(MAX_PING)
-        } else a.servers
+        // Barcha serverlarni ping qilamiz (limit olib tashlandi)
+        val pingable = a.servers
 
         if (pingable.isNotEmpty()) {
             var scheduled = false
@@ -1212,19 +1206,23 @@ class ServersFragment : Fragment() {
                 h.aiScore.visibility = View.VISIBLE
                 when (s.protocol) {
                     Protocol.VLESS_REALITY -> {
-                        h.aiScore.text = "VLESS"
+                        h.aiScore.text = "VLESS" +
+                            (if (s.transport.isNotEmpty()) " / " + transportLabelServer(s.transport) else "")
                         h.aiScore.setTextColor(0xFF4A9EFF.toInt())
                     }
                     Protocol.VMESS -> {
-                        h.aiScore.text = "VMESS"
+                        h.aiScore.text = "VMESS" +
+                            (if (s.transport.isNotEmpty()) " / " + transportLabelServer(s.transport) else "")
                         h.aiScore.setTextColor(0xFF4A9EFF.toInt())
                     }
                     Protocol.TROJAN -> {
-                        h.aiScore.text = "TROJAN"
+                        h.aiScore.text = "TROJAN" +
+                            (if (s.transport.isNotEmpty()) " / " + transportLabelServer(s.transport) else "")
                         h.aiScore.setTextColor(0xFF4A9EFF.toInt())
                     }
                     Protocol.HYSTERIA2 -> {
-                        h.aiScore.text = "HY2"
+                        h.aiScore.text = "HY2" +
+                            (if (s.transport.isNotEmpty()) " / " + transportLabelServer(s.transport) else "")
                         h.aiScore.setTextColor(0xFF9B59B6.toInt())
                     }
                     Protocol.TUIC -> {
@@ -1280,6 +1278,22 @@ class ServersFragment : Fragment() {
                 frag.refresh()
             }
             h.itemView.setOnLongClickListener { showMenu(s); true }
+        }
+
+        /** Transport turini qisqa ko'rinishda qaytaradi (chip uchun). */
+        private fun transportLabelServer(t: String): String = when (t.lowercase()) {
+            "ws", "websocket" -> "WS"
+            "grpc" -> "gRPC"
+            "xhttp" -> "XHTTP"
+            "httpupgrade" -> "HU"
+            "split", "splithttp" -> "SPLIT"
+            "quic" -> "QUIC"
+            "kcp" -> "KCP"
+            "http" -> "HTTP"
+            "reality" -> "REALITY"
+            "tls" -> "TLS"
+            "tcp" -> "TCP"
+            else -> t.uppercase()
         }
 
         private fun bindAWG(h: ItemVH, awg: AWGConfig) {
@@ -1393,12 +1407,7 @@ class ServersFragment : Fragment() {
             var servers = a.servers.filter { it.subId == subId }
 
             // FIX: 600+ server uchun limit — bir vaqtda max 100
-            val MAX_PING_SUB = 100
-            if (servers.size > MAX_PING_SUB) {
-                android.util.Log.w("NurVPN-PING",
-                    "pingSub: ${servers.size} ta, faqat $MAX_PING_SUB tasi")
-                servers = servers.take(MAX_PING_SUB)
-            }
+
 
             android.util.Log.i("NurVPN-PING",
                 "pingSub: subId=$subId, matched=${servers.size}, total=${a.servers.size}")

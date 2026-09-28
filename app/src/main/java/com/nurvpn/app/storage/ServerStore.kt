@@ -24,6 +24,7 @@ object ServerStore {
             o.put("ping", si.ping)
             o.put("subId", si.subId ?: JSONObject.NULL)
             o.put("favorite", si.favorite)
+            o.put("transport", si.transport)
             arr.put(o)
         }
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
@@ -49,6 +50,9 @@ object ServerStore {
                 si.subId = if (o.has("subId") && !o.isNull("subId"))
                     o.getString("subId") else null
                 si.protocol = Protocol.fromUri(o.getString("link"))
+                si.transport = o.optString("transport", "")
+                // Eski serverlar uchun — transport bo'sh bo'lsa, link dan aniqlash
+                si.ensureTransport()
                 Log.d("NurVPN-PING", "load: ${si.host}:${si.port} proto=${si.protocol} link=${o.getString("link").take(20)}…")
                 out.add(si)
             }

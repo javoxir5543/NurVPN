@@ -12,8 +12,32 @@ class ServerItem(@JvmField var link: String) {
     var ping: Int = -1
     var subId: String? = null
     var favorite: Boolean = false
+    /** Transport turi: tcp, ws, grpc, xhttp, quic, httpupgrade, split, ... */
+    var transport: String = ""
 
-    
+    /**
+     * Transport bo'sh bo'lsa — link dan avtomatik aniqlaydi.
+     * Eski serverlar uchun (transport maydonisiz saqlangan).
+     */
+    fun ensureTransport() {
+        if (transport.isNotEmpty()) return
+        val l = link.lowercase()
+        transport = when {
+            l.startsWith("hysteria2://") || l.startsWith("hy2://") -> "quic"
+            l.startsWith("tuic://") -> "quic"
+            l.contains("type=ws") || l.contains("type=websocket") -> "ws"
+            l.contains("type=grpc") -> "grpc"
+            l.contains("type=xhttp") -> "xhttp"
+            l.contains("type=httpupgrade") -> "httpupgrade"
+            l.contains("type=splithttp") -> "split"
+            l.contains("type=kcp") -> "kcp"
+            l.contains("type=quic") -> "quic"
+            l.contains("security=reality") -> "reality"
+            l.contains("security=tls") -> "tls"
+            else -> "tcp"
+        }
+    }
+
     var protocol: Protocol = Protocol.VLESS_REALITY
 
     fun flag(): String {

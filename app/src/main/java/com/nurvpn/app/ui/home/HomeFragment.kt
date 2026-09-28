@@ -460,6 +460,7 @@ class HomeFragment : Fragment() {
         // ═══ 0. SEVIMLILAR KARTASI (birinchi) ═══
         val favServers = a.servers.filter { it.favorite }
         if (favServers.isNotEmpty()) {
+            homeExpandedSubs.add("fav_card")
             val favCard = makeExpandableCard(
                 "\u2B50", getString(R.string.fav_card_title),
                 favServers.size, "fav_card")
@@ -467,6 +468,8 @@ class HomeFragment : Fragment() {
             for (si in favServers) {
                 favBody.addView(makeServerRow(si, a))
             }
+            favBody.visibility = android.view.View.VISIBLE
+            favBody.tag = "populated"
             container.addView(favCard)
         }
 
@@ -514,22 +517,25 @@ class HomeFragment : Fragment() {
             container.addView(card)
         }
 
-        // ═══ 2. QO'LDA QO'SHILGAN — KARTASIZ, TO'G'RIDAN-TO'G'RI ═══
-        val manual = a.servers.filter { it.subId == null }
-        if (manual.isNotEmpty()) {
-            // Kichik sarlavha
-            val label = TextView(requireContext())
-            label.text = getString(R.string.text_manual_count, manual.size)
-            label.setTextColor(androidx.core.content.ContextCompat
-                .getColor(requireContext(), R.color.text_secondary))
-            label.textSize = 12f
-            label.setPadding(4, 20, 4, 6)
-            container.addView(label)
-
-            // Serverlar to'g'ridan-to'g'ri (kartasiz)
+        // ═══ 2. QO'LDA QO'SHILGAN — KARTA BILAN ═══
+        val manualRaw = a.servers.filter { it.subId == null }
+        if (manualRaw.isNotEmpty()) {
+            // Manual sort mode qo'llash
+            val manualSortMode = requireContext()
+                .getSharedPreferences("manual_sort", android.content.Context.MODE_PRIVATE)
+                .getString("mode", "default") ?: "default"
+            val manual = sortServers(manualRaw, manualSortMode)
+            homeExpandedSubs.add("manual_card")
+            val manualCard = makeExpandableCard(
+                "\uD83D\uDD27", getString(R.string.manual_added),
+                manual.size, "manual_card")
+            val manualBody = manualCard.getChildAt(1) as LinearLayout
             for (si in manual) {
-                container.addView(makeServerRow(si, a))
+                manualBody.addView(makeServerRow(si, a))
             }
+            manualBody.visibility = android.view.View.VISIBLE
+            manualBody.tag = "populated"
+            container.addView(manualCard)
         }
     }
 
@@ -540,7 +546,8 @@ class HomeFragment : Fragment() {
         row.findViewById<TextView>(R.id.row_name).text = si.displayName()
         row.findViewById<TextView>(R.id.row_host).text = si.host ?: ""
         val proto = row.findViewById<TextView>(R.id.row_proto)
-        proto.text = protocolLabel(si.protocol)
+        proto.text = protocolLabel(si.protocol) +
+            (if (si.transport.isNotEmpty()) " / " + transportLabel(si.transport) else "")
         proto.backgroundTintList = android.content.res.ColorStateList
             .valueOf(protocolColor(si.protocol))
         val pingView = row.findViewById<TextView>(R.id.row_ping)
@@ -929,6 +936,69 @@ class HomeFragment : Fragment() {
                     Toast.LENGTH_SHORT).show()
             }
         }.start()
+    }
+
+    /** Qo'lda qo'shilgan serverlarni ping qilish (Home ekran). */
+    private fun pingManualHome() {
+        val a = activity as? MainActivity ?: return
+        val manual = a.servers.filter { it.subId == null }
+        if (manual.isEmpty()) {
+            Toast.makeText(context, R.string.text_no_servers,
+                Toast.LENGTH_SHORT).show()
+            return
+        }
+        Toast.makeText(context,
+            getString(R.string.ping_sub_started,
+                getString(R.string.manual_added), manual.size),
+            Toast.LENGTH_SHORT).show()
+        android.util.Log.i("NurVPN-PING", "Home manual ping: ${manual.size}")
+        PingTester.testAll(manual, object : PingTester.Listener {
+            override fun onPingUpdate(item: ServerItem, ping: Int) {
+                if (!pingUpdateScheduled) {
+                    pingUpdateScheduled = true
+                    ui.postDelayed(pingRebuildRunnable, PING_DEBOUNCE_MS)
+                }
+            }
+            override fun onAllDone() {
+                pingRunning = false
+                if (!isAdded) return
+                ui.removeCallbacks(pingRebuildRunnable)
+                pingUpdateScheduled = false
+                val a2 = activity as? MainActivity ?: return
+                ServerStore.save(a2, a2.servers)
+                Toast.makeText(context, R.string.ping_done,
+                    Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    /** Qo'lda qo'shilgan serverlar uchun sort dialogi. */
+    private fun showManualSettingsDialog() {
+        val ctx = requireContext()
+        val current = ctx.getSharedPreferences("manual_sort",
+            android.content.Context.MODE_PRIVATE)
+            .getString("mode", "default") ?: "default"
+        val modes = arrayOf(
+            "default" to getString(R.string.sort_default),
+            "ping_asc" to getString(R.string.sort_ping_asc),
+            "ping_desc" to getString(R.string.sort_ping_desc),
+            "name_asc" to getString(R.string.sort_name_asc),
+            "name_desc" to getString(R.string.sort_name_desc)
+        )
+        val labels = modes.map { it.second }.toTypedArray()
+        val idx = modes.indexOfFirst { it.first == current }.coerceAtLeast(0)
+
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle(R.string.sort_title)
+            .setSingleChoiceItems(labels, idx) { d, which ->
+                ctx.getSharedPreferences("manual_sort",
+                    android.content.Context.MODE_PRIVATE)
+                    .edit().putString("mode", modes[which].first).apply()
+                rebuildServerCards(force = true)
+                d.dismiss()
+            }
+            .setNegativeButton(R.string.dialog_no, null)
+            .show()
     }
 
     /** Faqat shu obuna serverlarini ping qilish (Home ekran). */
@@ -1360,10 +1430,10 @@ class HomeFragment : Fragment() {
             isFocusable = true
         }
         settingsBtn.setOnClickListener {
-            if (subId == "awg_card") {
-                showAwgSettingsDialog()
-            } else if (subId != null) {
-                showSubSettingsDialog(subId, title)
+            when {
+                subId == "awg_card" -> showAwgSettingsDialog()
+                subId == "manual_card" -> showManualSettingsDialog()
+                subId != null -> showSubSettingsDialog(subId, title)
             }
         }
 
@@ -1382,13 +1452,19 @@ class HomeFragment : Fragment() {
             it.isEnabled = false
             it.postDelayed({ it.isEnabled = true; it.alpha = 1f }, 800)
             it.alpha = 0.5f
-            pingSubscriptionHome(subId, title)
+            if (subId == "manual_card") {
+                pingManualHome()
+            } else {
+                pingSubscriptionHome(subId, title)
+            }
         }
 
         header.addView(iconBox)
         header.addView(titles)
+        // Ping tugmasi: subscription + fav_card + manual_card
         if (subId != null && subId != "awg_card") header.addView(pingBtn)
-        if (subId != null) header.addView(settingsBtn)
+        // Sozlama: subscription + manual_card (fav_card da emas)
+        if (subId != null && subId != "fav_card" && subId != "awg_card") header.addView(settingsBtn)
         header.addView(arrow)
 
         // Body — ochilgan holatni saqlash
@@ -1575,6 +1651,23 @@ class HomeFragment : Fragment() {
         Protocol.HYSTERIA2 -> "HY2"
         Protocol.TUIC -> "TUIC"
     }
+
+    /** Transport turini qisqa ko'rinishda qaytaradi (chip uchun). */
+    private fun transportLabel(t: String): String = when (t.lowercase()) {
+        "ws", "websocket" -> "WS"
+        "grpc" -> "gRPC"
+        "xhttp" -> "XHTTP"
+        "httpupgrade" -> "HU"
+        "split", "splithttp" -> "SPLIT"
+        "quic" -> "QUIC"
+        "kcp" -> "KCP"
+        "http" -> "HTTP"
+        "reality" -> "REALITY"
+        "tls" -> "TLS"
+        "tcp" -> "TCP"
+        else -> t.uppercase()
+    }
+
 
     private fun protocolColor(p: Protocol): Int = when (p) {
         Protocol.VLESS_REALITY -> 0xFF4A9EFF.toInt()
@@ -2185,16 +2278,8 @@ class HomeFragment : Fragment() {
 
         if (a.servers.isNotEmpty()) {
             // FIX: 600+ server uchun limit — bir vaqtda max 100 ta
-            val MAX_PING = 100
-            val serversToPing = if (a.servers.size > MAX_PING) {
-                // Eng yaqin (birinchi) 100 tasi — foydalanuvchi kutayotgani
-                android.util.Log.w("NurVPN-PING",
-                    "pingHomeAll: ${a.servers.size} server, faqat " +
-                    "$MAX_PING tasi ping qilinadi")
-                a.servers.take(MAX_PING)
-            } else {
-                a.servers
-            }
+            // Barcha serverlarni ping qilamiz (limit olib tashlandi)
+            val serversToPing = a.servers
             PingTester.testAll(serversToPing, object : PingTester.Listener {
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
                     // Debounce — 400ms ichida ko'p marta chaqirilsa, faqat 1 marta rebuild
