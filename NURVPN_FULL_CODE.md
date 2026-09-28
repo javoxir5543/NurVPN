@@ -79,7 +79,7 @@ class AIInsights(
 
 ## 📄 `com/nurvpn/app/ai/AIServerSelector.kt`
 
-*123 qator*
+*127 qator*
 
 ```kotlin
 package com.nurvpn.app.ai
@@ -111,14 +111,17 @@ class AIServerSelector private constructor(private val ctx: Context) {
     }
 
     fun selectBest(servers: List<ServerItem>, listener: Listener) {
-        listener.onAnalysisStart()
+        // FIX: WeakReference - Fragment detach bo'lsa thread listener'ni
+        // ushlab qolmaydi (60s gacha memory leak oldini oladi)
+        val listenerRef = java.lang.ref.WeakReference(listener)
+        listenerRef.get()?.onAnalysisStart()
         val now = System.currentTimeMillis()
         // ═══ 20 thread pool — parallel ping (13 daq → ~30 sek) ═══
         Thread {
             val candidates = servers.filter { !it.host.isNullOrEmpty() && it.port > 0 }
             if (candidates.isEmpty()) {
                 Handler(Looper.getMainLooper()).post {
-                    listener.onAnalysisComplete(emptyList())
+                    listenerRef.get()?.onAnalysisComplete(emptyList())
                 }
                 return@Thread
             }
@@ -143,7 +146,7 @@ class AIServerSelector private constructor(private val ctx: Context) {
                         results.add(si to score)
                         val done = completed.incrementAndGet()
                         Handler(Looper.getMainLooper()).post {
-                            listener.onServerScored(si, score)
+                            listenerRef.get()?.onServerScored(si, score)
                             if (done % 5 == 0 || done == total) {
                                 Log.i("NurVPN-AI", "AI progress: $done/$total")
                             }
@@ -173,14 +176,15 @@ class AIServerSelector private constructor(private val ctx: Context) {
                     else -> "—"
                 }
                 AIInsights(si.link, score, si.displayName(),
-                    "$pingText • AI ${"%.0f".format(score)}")
+                    "$pingText • AI " +
+                        String.format(java.util.Locale.US, "%.0f", score))
             }
             Log.i("NurVPN-AI", "AI tugadi: ${sorted.size} ta, eng yaxshi: " +
                 "${sorted.firstOrNull()?.first?.displayName()}")
             Handler(Looper.getMainLooper()).post {
-                listener.onAnalysisComplete(ranked)
+                listenerRef.get()?.onAnalysisComplete(ranked)
                 if (sorted.isNotEmpty()) {
-                    listener.onBestSelected(sorted[0].first, ranked[0])
+                    listenerRef.get()?.onBestSelected(sorted[0].first, ranked[0])
                 }
             }
         }.start()
@@ -317,7 +321,7 @@ PersistentKeepalive = 15"""
 
 ## 📄 `com/nurvpn/app/config/SingBoxConfig.kt`
 
-*729 qator*
+*738 qator*
 
 ```kotlin
 package com.nurvpn.app.config
@@ -725,15 +729,24 @@ object SingBoxConfig {
     /** Link'dan server host'ini ajratib olish (route uchun) */
     private fun extractServerHost(link: String): String? {
         return try {
-            val u = java.net.URI(link)
-            val host = u.host
-            if (!host.isNullOrEmpty()) return host
-            // vmess:// uchun base64 decode
+            // vmess:// URI-style yoki Base64
             if (link.startsWith("vmess://")) {
-                val b64 = link.removePrefix("vmess://").substringBefore("#")
-                val json = String(android.util.Base64.decode(b64, android.util.Base64.DEFAULT))
-                org.json.JSONObject(json).optString("add").takeIf { it.isNotEmpty() }
-            } else null
+                val body = link.removePrefix("vmess://").substringBefore("#")
+                if (body.contains("@")) {
+                    // URI-style: uuid@host:port/path?query
+                    var after = body.substringAfter("@")
+                    val qIdx = after.indexOf('?'); if (qIdx > 0) after = after.substring(0, qIdx)
+                    val sIdx = after.indexOf('/'); if (sIdx > 0) after = after.substring(0, sIdx)
+                    after.substringBeforeLast(":").takeIf { it.isNotEmpty() }
+                } else {
+                    // Base64 JSON
+                    val json = String(android.util.Base64.decode(body, android.util.Base64.DEFAULT))
+                    org.json.JSONObject(json).optString("add").takeIf { it.isNotEmpty() }
+                }
+            } else {
+                val u = java.net.URI(link)
+                u.host?.takeIf { it.isNotEmpty() }
+            }
         } catch (e: Throwable) {
             null
         }
@@ -2010,7 +2023,7 @@ object BinaryRunner {
 
 ## 📄 `com/nurvpn/app/service/NurVpnService.kt`
 
-*1056 qator*
+*1070 qator*
 
 ```kotlin
 package com.nurvpn.app.service
@@ -2154,6 +2167,7 @@ class NurVpnService : VpnService() {
 
     /** Lifecycle-aware underlying network callback (memory leak oldini olish). */
     private var underlyingCallback: android.net.ConnectivityManager.NetworkCallback? = null
+    private var ifaceCallback: android.net.ConnectivityManager.NetworkCallback? = null
 
     // ═══════ PLATFORM INTERFACE ═══════
     private val platform = object : PlatformInterface {
@@ -2351,11 +2365,13 @@ class NurVpnService : VpnService() {
 
         override fun clearDNSCache() { }
 
-        private var ifaceCallback: android.net.ConnectivityManager.NetworkCallback? = null
-
         private fun isTunOrVpn(name: String, caps: android.net.NetworkCapabilities?): Boolean {
-            val tun = name.startsWith("tun") || name.startsWith("ppp") ||
-                name.startsWith("ipsec")
+            // FIX #10: kengaytirilgan prefixlar (wg0, sing0, utun, dummy0)
+            val n = name.lowercase()
+            val tun = n.startsWith("tun") || n.startsWith("ppp") ||
+                n.startsWith("ipsec") || n.startsWith("wg") ||
+                n.startsWith("sing") || n.startsWith("utun") ||
+                n.startsWith("dummy")
             val vpn = caps != null && caps.hasTransport(
                 android.net.NetworkCapabilities.TRANSPORT_VPN)
             val r = tun || vpn
@@ -2436,7 +2452,7 @@ class NurVpnService : VpnService() {
                         pushDefaultInterface(l)
                     }
                 }
-                ifaceCallback = cb
+                this@NurVpnService.ifaceCallback = cb
                 cm.registerNetworkCallback(req, cb)
             } catch (t: Throwable) {
                 Log.e(TAG, "startDefaultInterfaceMonitor fail", t)
@@ -2446,13 +2462,13 @@ class NurVpnService : VpnService() {
         override fun closeDefaultInterfaceMonitor(l: InterfaceUpdateListener?) {
             Log.i(TAG, "═══ closeDefaultInterfaceMonitor ═══")
             try {
-                ifaceCallback?.let {
+                this@NurVpnService.ifaceCallback?.let {
                     val cm = getSystemService(Context.CONNECTIVITY_SERVICE)
                         as android.net.ConnectivityManager
                     cm.unregisterNetworkCallback(it)
                 }
             } catch (ignored: Throwable) {}
-            ifaceCallback = null
+            this@NurVpnService.ifaceCallback = null
         }
 
         override fun findConnectionOwner(
@@ -3037,6 +3053,17 @@ class NurVpnService : VpnService() {
     private fun cleanup() {
         // FIX: underlyingNetwork callback'ni ham tozalash
         teardownUnderlyingNetwork()
+        // FIX: ifaceCallback defensive cleanup - libbox closeDefaultInterfaceMonitor
+        // chaqirmagan bo'lsa ham memory leak oldini oladi
+        try {
+            ifaceCallback?.let {
+                val cm = getSystemService(Context.CONNECTIVITY_SERVICE)
+                    as android.net.ConnectivityManager
+                cm.unregisterNetworkCallback(it)
+                Log.w(TAG, "cleanup: ifaceCallback defensive unregister")
+            }
+        } catch (ignored: Throwable) {}
+        ifaceCallback = null
         runCatching { server?.closeService() }
         runCatching { server?.close() }
         runCatching { tun?.close() }
@@ -3249,9 +3276,9 @@ object AWGStore {
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val c = AWGConfig(o.optString("raw"))
-                c.name = o.optString("name", null)
-                c.endpoint = o.optString("endpoint", null)
-                c.address = o.optString("address", null)
+                c.name = if (o.isNull("name")) null else o.optString("name")
+                c.endpoint = if (o.isNull("endpoint")) null else o.optString("endpoint")
+                c.address = if (o.isNull("address")) null else o.optString("address")
                 c.favorite = o.optBoolean("favorite", false)
                 c.ping = o.optInt("ping", -1)
                 out.add(c)
@@ -3347,7 +3374,7 @@ object AwgSortStore {
 
 ## 📄 `com/nurvpn/app/storage/HwidStore.kt`
 
-*22 qator*
+*44 qator*
 
 ```kotlin
 package com.nurvpn.app.storage
@@ -3370,6 +3397,28 @@ object HwidStore {
     fun setEnabled(ctx: Context, enabled: Boolean) =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ENABLED, enabled).apply()
+
+    /**
+     * FIX #12: getHwid() DRY - HomeFragment va ServersFragment'da takrorlanardi.
+     * Barqaror SHA-256 hash: ANDROID_ID + model + packageName.
+     */
+    fun getHwid(ctx: Context): String {
+        if (!isEnabled(ctx)) return ""
+        val androidId = try {
+            android.provider.Settings.Secure.getString(
+                ctx.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
+            ) ?: "unknown"
+        } catch (t: Throwable) { "unknown" }
+        val model = android.os.Build.MODEL ?: "device"
+        val packageName = ctx.packageName
+        val raw = "$androidId-$model-$packageName"
+        return java.security.MessageDigest
+            .getInstance("SHA-256")
+            .digest(raw.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+            .take(32)
+    }
 }
 ```
 
@@ -3666,9 +3715,9 @@ object ServerStore {
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val si = ServerItem(o.getString("link"))
-                si.host = o.optString("host", null)
+                si.host = if (o.isNull("host")) null else o.optString("host")
                 si.port = o.optInt("port", 0)
-                si.remark = o.optString("remark", null)
+                si.remark = if (o.isNull("remark")) null else o.optString("remark")
                 si.countryCode = o.optString("cc", "")
                 si.country = o.optString("country", "")
                 si.ping = o.optInt("ping", -1)
@@ -3793,8 +3842,8 @@ object SubscriptionStore {
     fun moveSubscription(ctx: Context, subId: String, dir: Int): Boolean {
         val list = load(ctx)
         if (list.isEmpty()) return false
-        // Tartib bo'yicha saralash
-        list.sortBy { it.order }
+        // Tartib bo'yicha saralash (order, keyin id - stabil)
+        list.sortWith(compareBy({ it.order }, { it.id }))
         val idx = list.indexOfFirst { it.id == subId }
         if (idx < 0) return false
         val newIdx = (idx + dir).coerceIn(0, list.size - 1)
@@ -3831,7 +3880,7 @@ object SubscriptionStore {
 
 ## 📄 `com/nurvpn/app/ui/MainActivity.kt`
 
-*482 qator*
+*488 qator*
 
 ```kotlin
 package com.nurvpn.app.ui
@@ -3898,7 +3947,7 @@ class MainActivity : AppCompatActivity() {
     @JvmField var protocol: String = PROTO_XRAY
     @JvmField var isRunning = false
     /** Har restart'da oshadi. Faqat eng oxirgi restart ishlaydi. */
-    @Volatile private var restartGeneration = 0L
+    private val restartGeneration = java.util.concurrent.atomic.AtomicLong(0L)
     @JvmField var connectStart: Long = 0
     lateinit var prefs: SharedPreferences
 
@@ -3935,6 +3984,7 @@ class MainActivity : AppCompatActivity() {
 
     private var stateReceiver: BroadcastReceiver? = null
     private var dbgReceiver: BroadcastReceiver? = null
+    private var awgEditedReceiver: BroadcastReceiver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -4128,7 +4178,7 @@ class MainActivity : AppCompatActivity() {
             override fun onReceive(ctx: Context?, i: Intent?) {
                 val newRaw = i?.getStringExtra("awg_raw") ?: return
                 val cfg = awgConfigs.find { it.rawConf == newRaw } ?: return
-                if (isRunning && protocol == PROTO_AWG) {
+                if (isRunning && protocol == PROTO_AWG && currentAWG === cfg) {
                     restartVpn(getString(R.string.reason_awg,
                         cfg.name ?: "AWG"))
                 }
@@ -4143,6 +4193,7 @@ class MainActivity : AppCompatActivity() {
             registerReceiver(awgEditedReceiver,
                 IntentFilter("com.nurvpn.app.AWG_EDITED"))
         }
+        this.awgEditedReceiver = awgEditedReceiver
 
         // ★ Avto-start O'CHIRILDI — foydalanuvchi qo'lda bosadi
         android.util.Log.i("NurVPN-DBG", "Avto-start o'chirilgan, qo'lda bosishni kuting")
@@ -4221,7 +4272,7 @@ class MainActivity : AppCompatActivity() {
     /** VPN ishlab turganda server o'zgarsa — qayta ulanish. */
     fun restartVpn(reason: String) {
         // ═══ GENERATION: faqat eng oxirgi restart ishlaydi ═══
-        val myGen = ++restartGeneration
+        val myGen = restartGeneration.incrementAndGet()
         android.util.Log.i("NurVPN-DBG", "restartVpn[$myGen]: $reason")
         Toast.makeText(this, getString(R.string.toast_reconnecting, reason), Toast.LENGTH_SHORT).show()
 
@@ -4237,9 +4288,9 @@ class MainActivity : AppCompatActivity() {
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             if (isFinishing || isDestroyed) return@postDelayed
             // ═══ Faqat oxirgi restart davom etadi ═══
-            if (myGen != restartGeneration) {
+            if (myGen != restartGeneration.get()) {
                 android.util.Log.i("NurVPN-DBG",
-                    "restartVpn[$myGen]: bekor (yangi gen $restartGeneration)")
+                    "restartVpn[$myGen]: bekor (yangi gen ${restartGeneration.get()})")
                 return@postDelayed
             }
             connectStart = System.currentTimeMillis()
@@ -4307,6 +4358,10 @@ class MainActivity : AppCompatActivity() {
             dbgReceiver?.let { unregisterReceiver(it) }
             dbgReceiver = null
         } catch (ignored: Throwable) {}
+        try {
+            awgEditedReceiver?.let { unregisterReceiver(it) }
+            awgEditedReceiver = null
+        } catch (ignored: Throwable) {}
         stateReceiver = null
     }
 }
@@ -4321,11 +4376,12 @@ class MainActivity : AppCompatActivity() {
 
 ## 📄 `com/nurvpn/app/ui/awg/AWGEditorActivity.kt`
 
-*202 qator*
+*189 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.awg
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -4496,34 +4552,20 @@ class AWGEditorActivity : AppCompatActivity() {
         AWGStore.save(this, AWGEditorBus.configs)
         Toast.makeText(this, R.string.editor_saved, Toast.LENGTH_SHORT).show()
 
-        // FIX: Agar joriy config tahrirlangan bo'lsa va VPN ishlayotgan
-        // bo'lsa — reconnect chaqiramiz
-        val main = getMainActivity()
-        if (main != null && oldRaw != cfg.rawConf) {
-            if (main.currentAWG?.rawConf == oldRaw ||
-                main.currentAWG === cfg) {
-                main.currentAWG = cfg
-                main.protocol = MainActivity.PROTO_AWG
-                AWGEditorBus.init(main.awgConfigs, cfg, MainActivity.PROTO_AWG)
-
-                if (main.isRunning) {
-                    android.util.Log.i("NurVPN-AWG",
-                        "Editor: config o'zgardi -> reconnect")
-                    main.restartVpn(getString(R.string.reason_awg,
-                        cfg.name ?: "AWG"))
-                }
-            }
+        // FIX: Agar config o'zgargan bo'lsa - MainActivity'ga broadcast
+        // (MainActivity.awgEditedReceiver ushlab oladi va VPN yoniq bo'lsa restart qiladi)
+        if (oldRaw != cfg.rawConf) {
+            android.util.Log.i("NurVPN-AWG",
+                "Editor: config o'zgardi -> broadcast AWG_EDITED")
+            val i = Intent("com.nurvpn.app.AWG_EDITED")
+            i.setPackage(packageName)
+            i.putExtra("awg_raw", cfg.rawConf)
+            sendBroadcast(i)
         }
 
         finish()
     }
 
-    /**
-     * MainActivity'ni topish — deprecated getActivity() o'rniga.
-     * AWGEditorActivity alohida Activity bo'lgani uchun bu yerda null qaytaradi.
-     * Boshqa yo'l: SharedPreferences listener yoki broadcast.
-     */
-    private fun getMainActivity(): MainActivity? = null
 }
 ```
 
@@ -4531,7 +4573,7 @@ class AWGEditorActivity : AppCompatActivity() {
 
 ## 📄 `com/nurvpn/app/ui/home/HomeFragment.kt`
 
-*2615 qator*
+*2602 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.home
@@ -4701,6 +4743,8 @@ class HomeFragment : Fragment() {
 
     /** Rekursiv ravishda row_ping TextView'larni topib, yangilash. */
     private fun walkAndUpdatePing(view: View, byLink: Map<String, ServerItem>) {
+        // FIX #15: Fragment detach bo'lsa crash oldini oladi
+        if (!isAdded) return
         if (view is TextView && view.id == R.id.row_ping) {
             val link = view.tag as? String ?: return
             val si = byLink[link] ?: return
@@ -6219,11 +6263,17 @@ class HomeFragment : Fragment() {
         else -> "---"
     }
 
-    private fun pingColor(s: ServerItem): Int = when {
-        s.ping <= 0 || s.ping >= 9999 -> androidx.core.content.ContextCompat.getColor(requireContext(), R.color.text_tertiary)
-        s.ping < 100 -> 0xFFC4F82A.toInt()
-        s.ping < 300 -> 0xFFFFC107.toInt()
-        else -> 0xFFFF5722.toInt()
+    private fun pingColor(s: ServerItem): Int {
+        // FIX #14: context null-safe (Fragment detach'da crash oldini oladi)
+        val c = context
+        return when {
+            s.ping <= 0 || s.ping >= 9999 -> if (c != null)
+                androidx.core.content.ContextCompat.getColor(c, R.color.text_tertiary)
+                else 0xFF9E9E9E.toInt()
+            s.ping < 100 -> 0xFFC4F82A.toInt()
+            s.ping < 300 -> 0xFFFFC107.toInt()
+            else -> 0xFFFF5722.toInt()
+        }
     }
 
     private fun fastConnect() {
@@ -6321,32 +6371,8 @@ class HomeFragment : Fragment() {
     }
 
 
-    /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
-    private fun getHwid(): String {
-        // ★ HWID o'chirilgan bo'lsa — bo'sh string
-        if (!HwidStore.isEnabled(requireContext())) return ""
-                val ctx = requireContext()
-        // ANDROID_ID — qurilma uchun barqaror
-        val androidId = try {
-            android.provider.Settings.Secure.getString(
-                ctx.contentResolver,
-                android.provider.Settings.Secure.ANDROID_ID
-            ) ?: "unknown"
-        } catch (t: Throwable) { "unknown" }
-
-        val model = android.os.Build.MODEL ?: "device"
-        val packageName = ctx.packageName
-
-        // Barqaror hash
-        val raw = "$androidId-$model-$packageName"
-        val hash = java.security.MessageDigest
-            .getInstance("SHA-256")
-            .digest(raw.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-            .take(32)
-
-        return hash
-    }
+    /** HWID — BARQAROR (FIX #12: HwidStore'ga ko'chirildi). */
+    private fun getHwid(): String = HwidStore.getHwid(requireContext())
 
     private fun loadSubscription(url: String, subName: String?) {
         val c = requireContext()
@@ -6760,7 +6786,8 @@ class HomeFragment : Fragment() {
             val m = medals.getOrElse(i) { "  " }
             val ping = ins.summary.substringBefore("\u2022").trim()
             sb.append("$m  ${ins.name}\n")
-            sb.append("      $ping  \u00B7  AI ${"%.0f".format(ins.score)}\n\n")
+            sb.append("      $ping  \u00B7  AI " +
+                String.format(Locale.US, "%.0f", ins.score) + "\n\n")
         }
         androidx.appcompat.app.AlertDialog.Builder(requireContext())
             .setTitle(R.string.dialog_ai_top3)
@@ -6995,7 +7022,9 @@ class HomeFragment : Fragment() {
         }
 
         awgCount?.text = getString(R.string.text_count_ta, a.awgConfigs.size)
-        rebuildServerCards()
+        // FIX #9: rebuildServerCards() bu yerdan OLIB TASHLANDI - debounced
+        // refreshRunnable allaqachon chaqiradi. Ikki marta chaqirilishi 600+
+        // serverda 2x UI freeze beradi.
 
         if (a.isRunning) {
             statusText?.setText(R.string.status_connected)
@@ -7323,7 +7352,7 @@ object QrShowDialog {
 
 ## 📄 `com/nurvpn/app/ui/servers/ServersFragment.kt`
 
-*2003 qator*
+*1987 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.servers
@@ -7385,6 +7414,9 @@ class ServersFragment : Fragment() {
     private var rv: RecyclerView? = null
     private var ad: ServerAdapter? = null
     private var search: EditText? = null
+    // FIX #8: search debounce (UI freeze oldini oladi)
+    private var searchRunnable: Runnable? = null
+    private val searchHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     /** AWG .conf fayl tanlash uchun */
     private val awgFilePicker = registerForActivityResult(
@@ -7489,7 +7521,12 @@ class ServersFragment : Fragment() {
         search?.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {
-                ad?.filter(s?.toString() ?: "")
+                // FIX #8: 250ms debounce - har harf bosilganda rebuild qilmaymiz
+                val q = s?.toString() ?: ""
+                searchRunnable?.let { searchHandler.removeCallbacks(it) }
+                val r = Runnable { ad?.filter(q) }
+                searchRunnable = r
+                searchHandler.postDelayed(r, 250L)
             }
             override fun afterTextChanged(s: Editable?) {}
         })
@@ -8052,32 +8089,8 @@ class ServersFragment : Fragment() {
     }
 
 
-    /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
-    private fun getHwid(): String {
-        // ★ HWID o'chirilgan bo'lsa — bo'sh string
-        if (!HwidStore.isEnabled(requireContext())) return ""
-                val ctx = requireContext()
-        // ANDROID_ID — qurilma uchun barqaror
-        val androidId = try {
-            android.provider.Settings.Secure.getString(
-                ctx.contentResolver,
-                android.provider.Settings.Secure.ANDROID_ID
-            ) ?: "unknown"
-        } catch (t: Throwable) { "unknown" }
-
-        val model = android.os.Build.MODEL ?: "device"
-        val packageName = ctx.packageName
-
-        // Barqaror hash
-        val raw = "$androidId-$model-$packageName"
-        val hash = java.security.MessageDigest
-            .getInstance("SHA-256")
-            .digest(raw.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-            .take(32)
-
-        return hash
-    }
+    /** HWID — BARQAROR (FIX #12: HwidStore'ga ko'chirildi). */
+    private fun getHwid(): String = HwidStore.getHwid(requireContext())
 
     private fun loadSub(url: String, subName: String?) {
         Toast.makeText(context, R.string.toast_loading, Toast.LENGTH_SHORT).show()
@@ -10115,7 +10128,7 @@ class SplitAppsActivity : AppCompatActivity() {
 
 ## 📄 `com/nurvpn/app/ui/widget/AICardView.kt`
 
-*94 qator*
+*95 qator*
 
 ```kotlin
 package com.nurvpn.app.ui.widget
@@ -10201,7 +10214,8 @@ class AICardView @JvmOverloads constructor(
             tv.textSize = 12f
             tv.setPadding(0, 6, 0, 0)
             val medal = when (i) { 0 -> "🥇"; 1 -> "🥈"; else -> "🥉" }
-            tv.text = "$medal ${r.name}  —  ${"%.0f".format(r.score)}"
+            tv.text = "$medal ${r.name}  —  " +
+                String.format(java.util.Locale.US, "%.0f", r.score)
             tv.setTextColor(androidx.core.content.ContextCompat
                 .getColor(context, R.color.text_secondary))
             rankingBox.addView(tv)
@@ -11487,4 +11501,4 @@ object ThemeHelper {
 ---
 
 
-**Jami qatorlar:** 11054
+**Jami qatorlar:** 11068
