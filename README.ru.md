@@ -16,7 +16,7 @@
 
 ## Возможности
 
-- **6+ протоколов**: VLESS Reality, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, AmneziaWG
+- **20 протоколов**: VLESS Reality, VLESS, VMess, Trojan, Shadowsocks, SSR, Hysteria2, TUIC, Juicity, WireGuard, AmneziaWG 1.x/2.x/3.x, MASQUE, AnyTLS, ShadowTLS, SSH, SOCKS, HTTP/HTTPS, NaiveProxy
 - **Современный UI** — Material 3, тёмно-зелёный + лайм
 - **Трафик в реальном времени** — вверх/вниз Б/с
 - **3 языка**: узбекский, русский, английский
