@@ -129,3 +129,21 @@ Pull requests and issues are welcome!
 - All open source subscription owners
 
 If useful — give a star!
+
+---
+
+## 📦 F-Droid Repository
+
+NurVPN'ni **F-Droid** orqali o'rnatish va avtomatik yangilanishlar olish uchun rasmiy repozitoriyni qo'shing:
+
+**Repo URL:** `https://javoxir5543.github.io/nurvpn-repo/repo`
+
+### Qanday qo'shish:
+
+1. **F-Droid** yoki **Neo Store** ilovasini oching
+2. **Settings** → **Repositories** → **Add repository**
+3. Yuqoridagi URL'ni kiriting
+4. **Add** tugmasini bosing
+5. **Updates** → **NurVPN** ko'rinadi
+
+Yoki to'g'ridan-to'g'ri havola: [F-Droid repozitoriysi](https://javoxir5543.github.io/nurvpn-repo/repo)
