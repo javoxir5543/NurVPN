@@ -36,17 +36,21 @@
 
 ## 📸 Screenshots
 
-| Home (VPN off) | Home (VPN on) | Servers |
-|:---:|:---:|:---:|
-| ![Home Off](docs/screenshots/01_home_off.jpg) | ![Home On](docs/screenshots/02_home_on.jpg) | ![Servers](docs/screenshots/03_servers.jpg) |
+<p align="center">
+  <img src="docs/screenshots/01_home_off.jpg" width="220">
+  <img src="docs/screenshots/02_home_on.jpg" width="220">
+  <img src="docs/screenshots/03_servers.jpg" width="220">
+</p>
 
-| Settings | Security | Open Sources |
-|:---:|:---:|:---:|
-| ![Settings](docs/screenshots/04_settings.jpg) | ![Security](docs/screenshots/05_security.jpg) | ![Sources](docs/screenshots/06_sources.jpg) |
+<p align="center">
+  <img src="docs/screenshots/04_settings.jpg" width="220">
+  <img src="docs/screenshots/05_security.jpg" width="220">
+  <img src="docs/screenshots/06_sources.jpg" width="220">
+</p>
 
-| More Sources | | |
-|:---:|:---:|:---:|
-| ![More](docs/screenshots/07_sources2.jpg) | | |
+<p align="center">
+  <img src="docs/screenshots/07_sources2.jpg" width="220">
+</p>
 
 ---
 
@@ -55,7 +59,7 @@
 ### Download APK
 
 1. Go to **Releases** section
-2. Download **app-arm64-v8a-release.apk** (modern phones, 84 MB)
+2. Download **nurvpn-v1.6-arm64-v8a.apk** (modern phones, 61 MB)
 3. Or **app-armeabi-v7a-release.apk** (older phones, 76 MB)
 4. Install it
 

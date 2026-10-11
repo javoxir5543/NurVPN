@@ -36,13 +36,21 @@
 
 ## 📸 Skrinshotlar
 
-| Home | Servers | Settings |
-|:---:|:---:|:---:|
-| ![Home](docs/screenshots/01_home.jpg) | ![Servers](docs/screenshots/02_servers.jpg) | ![Settings](docs/screenshots/03_settings.jpg) |
+<p align="center">
+  <img src="docs/screenshots/01_home_off.jpg" width="220">
+  <img src="docs/screenshots/02_home_on.jpg" width="220">
+  <img src="docs/screenshots/03_servers.jpg" width="220">
+</p>
 
-| Security | Open Sources | More Sources |
-|:---:|:---:|:---:|
-| ![Security](docs/screenshots/04_security.jpg) | ![Sources](docs/screenshots/05_sources.jpg) | ![More](docs/screenshots/06_sources2.jpg) |
+<p align="center">
+  <img src="docs/screenshots/04_settings.jpg" width="220">
+  <img src="docs/screenshots/05_security.jpg" width="220">
+  <img src="docs/screenshots/06_sources.jpg" width="220">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/07_sources2.jpg" width="220">
+</p>
 
 ---
 
@@ -51,7 +59,7 @@
 ### APK yuklab olish
 
 1. **Releases** bo'limiga o'ting
-2. **nurvpn-v1.1.0-arm64-v8a.apk** ni yuklab oling (zamonaviy telefonlar)
+2. **nurvpn-v1.6-arm64-v8a.apk** ni yuklab oling (zamonaviy telefonlar)
 3. Yoki **armeabi-v7a.apk** (eski telefonlar)
 4. O'rnating
 
