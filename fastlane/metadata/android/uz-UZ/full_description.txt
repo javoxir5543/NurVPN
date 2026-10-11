@@ -4,8 +4,8 @@
 <ul>
 <li>VLESS Reality — DPI chetlab o'tish uchun eng yaxshi</li>
 <li>VLESS (oddiy), VMess, Trojan</li>
-<li>Shadowsocks, ShadowsocksR</li>
-<li>Hysteria2, TUIC, Juicity (UDP asosida)</li>
+<li>Shadowsocks</li>
+<li>Hysteria, Hysteria2, TUIC (UDP asosida)</li>
 <li>WireGuard</li>
 <li>AmneziaWG 1.x / 2.0 / 3.x (DPI bypass)</li>
 <li>MASQUE (Cloudflare WARP CONNECT-IP)</li>

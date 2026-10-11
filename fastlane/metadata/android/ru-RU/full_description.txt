@@ -4,8 +4,8 @@
 <ul>
 <li>VLESS Reality — лучший для обхода DPI</li>
 <li>VLESS (обычный), VMess, Trojan</li>
-<li>Shadowsocks, ShadowsocksR</li>
-<li>Hysteria2, TUIC, Juicity (на UDP)</li>
+<li>Shadowsocks</li>
+<li>Hysteria, Hysteria2, TUIC (на UDP)</li>
 <li>WireGuard</li>
 <li>AmneziaWG 1.x / 2.0 / 3.x (обход DPI)</li>
 <li>MASQUE (Cloudflare WARP CONNECT-IP)</li>

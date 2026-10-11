@@ -16,7 +16,7 @@
 
 ## Features
 
-- **20 protocols**: VLESS Reality, VLESS, VMess, Trojan, Shadowsocks, SSR, Hysteria2, TUIC, Juicity, WireGuard, AmneziaWG 1.x/2.x/3.x, MASQUE, AnyTLS, ShadowTLS, SSH, SOCKS, HTTP/HTTPS, NaiveProxy
+- **18 protocols**: VLESS Reality, VLESS, VMess, Trojan, Shadowsocks, Hysteria, Hysteria2, TUIC, WireGuard, AmneziaWG 1.x/2.x/3.x, MASQUE, AnyTLS, ShadowTLS, SSH, SOCKS, HTTP/HTTPS, NaiveProxy
 - **Modern UI** — Material 3, dark-green + lime
 - **Real-time traffic** — up/down B/s
 - **3 languages**: Uzbek, Russian, English
