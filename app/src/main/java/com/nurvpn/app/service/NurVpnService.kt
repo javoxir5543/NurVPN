@@ -147,8 +147,9 @@ class NurVpnService : VpnService() {
     @Volatile private var lastRestartTime: Long = 0L     // oxirgi restart vaqti
     @Volatile private var restartScheduledTime: Long = 0L // rejalashtirilgan vaqt
 
-    private val MIN_RESTART_INTERVAL_MS = 30_000L  // 30 sekund
-    private val NETWORK_STABILIZE_MS = 8_000L      // 8 sekund kutish
+    private val MIN_RESTART_INTERVAL_MS = 5_000L   // 5 sekund (tez o'zgarish uchun)
+    private val NETWORK_STABILIZE_MS = 3_000L      // 3 sekund kutish
+    // NET_PATCH_APPLIED
 
     private val networkRestartHandler = Handler(Looper.getMainLooper())
     private val networkRestartRunnable = Runnable { doNetworkRestart() }
@@ -631,8 +632,20 @@ class NurVpnService : VpnService() {
                         network: android.net.Network,
                         caps: android.net.NetworkCapabilities
                     ) {
-                        // ★ Faqat interfeys yangilash — RESTART EMAS
                         pushDefaultInterface(l)
+                        // NET_PATCH: tarmoq INTERNET yoki VALIDATED yo'qotgan bo'lsa — restart
+                        val hasInternet = caps.hasCapability(
+                            android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        val isValid = caps.hasCapability(
+                            android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                        if (!hasInternet || !isValid) {
+                            val now = System.currentTimeMillis()
+                            if (now - lastRestartTime >= MIN_RESTART_INTERVAL_MS && !isRestarting) {
+                                Log.i(TAG, "onCapabilitiesChanged: degraded — restart")
+                                lastRestartTime = now
+                                this@NurVpnService.scheduleNetworkRestart(NETWORK_STABILIZE_MS)
+                            }
+                        }
                     }
                 }
                 ifaceCallback = cb
@@ -1167,6 +1180,19 @@ class NurVpnService : VpnService() {
         runCatching { tun?.close() }
         server = null
         tun = null
+        // Kesh va vaqtinchalik fayllarni tozalash
+        try {
+            val workDir = java.io.File(filesDir, "work")
+            if (workDir.exists()) {
+                val size = workDir.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+                workDir.deleteRecursively()
+                android.util.Log.i("NurVPN-Svc", "work tozalandi: " + (size / 1024) + " KB")
+            }
+            java.io.File(filesDir, "config.json").takeIf { it.exists() }?.delete()
+            java.io.File(filesDir, "configuration.json").takeIf { it.exists() }?.delete()
+        } catch (t: Throwable) {
+            android.util.Log.w("NurVPN-Svc", "cache tozalash xato: " + t.message)
+        }
     }
 
     override fun onDestroy() {

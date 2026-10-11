@@ -39,3 +39,4 @@ sing-box-lx/
 # Backup fayllar
 *.bak_*
 *.bak
+/libbox.aar

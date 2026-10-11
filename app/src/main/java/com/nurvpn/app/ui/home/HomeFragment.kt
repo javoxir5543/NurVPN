@@ -48,6 +48,7 @@ import com.nurvpn.app.storage.SubscriptionStore
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -261,6 +262,17 @@ class HomeFragment : Fragment() {
             it.alpha = 0.5f
             it.postDelayed({ it.isEnabled = true; it.alpha = 1f }, 800)
             pingHomeAll()
+        }
+
+        // GLOBE_PATCH_APPLIED — btn_globe → GitHub
+        v.findViewById<View>(R.id.btn_globe)?.setOnClickListener {
+            try {
+                val url = "https://github.com/javoxir5543/NurVPN"
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } catch (t: Throwable) {
+                android.widget.Toast.makeText(context,
+                    "Brauzer topilmadi", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
         v.findViewById<View>(R.id.header_awg)?.setOnClickListener { toggleAwg() }
 
