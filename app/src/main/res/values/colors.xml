@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ═══ KUN REJIMI (Light) — INCY brend ═══ -->
+    <color name="bg">#FFF6F8F6</color>
+    <color name="nav_bg">#FFFFFFFF</color>
+    <color name="text_primary">#FF0A1410</color>
+    <color name="text_secondary">#FF4A5950</color>
+    <color name="text_tertiary">#FF8B9A8F</color>
+    <color name="success">#FF5A7A00</color>
+    <color name="warning">#FFB8860B</color>
+    <color name="danger">#FFC0392B</color>
+    <color name="accent">#FF5A7A00</color>
+    <color name="accent_dim">#FF8FA820</color>
+    <color name="accent_ripple">#335A7A00</color>
+    <color name="accent_glow">#555A7A00</color>
+    <color name="on_accent">#FFFFFFFF</color>
+
+    <color name="card_bg">#FFFFFFFF</color>
+    <color name="card_border">#FFD8E0D8</color>
+    <color name="surface_variant">#FFEDF3ED</color>
+    <color name="divider">#FFD8E0D8</color>
+    <color name="scrim">#99000000</color>
+
+    <color name="power_on">#FFC4F82A</color>
+    <color name="power_connecting">#FF8FA820</color>
+    <color name="power_off">#FFE0E5E0</color>
+    <color name="power_off_stroke">#FFB0C0B0</color>
+    <color name="power_icon_on">#FF0A1410</color>
+    <color name="power_icon_off">#FF4A5950</color>
+
+    <color name="chip_bg">#FFFFFFFF</color>
+    <color name="chip_stroke">#FFD8E0D8</color>
+    <color name="chip_text">#FF4A5950</color>
+    <color name="chip_text_active">#FF5A7A00</color>
+    <color name="chip_bg_active">#1F5A7A00</color>
+
+    <color name="nav_selected">#FF5A7A00</color>
+    <color name="nav_unselected">#FF8B9A8F</color>
+    <color name="nav_ripple">#335A7A00</color>
+    <color name="nav_indicator">#1F5A7A00</color>
+
+    <color name="ping_ok">#FF5A7A00</color>
+    <color name="ping_na">#FF8B9A8F</color>
+
+    <color name="proto_vless">#FF4A9EFF</color>
+    <color name="proto_ss">#FFD4A017</color>
+    <color name="proto_hy2">#FF9B59B6</color>
+    <color name="proto_tuic">#FFE91E63</color>
+    <color name="proto_awg">#FF6C5CE7</color>
+</resources>

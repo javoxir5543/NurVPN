@@ -1,0 +1,42 @@
+<b>NurVPN</b> — быстрый, безопасный и открытый VPN-клиент для Android на мощном ядре sing-box.
+
+<b>Поддерживаемые протоколы (20):</b>
+<ul>
+<li>VLESS Reality — лучший для обхода DPI</li>
+<li>VLESS (обычный), VMess, Trojan</li>
+<li>Shadowsocks, ShadowsocksR</li>
+<li>Hysteria2, TUIC, Juicity (на UDP)</li>
+<li>WireGuard</li>
+<li>AmneziaWG 1.x / 2.0 / 3.x (обход DPI)</li>
+<li>MASQUE (Cloudflare WARP CONNECT-IP)</li>
+<li>AnyTLS, ShadowTLS</li>
+<li>SSH, SOCKS, HTTP/HTTPS</li>
+<li>NaiveProxy</li>
+</ul>
+
+<b>Основные возможности:</b>
+<ul>
+<li>Автоподключение в один клик для AWG и MASQUE</li>
+<li>Импорт из YAML (Clash/Mihomo) и .conf файлов</li>
+<li>Встроенный тест пинга (TCP/ICMP/UDP)</li>
+<li>Открытые подписки</li>
+<li>Современный интерфейс с поддержкой тёмной темы</li>
+<li>Без рекламы, без трекинга, полностью открытый исходный код (MIT)</li>
+</ul>
+
+<b>Рекомендуется для повседневного использования:</b>
+<ol>
+<li>VLESS Reality — самый надёжный</li>
+<li>AmneziaWG 2.0 — стабилен по Wi-Fi</li>
+<li>Hysteria2 / TUIC — самые быстрые (UDP)</li>
+<li>MASQUE — YouTube / Discord / Instagram / Telegram</li>
+</ol>
+
+<b>Примечания:</b>
+<ul>
+<li>AmneziaWG 3.x: нестандартные поля (ContentPaddingAddition, RandomTrailers, DisableCookies) игнорируются.</li>
+<li>MASQUE: работает с YouTube, Discord, Instagram и Telegram (в том числе в мобильных сетях).</li>
+</ul>
+
+<b>Почему NurVPN?</b>
+Создан для пользователей, которые ценят скорость, приватность и прозрачность. Лёгкий, экономичный и полностью открытый.

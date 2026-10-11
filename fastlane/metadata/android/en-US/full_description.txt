@@ -1,0 +1,42 @@
+<b>NurVPN</b> — a fast, secure, and open-source VPN client for Android, built on the powerful sing-box core.
+
+<b>Supported protocols (20):</b>
+<ul>
+<li>VLESS Reality — best for DPI bypass</li>
+<li>VLESS (plain), VMess, Trojan</li>
+<li>Shadowsocks, ShadowsocksR</li>
+<li>Hysteria2, TUIC, Juicity (UDP-based)</li>
+<li>WireGuard</li>
+<li>AmneziaWG 1.x / 2.0 / 3.x (DPI bypass)</li>
+<li>MASQUE (Cloudflare WARP CONNECT-IP)</li>
+<li>AnyTLS, ShadowTLS</li>
+<li>SSH, SOCKS, HTTP/HTTPS</li>
+<li>NaiveProxy</li>
+</ul>
+
+<b>Key features:</b>
+<ul>
+<li>One-tap auto-connect for AWG and MASQUE</li>
+<li>Import from YAML (Clash/Mihomo) and .conf files</li>
+<li>Built-in ping tester (TCP/ICMP/UDP)</li>
+<li>Open source subscriptions</li>
+<li>Modern, clean UI with dark mode support</li>
+<li>No ads, no tracking, fully open source (MIT License)</li>
+</ul>
+
+<b>Recommended for daily use:</b>
+<ol>
+<li>VLESS Reality — most reliable</li>
+<li>AmneziaWG 2.0 — stable over Wi-Fi</li>
+<li>Hysteria2 / TUIC — fastest (UDP)</li>
+<li>MASQUE — YouTube / Discord / Instagram / Telegram</li>
+</ol>
+
+<b>Notes:</b>
+<ul>
+<li>AmneziaWG 3.x: non-standard fields (ContentPaddingAddition, RandomTrailers, DisableCookies) are ignored.</li>
+<li>MASQUE: works with YouTube, Discord, Instagram, and Telegram (including mobile networks).</li>
+</ul>
+
+<b>Why NurVPN?</b>
+Designed for users who value speed, privacy, and transparency. Lightweight, battery-friendly, and fully open source.
