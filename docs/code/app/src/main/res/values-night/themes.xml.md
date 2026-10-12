@@ -1,0 +1,15 @@
+# `app/src/main/res/values-night/themes.xml`
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.NurVPN" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- TUN: oq statusbar ikonkalar -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:enforceStatusBarContrast" tools:targetApi="q">false</item>
+        <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>
+    </style>
+</resources>
+
+```

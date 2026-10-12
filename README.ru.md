@@ -129,3 +129,22 @@ Pull request'ы и issue приветствуются!
 - Владельцам открытых подписок
 
 Если полезно — поставьте звезду!
+
+
+---
+
+## 🚊 Документация кода (Code Documentation)
+
+Все файлы проекта задокументированы в формате MD:
+
+**📂 [docs/code/](docs/code)** - 111 файлов
+
+Состав:
+- "app/src/main/java/" - Kotlin код (backend, парсеры, UI, сервисы)
+- "app/src/main/res/" - XML ресурсы (layout, strings, drawable)
+- "app/build.gradle" + "proguard-rules.pro"
+- Корневые Gradle-файлы (build, settings, properties)
+
+Каждый файл - заголовок и блок кода. Можно читать прямо на GitHub.
+
+**Структура:**

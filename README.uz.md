@@ -129,3 +129,21 @@ Pull request va issue'lar xush kelibsiz!
 - Barcha ochiq manba obuna egalariga
 
 Agar foydali bo'lsa — star bosing!
+
+
+---
+
+## 🚊 Kod Hujjatlari (Code Documentation)
+
+Luoyihaning barcha kod fayllari MD formatida hujjatlashtirilgan:
+
+**📂 [docs/code/](docs/code)** - 111 ta fayl
+
+Tarkibi:
+- "app/src/main/java/" - Kotlin kod (backend, parser, UI, service)
+- "app/src/main/res/" - XML resurslar (layout, strings, drawable)
+- "app/build.gradle" + "proguard-rules.pro"
+- Root Gradle fayllar (build, settings, properties)
+
+Har bir fayl - sarlavha va kod bloki bilan. GitHub'da to'gridan-to'gri o'qish mumkin.
+**Struktura:**

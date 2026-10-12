@@ -147,3 +147,22 @@ NurVPN'ni **F-Droid** orqali o'rnatish va avtomatik yangilanishlar olish uchun r
 5. **Updates** → **NurVPN** ko'rinadi
 
 Yoki to'g'ridan-to'g'ri havola: [F-Droid repozitoriysi](https://javoxir5543.github.io/nurvpn-repo/repo)
+
+
+---
+
+## 🚊 Code Documentation
+
+All project source files are documented in MD format:
+
+**📂 [docs/code/](docs/code)** - 111 files
+
+Contents:
+- "app/src/main/java/" - Kotlin code (backend, parsers, UI, services)
+- "app/src/main/res/" - XML resources (layouts, strings, drawables)
+- "app/build.gradle" + "proguard-rules.pro"
+- Root Gradle files (build, settings, properties)
+
+Each file - with a title and a code block. Can be read directly on GitHub.
+
+**Structure:**

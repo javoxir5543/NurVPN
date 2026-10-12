@@ -1,0 +1,10 @@
+# `app/src/main/res/color/chip_text_tint.xml`
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/chip_text_active" android:state_selected="true"/>
+    <item android:color="@color/chip_text"        android:state_selected="false"/>
+</selector>
+
+```

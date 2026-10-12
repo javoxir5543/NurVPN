@@ -1,0 +1,11 @@
+# `app/src/main/res/xml/locales_config.xml`
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="uz"/>
+    <locale android:name="ru"/>
+    <locale android:name="en"/>
+</locale-config>
+
+```

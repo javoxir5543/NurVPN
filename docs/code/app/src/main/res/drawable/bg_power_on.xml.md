@@ -1,0 +1,11 @@
+# `app/src/main/res/drawable/bg_power_on.xml`
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/power_on"/>
+    <stroke android:width="4dp" android:color="@color/accent_glow"/>
+</shape>
+
+```
