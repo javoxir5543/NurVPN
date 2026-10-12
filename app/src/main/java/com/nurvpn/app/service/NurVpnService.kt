@@ -1080,7 +1080,16 @@ class NurVpnService : VpnService() {
             underlyingNetwork = pickPhysicalNetwork()
 
             // filesDir ishlatamiz (MIUI'da cacheDir'da flock timeout beradi)
-            val workDir = File(filesDir, "work").apply { mkdirs() }
+            // STALE_STATE_FIX: ulanishdan oldin eski work/ va config tozalanadi
+            // (crash/force-stop holatlarida eski Cloudflare WARP sessiyasi qolib ketmasin)
+            val workDir = File(filesDir, "work")
+            if (workDir.exists()) {
+                val _sz = workDir.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+                workDir.deleteRecursively()
+                Log.i(TAG, "work/ tozalandi (ulanishdan oldin): ${_sz / 1024} KB")
+            }
+            runCatching { File(filesDir, "config.json").delete() }
+            workDir.mkdirs()
             val setup = SetupOptions()
             setup.basePath = filesDir.absolutePath
             setup.workingPath = workDir.absolutePath

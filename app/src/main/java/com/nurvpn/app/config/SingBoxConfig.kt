@@ -554,6 +554,12 @@ object SingBoxConfig {
             }
             "xhttp", "splithttp" -> {
                 t.put("type", "xhttp")
+                // Xray kabi: xhttp host ko'rsatilmasa SNI ishlatiladi; ALPN ko'rsatilmasa h2
+                o.optJSONObject("tls")?.let { tlsObj ->
+                    val sn = tlsObj.optString("server_name", "")
+                    if (sn.isNotEmpty() && !isIpAddress(sn)) t.put("host", sn)
+                    if (!tlsObj.has("alpn")) tlsObj.put("alpn", JSONArray().put("h2"))
+                }
                 q["host"]?.takeIf { it.isNotEmpty() }?.let { t.put("host", it) }
                 t.put("path", q["path"] ?: q["xhttpPath"] ?: "/")
                 t.put("mode", q["mode"] ?: q["xhttpMode"] ?: "auto")
