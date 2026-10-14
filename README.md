@@ -7,6 +7,7 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blueviolet?logo=kotlin)
 ![Android](https://img.shields.io/badge/Android-7.0%2B-green?logo=android)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+![Version](https://img.shields.io/badge/version-1.7-blue)
 
 ---
 
@@ -30,9 +31,10 @@
 - **AI Selector** — auto-select best server
 - **Pause/Resume** — notification panel
 - **Quick Settings Tile** — control center
+- **HWID** — incy-style device identification
+- **Provider name** — auto-detected from profile-title header
 
 ---
-
 
 ## 📸 Screenshots
 
@@ -59,28 +61,26 @@
 ### Download APK
 
 1. Go to **Releases** section
-2. Download **nurvpn-v1.6-arm64-v8a.apk** (modern phones, 61 MB)
-3. Or **app-armeabi-v7a-release.apk** (older phones, 76 MB)
-4. Install it
+2. Download **nurvpn-v1.7-arm64-v8a.apk** (modern phones, ~64 MB)
+3. Install it
 
 ### Build from source
 
     git clone https://github.com/javoxir5543/NurVPN.git
     cd NurVPN
-
-    chmod +x scripts/get-libbox.sh
-    ./scripts/get-libbox.sh
     ./gradlew assembleRelease
+
+**Note:** `libbox.aar` is already included in `app/libs/`. Create `keystore.properties` with your signing config before release build.
 
 ---
 
 ## Usage
 
 1. Open the app
-2. **Settings -> Open sources** -> enable a free subscription
-3. Or **+ Add** -> enter your VLESS/VMess/AWG link
-4. **Home tab** -> select server
-5. **Play** button -> VPN connects
+2. **Settings → Open sources** → enable a free subscription
+3. Or **+ Add** → enter your VLESS/VMess/AWG link
+4. **Home tab** → select server
+5. **Play** button → VPN connects
 
 ---
 
@@ -88,10 +88,39 @@
 
 - **Language**: Kotlin
 - **UI**: Material 3, View Binding
-- **Core**: sing-box (libbox.aar)
+- **Core**: sing-box v1.14.3-lx.18 (libbox.aar)
 - **QR**: ZXing
 - **Min SDK**: 24 (Android 7.0)
 - **Target SDK**: 34 (Android 14)
+- **Architecture**: arm64-v8a only
+
+---
+
+## 🔐 Signature
+
+- **SHA-256**: `5C:07:01:E8:92:65:C8:55:66:60:0E:E1:1C:88:49:60:33:9F:3B:17:25:C3:52:29:0C:46:A6:4F:99:2D:47:B6`
+- **Signer**: `CN=NurVPN Developer, OU=Development, O=NurVPN, L=Andijan, ST=Andijan, C=UZ`
+
+---
+
+## 📝 Changelog
+
+### v1.7 (2026-10-15)
+
+- **HWID system** (incy-style) — salt + Build.* → SHA-256 → 30 chars
+- **VLESS REALITY**: `key_share: hybrid`, `fingerprint: chrome` enforced
+- **libbox.aar rebuilt** — sing-box v1.14.3-lx.18 (naive outbound removed, X25519MLKEM768 filter)
+- **MASQUE fixes** — MTU 1360 (#1, #2) and 1420 (#3)
+- **Split Tunneling** — selected apps sorted to top
+- **YAML parser** — flat proxies support
+- **Provider name** — read from `profile-title` header
+- **AWG Config** — checkbox toggle fixed
+- **Translations** — UZ and RU complete (370 strings each)
+- **New keystore** (security update — previous one was exposed)
+
+### v1.6
+
+- Initial public release
 
 ---
 
@@ -134,35 +163,32 @@ If useful — give a star!
 
 ## 📦 F-Droid Repository
 
-NurVPN'ni **F-Droid** orqali o'rnatish va avtomatik yangilanishlar olish uchun rasmiy repozitoriyni qo'shing:
+Add the official repository for automatic updates:
 
 **Repo URL:** `https://javoxir5543.github.io/nurvpn-repo/repo`
 
-### Qanday qo'shish:
+### How to add:
 
-1. **F-Droid** yoki **Neo Store** ilovasini oching
+1. Open **F-Droid** or **Neo Store**
 2. **Settings** → **Repositories** → **Add repository**
-3. Yuqoridagi URL'ni kiriting
-4. **Add** tugmasini bosing
-5. **Updates** → **NurVPN** ko'rinadi
+3. Enter the URL above
+4. Tap **Add**
+5. **Updates** → **NurVPN** appears
 
-Yoki to'g'ridan-to'g'ri havola: [F-Droid repozitoriysi](https://javoxir5543.github.io/nurvpn-repo/repo)
-
+Or direct link: [F-Droid repository](https://javoxir5543.github.io/nurvpn-repo/repo)
 
 ---
 
 ## 🚊 Code Documentation
 
-All project source files are documented in MD format:
+All source files are documented in MD format:
 
-**📂 [docs/code/](docs/code)** - 111 files
+**📂 [docs/code/](docs/code)** — 111 files
 
 Contents:
-- "app/src/main/java/" - Kotlin code (backend, parsers, UI, services)
-- "app/src/main/res/" - XML resources (layouts, strings, drawables)
-- "app/build.gradle" + "proguard-rules.pro"
+- `app/src/main/java/` — Kotlin code (backend, parsers, UI, services)
+- `app/src/main/res/` — XML resources (layouts, strings, drawables)
+- `app/build.gradle` + `proguard-rules.pro`
 - Root Gradle files (build, settings, properties)
 
-Each file - with a title and a code block. Can be read directly on GitHub.
-
-**Structure:**
+Each file — with a title and a code block. Can be read directly on GitHub.

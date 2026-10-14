@@ -7,6 +7,7 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blueviolet?logo=kotlin)
 ![Android](https://img.shields.io/badge/Android-7.0%2B-green?logo=android)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+![Version](https://img.shields.io/badge/version-1.7-blue)
 
 ---
 
@@ -30,9 +31,10 @@
 - **AI Selector** — eng yaxshi server avtomatik tanlash
 - **Pauza/Davom etish** — notification panel
 - **Quick Settings Tile** — control center
+- **HWID** — incy-style qurilma identifikatsiyasi
+- **Provayder nomi** — `profile-title` header'dan avtomatik o'qiladi
 
 ---
-
 
 ## 📸 Skrinshotlar
 
@@ -59,28 +61,26 @@
 ### APK yuklab olish
 
 1. **Releases** bo'limiga o'ting
-2. **nurvpn-v1.6-arm64-v8a.apk** ni yuklab oling (zamonaviy telefonlar)
-3. Yoki **armeabi-v7a.apk** (eski telefonlar)
-4. O'rnating
+2. **nurvpn-v1.7-arm64-v8a.apk** ni yuklab oling (zamonaviy telefonlar, ~64 MB)
+3. O'rnating
 
 ### Manbadan qurish
 
     git clone https://github.com/javoxir5543/NurVPN.git
     cd NurVPN
-
-    chmod +x scripts/get-libbox.sh
-    ./scripts/get-libbox.sh
     ./gradlew assembleRelease
+
+**Eslatma:** `libbox.aar` allaqachon `app/libs/`da mavjud. Release build uchun `keystore.properties` fayl yaratishingiz kerak.
 
 ---
 
 ## Foydalanish
 
 1. Ilovani oching
-2. **Sozlamalar -> Ochiq manbalar** -> bepul obunani yoqing
-3. Yoki **+ Qo'shish** -> o'z VLESS/VMess/AWG linkingizni kiriting
-4. **Asosiy tab** -> server tanlang
-5. **Play** tugmasini bosing -> VPN ulanadi
+2. **Sozlamalar → Ochiq manbalar** → bepul obunani yoqing
+3. Yoki **+ Qo'shish** → o'z VLESS/VMess/AWG linkingizni kiriting
+4. **Asosiy tab** → server tanlang
+5. **Play** tugmasini bosing → VPN ulanadi
 
 ---
 
@@ -88,10 +88,39 @@
 
 - **Til**: Kotlin
 - **UI**: Material 3, View Binding
-- **Core**: sing-box (libbox.aar)
+- **Core**: sing-box v1.14.3-lx.18 (libbox.aar)
 - **QR**: ZXing
 - **Min SDK**: 24 (Android 7.0)
 - **Target SDK**: 34 (Android 14)
+- **Arxitektura**: faqat arm64-v8a
+
+---
+
+## 🔐 Imzo
+
+- **SHA-256**: `5C:07:01:E8:92:65:C8:55:66:60:0E:E1:1C:88:49:60:33:9F:3B:17:25:C3:52:29:0C:46:A6:4F:99:2D:47:B6`
+- **Signer**: `CN=NurVPN Developer, OU=Development, O=NurVPN, L=Andijan, ST=Andijan, C=UZ`
+
+---
+
+## 📝 O'zgarishlar tarixi
+
+### v1.7 (2026-10-15)
+
+- **HWID tizimi** (incy-style) — salt + Build.* → SHA-256 → 30 belgi
+- **VLESS REALITY**: `key_share: hybrid`, `fingerprint: chrome` majburiy
+- **libbox.aar qayta yig'ildi** — sing-box v1.14.3-lx.18
+- **MASQUE tuzatishlari** — MTU 1360 (#1, #2), 1420 (#3)
+- **Split Tunneling** — tanlanganlar tepada ko'rinadi
+- **YAML parser** — flat proxies qo'llab-quvvatlash
+- **Provayder nomi** — `profile-title` header'dan o'qiladi
+- **AWG Config** — checkbox muammosi tuzatildi
+- **Tarjimalar** — UZ va RU to'liq (370 string)
+- **Yangi keystore** (xavfsizlik yangilanishi — eski oshkor bo'lgan)
+
+### v1.6
+
+- Birinchi ommaviy versiya
 
 ---
 
@@ -130,20 +159,36 @@ Pull request va issue'lar xush kelibsiz!
 
 Agar foydali bo'lsa — star bosing!
 
+---
+
+## 📦 F-Droid Repozitoriysi
+
+Avtomatik yangilanishlar uchun rasmiy repozitoriyni qo'shing:
+
+**Repo URL:** `https://javoxir5543.github.io/nurvpn-repo/repo`
+
+### Qanday qo'shish:
+
+1. **F-Droid** yoki **Neo Store** ilovasini oching
+2. **Sozlamalar** → **Repozitoriylar** → **Repozitoriy qo'shish**
+3. Yuqoridagi URL'ni kiriting
+4. **Qo'shish** tugmasini bosing
+5. **Yangilanishlar** → **NurVPN** ko'rinadi
+
+Yoki to'g'ridan-to'g'ri havola: [F-Droid repozitoriysi](https://javoxir5543.github.io/nurvpn-repo/repo)
 
 ---
 
-## 🚊 Kod Hujjatlari (Code Documentation)
+## 🚊 Kod Hujjatlari
 
-Luoyihaning barcha kod fayllari MD formatida hujjatlashtirilgan:
+Loyihaning barcha kod fayllari MD formatida hujjatlashtirilgan:
 
-**📂 [docs/code/](docs/code)** - 111 ta fayl
+**📂 [docs/code/](docs/code)** — 111 ta fayl
 
 Tarkibi:
-- "app/src/main/java/" - Kotlin kod (backend, parser, UI, service)
-- "app/src/main/res/" - XML resurslar (layout, strings, drawable)
-- "app/build.gradle" + "proguard-rules.pro"
+- `app/src/main/java/` — Kotlin kod (backend, parser, UI, service)
+- `app/src/main/res/` — XML resurslar (layout, strings, drawable)
+- `app/build.gradle` + `proguard-rules.pro`
 - Root Gradle fayllar (build, settings, properties)
 
-Har bir fayl - sarlavha va kod bloki bilan. GitHub'da to'gridan-to'gri o'qish mumkin.
-**Struktura:**
+Har bir fayl — sarlavha va kod bloki bilan. GitHub'da to'g'ridan-to'g'ri o'qish mumkin.
