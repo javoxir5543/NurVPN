@@ -1,3 +1,4 @@
+# === Android ===
 *.iml
 .gradle/
 local.properties
@@ -8,5 +9,40 @@ captures/
 .cxx/
 *.apk
 *.aab
+
+# === Xavfli / maxfiy ===
+*.jks
 *.keystore
 !debug.keystore
+keystore.properties
+keystore/
+privateKey
+publicKey
+sni
+server
+port
+mtu
+ip
+ipv6
+
+# === Katta binar fayllar ===
+*.aar
+*.aar.bak*
+libbox.aar
+app/libs/libbox.aar
+app/libs/libbox.aar.bak*
+
+# === Backup fayllar ===
+*.bak
+*.bak_*
+*~ 
+.*_bk_*
+.arm64_bk_*
+.awg_checkbox_bk_*
+.fix_both_bk_*
+.masque_net_bk_*
+.proguard_bk_*
+.scope_fix_bk_*
+
+# === Submodule ===
+sing-box-lx/
