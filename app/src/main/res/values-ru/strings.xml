@@ -381,4 +381,7 @@
     <string name="os_masque2_desc">MASQUE (HTTP/2). SNI mail.ru. YouTube, Instagram, AI.</string>
     <string name="os_masque3_name">MASQUE WARP #3 (162.159.198.2)</string>
     <string name="os_masque3_desc">MASQUE (HTTP/2). SNI 4pda. Резервный аккаунт.</string>
+
+    <!-- Auto-added from EN -->
+    <string name="settings_proto_transport">Protokol / Transport</string>
 </resources>

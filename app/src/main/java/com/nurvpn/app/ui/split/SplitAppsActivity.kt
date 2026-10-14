@@ -81,7 +81,13 @@ class SplitAppsActivity : AppCompatActivity() {
 
         fun rebuild() {
             shown.clear()
-            shown.addAll(all)
+            // Tanlanganlar tepada, keyin qolganlar (alifbo tartibida)
+            val selectedList = all.filter { selected.contains(it.packageName) }
+                .sortedBy { it.label.lowercase(Locale.US) }
+            val unselectedList = all.filter { !selected.contains(it.packageName) }
+                .sortedBy { it.label.lowercase(Locale.US) }
+            shown.addAll(selectedList)
+            shown.addAll(unselectedList)
             notifyDataSetChanged()
             updateCount()
         }
@@ -89,16 +95,21 @@ class SplitAppsActivity : AppCompatActivity() {
         fun filter(q: String) {
             shown.clear()
             val query = q.trim()
-            if (query.isEmpty()) shown.addAll(all)
+            val base = if (query.isEmpty()) all
             else {
                 val s = query.lowercase(Locale.US)
-                for (ai in all) {
-                    if (ai.label.lowercase(Locale.US).contains(s) ||
-                        ai.packageName.lowercase(Locale.US).contains(s)) {
-                        shown.add(ai)
-                    }
+                all.filter {
+                    it.label.lowercase(Locale.US).contains(s) ||
+                    it.packageName.lowercase(Locale.US).contains(s)
                 }
             }
+            // Tanlanganlar tepada
+            val selectedList = base.filter { selected.contains(it.packageName) }
+                .sortedBy { it.label.lowercase(Locale.US) }
+            val unselectedList = base.filter { !selected.contains(it.packageName) }
+                .sortedBy { it.label.lowercase(Locale.US) }
+            shown.addAll(selectedList)
+            shown.addAll(unselectedList)
             notifyDataSetChanged()
         }
 
@@ -126,6 +137,9 @@ class SplitAppsActivity : AppCompatActivity() {
                     h.check.isChecked = true
                 }
                 updateCount()
+                // Sort yangilash
+                val curSearch = search?.text?.toString() ?: ""
+                filter(curSearch)
             }
             h.itemView.setOnClickListener(toggle)
             h.check.setOnClickListener(toggle)

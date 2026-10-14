@@ -812,9 +812,8 @@ class ServersFragment : Fragment() {
         var server = ""
         var port = "443"
         var sni = ""
-        var network = "h2"
 
-        // Anchor (msq:) blokni o'qish
+        // 1) Anchor (&msq) blokni o qish
         var inAnchor = false
         var anchorIndent = -1
         for (line in lines) {
@@ -831,10 +830,10 @@ class ServersFragment : Fragment() {
                 val parts = trimmed.split(":", limit = 2)
                 if (parts.size == 2) {
                     val k = parts[0].trim()
-                    val v = parts[1].trim()
+                    val v = parts[1].trim().trim('"')
                     when (k) {
-                        "private-key" -> privateKey = v
-                        "public-key" -> publicKey = v
+                        "private-key", "private_key" -> privateKey = v
+                        "public-key", "public_key" -> publicKey = v
                         "ip" -> ip = v
                         "ipv6" -> ipv6 = v
                         "mtu" -> mtu = v
@@ -843,7 +842,7 @@ class ServersFragment : Fragment() {
             }
         }
 
-        // proxies: bo'limidan birinchi yozuvni o'qish
+        // 2) proxies: bo limidan birinchi MASQUE yozuvni o qish
         var inProxies = false
         var inFirstProxy = false
         var proxyIndent = -1
@@ -851,23 +850,29 @@ class ServersFragment : Fragment() {
             val trimmed = line.trim()
             if (trimmed == "proxies:") { inProxies = true; continue }
             if (!inProxies) continue
+
             if (trimmed.startsWith("- ") && !inFirstProxy) {
-                inFirstProxy = true
-                proxyIndent = line.indexOfFirst { !it.isWhitespace() }
                 val first = trimmed.removePrefix("- ").trim()
                 val parts = first.split(":", limit = 2)
                 if (parts.size == 2) {
                     val k = parts[0].trim()
-                    val v = parts[1].trim()
+                    val v = parts[1].trim().trim('"')
                     when (k) {
                         "server" -> server = v
                         "port" -> port = v
                         "sni" -> sni = v
-                        "network" -> network = v
+                        "private-key", "private_key" -> privateKey = v
+                        "public-key", "public_key" -> publicKey = v
+                        "ip" -> ip = v
+                        "ipv6" -> ipv6 = v
+                        "mtu" -> mtu = v
                     }
                 }
+                inFirstProxy = true
+                proxyIndent = line.indexOfFirst { !it.isWhitespace() }
                 continue
             }
+
             if (inFirstProxy) {
                 if (trimmed.isEmpty()) continue
                 val indent = line.indexOfFirst { !it.isWhitespace() }
@@ -875,12 +880,16 @@ class ServersFragment : Fragment() {
                 val parts = trimmed.split(":", limit = 2)
                 if (parts.size == 2) {
                     val k = parts[0].trim()
-                    val v = parts[1].trim()
+                    val v = parts[1].trim().trim('"')
                     when (k) {
                         "server" -> server = v
                         "port" -> port = v
                         "sni" -> sni = v
-                        "network" -> network = v
+                        "private-key", "private_key" -> privateKey = v
+                        "public-key", "public_key" -> publicKey = v
+                        "ip" -> ip = v
+                        "ipv6" -> ipv6 = v
+                        "mtu" -> mtu = v
                     }
                 }
             }
@@ -896,7 +905,6 @@ class ServersFragment : Fragment() {
                "Server = " + server + "\n" +
                "Port = " + port + "\n" +
                "SNI = " + sni + "\n" +
-               "Network = " + network + "\n" +
                "Profile = cloudflare\n"
     }
 
@@ -1092,7 +1100,7 @@ class ServersFragment : Fragment() {
             c.instanceFollowRedirects = true
             c.connectTimeout = 15000
             c.readTimeout = 15000
-            c.setRequestProperty("User-Agent", "v2rayTun/3.6.0 (Linux; Android 13; SM-S918B)")
+            c.setRequestProperty("User-Agent", "INCY/3.7.0/android")
             c.setRequestProperty("Accept", "*/*")
             c.setRequestProperty("Accept-Encoding", "identity")
             c.setRequestProperty("x-hwid", getHwid())

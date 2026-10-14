@@ -31,4 +31,7 @@ object HwidStore {
             .joinToString("") { "%02x".format(it) }
             .take(32)
     }
+    /** User-Agent — Incy bilan bir xil (server INCY deb taniydi). */
+    fun userAgent(ctx: Context): String = "INCY/3.7.0/android"
+
 }

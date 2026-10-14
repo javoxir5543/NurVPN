@@ -575,8 +575,14 @@ class HomeFragment : Fragment() {
         if (homeSelectMode) {
             check?.visibility = View.VISIBLE
             check?.isChecked = homeSelectedLinks.contains(si.link)
+            check?.isClickable = false
+            check?.setOnClickListener {
+                toggleHomeSelect(si)
+            }
         } else {
             check?.visibility = View.GONE
+            check?.isClickable = false
+            check?.setOnClickListener(null)
         }
 
         row.setOnClickListener {
@@ -644,6 +650,7 @@ class HomeFragment : Fragment() {
                         a.servers.remove(target)
                         ServerStore.save(a, a.servers)
                         rebuildServerCards(force = true)
+                        refresh()
                         Toast.makeText(c, c.getString(R.string.toast_deleted), Toast.LENGTH_SHORT).show()
                     }
                     .setNegativeButton(R.string.dialog_no, null)
@@ -695,6 +702,7 @@ class HomeFragment : Fragment() {
                         a.awgConfigs.remove(target)
                         AWGStore.save(a, a.awgConfigs)
                         rebuildAwgList()
+                        refresh()   // counter va boshqa UI yangilanadi
                         Toast.makeText(c, c.getString(R.string.toast_deleted), Toast.LENGTH_SHORT).show()
                     }
                     .setNegativeButton(R.string.dialog_no, null)
@@ -805,6 +813,8 @@ class HomeFragment : Fragment() {
         if (homeSelectedAwg.isNotEmpty()) {
             val before = a.awgConfigs.size
             a.awgConfigs.removeAll { (it.rawConf ?: "") in homeSelectedAwg }
+            // Counter yangilash
+            activity?.runOnUiThread { refresh() }
             n += before - a.awgConfigs.size
             AWGStore.save(a, a.awgConfigs)
         }
@@ -1527,6 +1537,8 @@ class HomeFragment : Fragment() {
         val a = activity as? MainActivity ?: return
         val body = bodyAwg ?: return
         body.removeAllViews()
+        // Counter doim yangilanadi
+        awgCount?.text = getString(R.string.text_count_ta, a.awgConfigs.size)
         if (a.awgConfigs.isEmpty()) {
             val tv = TextView(requireContext())
             tv.text = getString(R.string.text_no_awg)
@@ -1567,8 +1579,14 @@ class HomeFragment : Fragment() {
             if (homeSelectMode) {
                 awgCheck?.visibility = View.VISIBLE
                 awgCheck?.isChecked = homeSelectedAwg.contains(cfg.rawConf ?: "")
+                awgCheck?.isClickable = false
+                awgCheck?.setOnClickListener {
+                    toggleHomeSelect(cfg)
+                }
             } else {
                 awgCheck?.visibility = View.GONE
+                awgCheck?.isClickable = false
+                awgCheck?.setOnClickListener(null)
             }
 
             // Uzoq bosish → menyu
@@ -1824,6 +1842,28 @@ class HomeFragment : Fragment() {
         return hash
     }
 
+
+    /** Subscription header'ni o'qish (base64: prefiksli yoki oddiy). */
+    private fun decodeSubHeader(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val s = raw.trim()
+        if (s.startsWith("base64:", ignoreCase = true)) {
+            return try {
+                String(
+                    android.util.Base64.decode(
+                        s.substring(7).trim(),
+                        android.util.Base64.DEFAULT
+                    ),
+                    Charsets.UTF_8
+                )
+            } catch (t: Throwable) {
+                android.util.Log.w("NurVPN-DBG", "sub header decode: ${t.message}")
+                null
+            }
+        }
+        return s
+    }
+
     private fun loadSubscription(url: String, subName: String?) {
         val c = requireContext()
         val a = activity as? MainActivity ?: return
@@ -1831,12 +1871,19 @@ class HomeFragment : Fragment() {
         Thread {
             // Thread-local userInfo (race condition oldini oladi)
             var localUserInfo: UserInfo? = null
+            // Provayder metadata (try tashqarisida e'lon qilinadi)
+            var headerTitle: String? = null
+            var headerUpdateInt: Int? = null
+            var headerWebPage: String? = null
+            var headerSupport: String? = null
+            var headerAnnounce: String? = null
+
             val body = try {
                 val u = java.net.URL(url)
                 val conn = u.openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 15000
                 conn.readTimeout = 15000
-                conn.setRequestProperty("User-Agent", "INCY/1.0.0 (Linux; Android 13)")
+                conn.setRequestProperty("User-Agent", "INCY/3.7.0/android")
                 conn.setRequestProperty("Accept", "*/*")
                 // HWID (server talab qiladi)
                 conn.setRequestProperty("x-hwid", getHwid())
@@ -1852,6 +1899,15 @@ class HomeFragment : Fragment() {
                 // Subscription-specific
                 conn.setRequestProperty("x-sub-request", "1")
                 conn.setRequestProperty("x-ver", "3.6.0")
+                // ═══ Provayder metadata (Incy kabi) ═══
+                headerTitle = decodeSubHeader(conn.getHeaderField("profile-title"))
+                headerUpdateInt = conn.getHeaderField("profile-update-interval")?.trim()?.toIntOrNull()
+                headerWebPage = conn.getHeaderField("profile-web-page-url")?.trim()
+                headerSupport = conn.getHeaderField("support-url")?.trim()
+                headerAnnounce = decodeSubHeader(conn.getHeaderField("announce"))
+                if (headerTitle != null) {
+                    android.util.Log.i("NurVPN-DBG", "profile-title: $headerTitle")
+                }
                 // ═══ subscription-userinfo header ═══
                 // upload=X; download=Y; total=Z; expire=T
                 val userInfo = conn.getHeaderField("subscription-userinfo")
@@ -1919,8 +1975,12 @@ class HomeFragment : Fragment() {
                 val subIdForJson = "sub_" + System.currentTimeMillis().toString(36)
                 var subForJson = a.subscriptions.find { it.url == url }
                 if (subForJson == null) {
-                    subForJson = Subscription(subIdForJson, url, subName ?: "JSON Sub")
+                    subForJson = Subscription(subIdForJson, url, headerTitle ?: subName ?: "JSON Sub")
                     a.subscriptions.add(subForJson)
+                } else if (headerTitle != null && subForJson.name != headerTitle) {
+                    // Provayder nomi header'dan kelgan bo'lsa — yangilaymiz
+                    subForJson.name = headerTitle
+                    android.util.Log.i("NurVPN-DBG", "sub name updated: $headerTitle")
                     SubscriptionStore.save(a, a.subscriptions)
                 }
                 val jsonServers = parseJsonConfigsWithSub(trimmedBody, subForJson.id)
@@ -2024,7 +2084,7 @@ class HomeFragment : Fragment() {
                 if (sub == null) {
                     sub = Subscription(
                         "sub_" + System.currentTimeMillis().toString(36),
-                        url, subName ?: "Subscription")
+                        url, headerTitle ?: subName ?: "Subscription")
                     a.subscriptions.add(sub)
                 } else if (!subName.isNullOrEmpty()) sub.name = subName
                 val currentSub = sub ?: return@runOnUiThread

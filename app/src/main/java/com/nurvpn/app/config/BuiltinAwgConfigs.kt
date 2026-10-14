@@ -69,7 +69,7 @@ PersistentKeepalive = 15"""
     val MASQUE_PORTAL_91: String = """PrivateKey = MHcCAQEEIOW4vwfQkgRj5b8jtZ4QBewVHKCoVy7R77gi6cda/8SwoAoGCCqGSM49AwEHoUQDQgAEaFQYv+mbnX+WrAjprlV7PqanqYtPWsR18y/9tQy8U1Z4rO4nwsIPpuHoj50Nkow3jXqSsA+Ix+mXqFERojs0ug==
 PublicKey = MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w==
 Address = 172.16.0.2, 2606:4700:110:87f6:1d61:27a9:514e:1d01
-MTU = 1280
+MTU = 1360
 Server = 162.159.198.2
 Port = 443
 SNI = 4pda.to
@@ -79,7 +79,7 @@ Profile = cloudflare"""
     val MASQUE_PORTAL_95: String = """PrivateKey = MHcCAQEEIH3YOD6GFFhzFGHuuFORpTA1XDDolMM1xw6ZCZ/aofdeoAoGCCqGSM49AwEHoUQDQgAEyqs+pwxpdKCRqQI/Z6pewjJATnFDjUic5YXyn0r9tHhVsca04ngNd2CIDAbUxk7AOjjkdTbNO6P16MQuQq3LDw==
 PublicKey = MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w==
 Address = 172.16.0.2, 2606:4700:110:88a9:f217:e658:f564:1e6a
-MTU = 1280
+MTU = 1360
 Server = 162.159.199.2
 Port = 443
 SNI = mail.ru
@@ -89,7 +89,7 @@ Profile = cloudflare"""
     val MASQUE_PORTAL_22: String = """PrivateKey = MHcCAQEEIOnBcMKNQF0KjQm2wFWIq7G/qViEhi/B6IaHGTXWKm1aoAoGCCqGSM49AwEHoUQDQgAEz6ckVCimW7H4kdGyuj7ODxLg+amWldE40MWHcDEbHUwxsr5nqvycm7FYif2Qs2r1PJvpo2/F6KScTh9xFIDtKQ==
 PublicKey = MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w==
 Address = 172.16.0.2, 2606:4700:110:8794:3ea6:1f2a:7af:5011
-MTU = 1280
+MTU = 1420
 Server = 162.159.198.2
 Port = 443
 SNI = 4pda.to

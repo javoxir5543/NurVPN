@@ -767,6 +767,17 @@ class NurVpnService : VpnService() {
 
         override fun sendNotification(n: io.nekohasekai.libbox.Notification?) { }
 
+        override fun cancelNotification(identifier: String, typeID: Int) {
+            // Yangi libbox talab qiladi — notification bekor qilish
+            try {
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE)
+                        as android.app.NotificationManager
+                nm.cancel(identifier, typeID)
+            } catch (t: Throwable) {
+                Log.w(TAG, "cancelNotification xato: ${t.message}")
+            }
+        }
+
         override fun underNetworkExtension(): Boolean = false
 
         override fun usePlatformAutoDetectInterfaceControl(): Boolean {

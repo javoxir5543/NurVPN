@@ -140,6 +140,15 @@ object SingBoxConfig {
         return tls
     }
 
+
+    /** sing-box qo'llab-quvvatlamaydigan fingerprint'larni chrome'ga almashtiradi. */
+    private fun sanitizeFp(raw: String?): String {
+        val v = raw?.trim().orEmpty()
+        return if (v.isEmpty() || v.lowercase() in setOf("qq", "random", "randomized", "randomizednoalpn"))
+            "chrome"
+        else v
+    }
+
     private fun withUtls(tls: JSONObject, fp: String?) {
         if (!fp.isNullOrEmpty()) {
             tls.put("utls", JSONObject().put("enabled", true).put("fingerprint", fp))
@@ -286,17 +295,20 @@ object SingBoxConfig {
 
         if (security == "reality" || security == "tls") {
             val tls = baseTls(q, host)
-            val fp = q["fp"]?.takeIf { it.isNotEmpty() }
+            val fp = sanitizeFp(q["fp"])
             if (security == "reality") {
                 val pbk = q["pbk"]?.takeIf { it.isNotEmpty() }
                     ?: throw ParseException("VLESS Reality: pbk yo'q")
                 val r = JSONObject().put("enabled", true).put("public_key", pbk)
                 q["sid"]?.let { r.put("short_id", it) }
+                // ═══ POST-KVANT KEY EXCHANGE (Xray 26.9.8+) ═══
+                r.put("key_share", "hybrid")
                 tls.put("reality", r)
-                withUtls(tls, fp ?: "chrome")
+                // ═══ REALITY: faqat chrome (Xray >= 26.9.8 gibrid key share talab qiladi) ═══
+                withUtls(tls, "chrome")
             } else {
                 // fp ko'rsatilmasa ham chrome (Go TLS barmoq izi bloklanadi, Vision'ga ham mos)
-                withUtls(tls, fp ?: "chrome")
+                withUtls(tls, sanitizeFp(fp) ?: "chrome")
             }
             // ═══ DPI BYPASS: TLS Fragment ═══
             if (com.nurvpn.app.storage.AdvSettings.isFragmentEnabled(ctx)) {
@@ -874,7 +886,6 @@ object SingBoxConfig {
         o.put("type", "masque")
         o.put("tag", "proxy")
         o.put("profile", "cloudflare")
-        o.put("network", "h2")
 
         var server = ""
         var port = 443
@@ -916,7 +927,6 @@ object SingBoxConfig {
                 }
                 k.equals("MTU", true) -> mtu = (v.toIntOrNull() ?: 1280).coerceIn(576, 1500)
                 k.equals("Profile", true) -> o.put("profile", v.lowercase())
-                k.equals("Network", true) -> o.put("network", v.lowercase())
             }
         }
 
