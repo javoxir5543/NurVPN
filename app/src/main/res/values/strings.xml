@@ -387,4 +387,11 @@
     <string name="os_masque2_desc">MASQUE (HTTP/2). mail.ru SNI. YouTube, Instagram, AI.</string>
     <string name="os_masque3_name">MASQUE WARP #3 (162.159.198.2)</string>
     <string name="os_masque3_desc">MASQUE (HTTP/2). 4pda SNI. Zaxira akkaunt.</string>
+    <!-- Crypt1 shifrlangan obuna -->
+    <string name="encrypted_locked_title">🔒 Encrypted subscription — copy/share/QR blocked</string>
+    <string name="encrypted_share_blocked">🔒 Encrypted subscription — sharing is not allowed</string>
+    <string name="encrypted_copy_blocked">🔒 Encrypted subscription — copying is not allowed</string>
+    <string name="encrypted_qr_blocked">🔒 Encrypted subscription — QR display is not allowed</string>
+    <string name="encrypted_decode_failed">❌ Could not decode encrypted link</string>
+    <string name="encrypted_url_hidden">🔒 Hidden encrypted subscription URL</string>
 </resources>

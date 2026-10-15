@@ -24,6 +24,7 @@ object ServerStore {
             o.put("ping", si.ping)
             o.put("subId", si.subId ?: JSONObject.NULL)
             o.put("favorite", si.favorite)
+            o.put("encrypted", si.encrypted)
             o.put("transport", si.transport)
             o.put("security", si.security)
             arr.put(o)
@@ -48,6 +49,7 @@ object ServerStore {
                 si.country = o.optString("country", "")
                 si.ping = o.optInt("ping", -1)
                 si.favorite = o.optBoolean("favorite", false)
+                si.encrypted = o.optBoolean("encrypted", false)
                 si.subId = if (o.has("subId") && !o.isNull("subId"))
                     o.getString("subId") else null
                 si.protocol = Protocol.fromUri(o.getString("link"))

@@ -3,6 +3,7 @@ import com.nurvpn.app.R
 
 import com.nurvpn.app.core.TunnelState
 import com.nurvpn.app.util.CountryLookup
+import com.nurvpn.app.util.MaskHelper
 import com.nurvpn.app.util.ThemeHelper
 import com.nurvpn.app.util.ClashApiConfig
 import com.nurvpn.app.util.PingTester
@@ -41,6 +42,7 @@ import com.nurvpn.app.storage.OpenSourceSubscription
 import com.nurvpn.app.storage.OpenSourceStore
 import com.nurvpn.app.parser.SubscriptionLinkExtractor
 import com.nurvpn.app.parser.ServerLinkParser
+import com.nurvpn.app.parser.Crypt1Decoder
 import com.nurvpn.app.parser.decodeBase64Safely
 import com.nurvpn.app.storage.ServerStore
 import com.nurvpn.app.core.Subscription
@@ -627,12 +629,21 @@ class HomeFragment : Fragment() {
                     Toast.LENGTH_SHORT).show()
                 rebuildServerCards(force = true)
             }
-            items.add("📋 " + c.getString(R.string.srv_menu_copy_link))
-            actions.add { homeCopyToClipboard(target.link, c.getString(R.string.clip_label_link)) }
-            items.add("📤 " + c.getString(R.string.srv_menu_share))
-            actions.add { homeShareLink(target.link, target.displayName()) }
-            items.add("📱 " + c.getString(R.string.srv_menu_show_qr))
-            actions.add { QrShowDialog.show(c, target.displayName(), target.link) }
+            if (target.encrypted) {
+                items.add(c.getString(R.string.encrypted_locked_title))
+                actions.add {
+                    Toast.makeText(c,
+                        c.getString(R.string.encrypted_share_blocked),
+                        Toast.LENGTH_LONG).show()
+                }
+            } else {
+                items.add("📋 " + c.getString(R.string.srv_menu_copy_link))
+                actions.add { homeCopyToClipboard(target.link, c.getString(R.string.clip_label_link)) }
+                items.add("📤 " + c.getString(R.string.srv_menu_share))
+                actions.add { homeShareLink(target.link, target.displayName()) }
+                items.add("📱 " + c.getString(R.string.srv_menu_show_qr))
+                actions.add { QrShowDialog.show(c, target.displayName(), target.link) }
+            }
             items.add("✏️ " + c.getString(R.string.editor_server_title))
             actions.add {
                 val i = Intent(c, com.nurvpn.app.ui.editor.ServerEditorActivity::class.java)
@@ -1206,6 +1217,12 @@ class HomeFragment : Fragment() {
                     }
                     1 -> {
                         // URL nusxalash
+                        if (sub.encrypted) {
+                            Toast.makeText(ctx,
+                                ctx.getString(R.string.encrypted_copy_blocked),
+                                Toast.LENGTH_LONG).show()
+                            return@setItems
+                        }
                         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE)
                             as? android.content.ClipboardManager ?: return@setItems
                         cm.setPrimaryClip(android.content.ClipData
@@ -1215,6 +1232,12 @@ class HomeFragment : Fragment() {
                     }
                     2 -> {
                         // QR orqali ulashish
+                        if (sub.encrypted) {
+                            Toast.makeText(ctx,
+                                ctx.getString(R.string.encrypted_qr_blocked),
+                                Toast.LENGTH_LONG).show()
+                            return@setItems
+                        }
                         QrShowDialog.show(ctx, sub.name, sub.url)
                     }
                     3 -> {
@@ -1753,12 +1776,27 @@ class HomeFragment : Fragment() {
             .getColor(requireContext(), R.color.text_primary))
         input.setHintTextColor(androidx.core.content.ContextCompat
             .getColor(requireContext(), R.color.text_tertiary))
+        MaskHelper.attach(input)
         AlertDialog.Builder(requireContext())
             .setTitle(R.string.dialog_add_server)
             .setView(input)
             .setPositiveButton(R.string.dialog_add) { _, _ ->
                 val text = input.text.toString().trim()
                 if (text.isEmpty()) return@setPositiveButton
+
+                // ═══ Shifrlangan link (crypt1)? ═══
+                if (Crypt1Decoder.isCryptLink(text)) {
+                    val decoded = Crypt1Decoder.decode(requireContext(), text)
+                    if (decoded == null) {
+                        Toast.makeText(context, "Shifrlangan linkni o'qib bo'lmadi",
+                            Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
+                    android.util.Log.i("NurVPN-DBG",
+                        "dialog: crypt1 decoded → ${decoded.first.take(60)}")
+                    loadSubDialog(decoded.first, wasEncrypted = true)
+                    return@setPositiveButton
+                }
 
                 // ═══ Subscription URL? ═══
                 if (text.startsWith("http://") || text.startsWith("https://")) {
@@ -1795,7 +1833,7 @@ class HomeFragment : Fragment() {
             .show()
     }
 
-    private fun loadSubDialog(url: String) {
+    private fun loadSubDialog(url: String, wasEncrypted: Boolean = false) {
         val c = requireContext()
         val input = EditText(c).apply {
             hint = getString(R.string.hint_name_optional)
@@ -1804,13 +1842,19 @@ class HomeFragment : Fragment() {
             setHintTextColor(androidx.core.content.ContextCompat
                 .getColor(c, R.color.text_secondary))
         }
+        // ═══ Shifrlangan bo'lsa — URL yashirish ═══
+        val displayUrl = if (wasEncrypted) {
+            getString(R.string.encrypted_url_hidden)
+        } else {
+            url
+        }
         AlertDialog.Builder(c)
             .setTitle(R.string.dialog_sub_load)
-            .setMessage(url)
+            .setMessage(displayUrl)
             .setView(input)
             .setPositiveButton(R.string.dialog_load) { _, _ ->
                 val name = input.text.toString().trim().ifEmpty { null }
-                loadSubscription(url, name)
+                loadSubscription(url, name, wasEncrypted)
             }
             .setNegativeButton(R.string.dialog_no, null)
             .show()
@@ -1864,7 +1908,7 @@ class HomeFragment : Fragment() {
         return s
     }
 
-    private fun loadSubscription(url: String, subName: String?) {
+    private fun loadSubscription(url: String, subName: String?, wasEncrypted: Boolean = false) {
         val c = requireContext()
         val a = activity as? MainActivity ?: return
         Toast.makeText(c, R.string.toast_loading, Toast.LENGTH_SHORT).show()
@@ -1977,7 +2021,9 @@ class HomeFragment : Fragment() {
                 if (subForJson == null) {
                     subForJson = Subscription(subIdForJson, url, headerTitle ?: subName ?: "JSON Sub")
                     a.subscriptions.add(subForJson)
-                } else if (headerTitle != null && subForJson.name != headerTitle) {
+                }
+                if (wasEncrypted) subForJson.encrypted = true
+                if (headerTitle != null && subForJson.name != headerTitle) {
                     // Provayder nomi header'dan kelgan bo'lsa — yangilaymiz
                     subForJson.name = headerTitle
                     android.util.Log.i("NurVPN-DBG", "sub name updated: $headerTitle")
@@ -1992,6 +2038,7 @@ class HomeFragment : Fragment() {
                         var added = 0
                         for (si in jsonServers) {
                             if (a2.servers.any { it.link == si.link }) continue
+                            si.encrypted = wasEncrypted
                             a2.servers.add(si)
                             added++
                         }
@@ -2088,6 +2135,7 @@ class HomeFragment : Fragment() {
                     a.subscriptions.add(sub)
                 } else if (!subName.isNullOrEmpty()) sub.name = subName
                 val currentSub = sub ?: return@runOnUiThread
+                if (wasEncrypted) currentSub.encrypted = true
                 currentSub.lastUpdated = System.currentTimeMillis()
                 currentSub.serverCount = limitedLinks.size
                 // userinfo saqlash
@@ -2104,6 +2152,7 @@ class HomeFragment : Fragment() {
                 val newServers = ArrayList<ServerItem>(limitedLinks.size)
                 for (l in limitedLinks) {
                     val si = ServerLinkParser.parse(l, currentSub.id) ?: continue
+                    si.encrypted = wasEncrypted || currentSub.encrypted
                     newServers.add(si)
                 }
                 a.servers.addAll(newServers)
@@ -2148,6 +2197,7 @@ class HomeFragment : Fragment() {
             setHintTextColor(androidx.core.content.ContextCompat
                 .getColor(c, R.color.text_secondary))
         }
+        MaskHelper.attach(urlEt)
         container.addView(nameEt)
         container.addView(urlEt)
         AlertDialog.Builder(c)
@@ -2254,6 +2304,20 @@ class HomeFragment : Fragment() {
         }
         val text = clip.getItemAt(0).text?.toString()?.trim() ?: return
         android.util.Log.i("NurVPN-DBG", "pasteFromClipboard: uzunlik=${text.length}")
+
+        // ═══ Shifrlangan link (crypt1)? ═══
+        if (Crypt1Decoder.isCryptLink(text)) {
+            val decoded = Crypt1Decoder.decode(requireContext(), text)
+            if (decoded == null) {
+                Toast.makeText(context, "Shifrlangan linkni o'qib bo'lmadi",
+                    Toast.LENGTH_LONG).show()
+                return
+            }
+            android.util.Log.i("NurVPN-DBG",
+                "pasteFromClipboard: crypt1 decoded → ${decoded.first.take(60)}")
+            loadSubDialog(decoded.first, wasEncrypted = true)
+            return
+        }
 
         // ═══ XRAY JSON CONFIG ═══
         if (text.startsWith("{")) {
@@ -2532,6 +2596,35 @@ class HomeFragment : Fragment() {
         refresh()
         if (!tickerRunning) { tickerRunning = true; ui.post(ticker) }
         autoLoadPendingSubscriptions()
+        checkPendingDeepLink()
+    }
+
+    /**
+     * MainActivity'dan kelgan pending deep link'ni tekshirish.
+     * `incy://crypt1/...`, `crypt1://...`, `nurvpn://...` linklarni decode qilib,
+     * oddiy obuna sifatida yuklaydi.
+     */
+    private fun checkPendingDeepLink() {
+        val ctx = context ?: return
+        val prefs = ctx.getSharedPreferences("main", android.content.Context.MODE_PRIVATE)
+        val pending = prefs.getString("pending_deeplink", null) ?: return
+        // Darhol o'chirish — qayta ishlanmasin
+        prefs.edit().remove("pending_deeplink").apply()
+
+        android.util.Log.i("NurVPN-DEEPLINK", "Processing: ${pending.take(80)}")
+
+        val decoded = Crypt1Decoder.decode(ctx, pending)
+        if (decoded == null) {
+            android.widget.Toast.makeText(ctx,
+                ctx.getString(R.string.encrypted_decode_failed),
+                android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+
+        android.util.Log.i("NurVPN-DEEPLINK",
+            "Decoded → ${decoded.first.take(60)} (name=${decoded.second})")
+
+        loadSubDialog(decoded.first, wasEncrypted = true)
     }
 
     override fun onPause() {
@@ -2580,6 +2673,20 @@ class HomeFragment : Fragment() {
         android.util.Log.i("NurVPN-QR", "QR matni uzunligi=${text.length}")
         android.util.Log.i("NurVPN-QR", "QR matni=${text.take(500)}")
         val a = activity as? MainActivity ?: return
+
+        // ═══ Shifrlangan link (crypt1)? ═══
+        if (Crypt1Decoder.isCryptLink(text)) {
+            val decoded = Crypt1Decoder.decode(requireContext(), text)
+            if (decoded == null) {
+                Toast.makeText(context, "Shifrlangan linkni o'qib bo'lmadi",
+                    Toast.LENGTH_LONG).show()
+                return
+            }
+            android.util.Log.i("NurVPN-QR",
+                "handleQrResult: crypt1 decoded → ${decoded.first.take(60)}")
+            loadSubDialog(decoded.first, wasEncrypted = true)
+            return
+        }
 
         // ═══ 1. AWG / WireGuard config? ═══
         if (text.contains("[Interface]", ignoreCase = true) &&

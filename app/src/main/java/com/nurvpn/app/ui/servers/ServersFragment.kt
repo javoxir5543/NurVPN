@@ -35,6 +35,7 @@ import com.nurvpn.app.core.TunnelState
 import com.nurvpn.app.config.BuiltinAwgConfigs
 import com.nurvpn.app.parser.AWGParser
 import com.nurvpn.app.parser.ServerLinkParser
+import com.nurvpn.app.parser.Crypt1Decoder
 import com.nurvpn.app.parser.decodeBase64Safely
 import com.nurvpn.app.parser.SubscriptionLinkExtractor
 import com.nurvpn.app.storage.AWGStore
@@ -49,6 +50,7 @@ import com.nurvpn.app.ui.awg.AWGEditorActivity
 import com.nurvpn.app.ui.qr.QrScanActivity
 import com.nurvpn.app.ui.qr.QrShowDialog
 import com.nurvpn.app.util.CountryLookup
+import com.nurvpn.app.util.MaskHelper
 import com.nurvpn.app.util.PingTester
 import java.util.Locale
 
@@ -929,6 +931,7 @@ class ServersFragment : Fragment() {
             setHintTextColor(androidx.core.content.ContextCompat
                 .getColor(c, R.color.text_secondary))
         }
+        MaskHelper.attach(urlEt)
         container.addView(nameEt)
         container.addView(urlEt)
 
@@ -936,11 +939,28 @@ class ServersFragment : Fragment() {
             .setTitle(R.string.dialog_add_sub)
             .setView(container)
             .setPositiveButton(R.string.dialog_load) { _, _ ->
-                val url = urlEt.text.toString().trim()
-                val name = nameEt.text.toString().trim().ifEmpty { null }
+                var url = urlEt.text.toString().trim()
+                var name = nameEt.text.toString().trim().ifEmpty { null }
                 if (url.isEmpty()) {
                     Toast.makeText(c, R.string.toast_url_empty, Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
+                }
+
+                // ═══ SHIFRLANGAN LINK (crypt1) → OBUNA URL ═══
+                var wasEncrypted = false
+                if (Crypt1Decoder.isCryptLink(url)) {
+                    val decoded = Crypt1Decoder.decode(c, url)
+                    if (decoded == null) {
+                        Toast.makeText(c,
+                            c.getString(R.string.encrypted_decode_failed),
+                            Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
+                    url = decoded.first
+                    if (name.isNullOrEmpty()) name = decoded.second
+                    wasEncrypted = true
+                    android.util.Log.i("NurVPN-CRYPT1",
+                        "Decoded → ${url.take(60)}... (name=$name)")
                 }
 
                 // ═══ DIRECT NODE LINK? ═══
@@ -982,7 +1002,7 @@ class ServersFragment : Fragment() {
                         return@setPositiveButton
                     }
                 }
-                loadSub(fixedUrl, name)
+                loadSub(fixedUrl, name, wasEncrypted)
             }
             .setNegativeButton(R.string.dialog_no, null)
             .show()
@@ -1014,7 +1034,7 @@ class ServersFragment : Fragment() {
         return hash
     }
 
-    private fun loadSub(url: String, subName: String?) {
+    private fun loadSub(url: String, subName: String?, wasEncrypted: Boolean = false) {
         Toast.makeText(context, R.string.toast_loading, Toast.LENGTH_SHORT).show()
         Thread {
             android.util.Log.i("NurVPN-DBG", "loadSub: URL=$url")
@@ -1059,6 +1079,7 @@ class ServersFragment : Fragment() {
                 val currentSub = sub ?: return@runOnUiThread
                 currentSub.lastUpdated = System.currentTimeMillis()
                 currentSub.serverCount = links.size
+                if (wasEncrypted) currentSub.encrypted = true
 
                 // Eski serverlarni olib tashlash
                 a.servers.removeAll { it.subId == currentSub.id }
@@ -1066,6 +1087,7 @@ class ServersFragment : Fragment() {
                 var added = 0
                 for (l in links) {
                     val si = ServerLinkParser.parse(l, currentSub.id) ?: continue
+                    si.encrypted = wasEncrypted || currentSub.encrypted
                     a.servers.add(si)
                     added++
                 }

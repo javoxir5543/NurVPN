@@ -384,4 +384,11 @@
 
     <!-- Auto-added from EN -->
     <string name="settings_proto_transport">Protokol / Transport</string>
+    <!-- Crypt1 зашифрованная подписка -->
+    <string name="encrypted_locked_title">🔒 Зашифрованная подписка — копирование/отправка/QR заблокированы</string>
+    <string name="encrypted_share_blocked">🔒 Зашифрованная подписка — отправка запрещена</string>
+    <string name="encrypted_copy_blocked">🔒 Зашифрованная подписка — копирование запрещено</string>
+    <string name="encrypted_qr_blocked">🔒 Зашифрованная подписка — показ QR запрещён</string>
+    <string name="encrypted_decode_failed">❌ Не удалось расшифровать ссылку</string>
+    <string name="encrypted_url_hidden">🔒 URL зашифрованной подписки скрыт</string>
 </resources>

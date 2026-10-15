@@ -13,6 +13,9 @@ class ServerItem(@JvmField var link: String) {
     var subId: String? = null
     var favorite: Boolean = false
 
+    /** Crypt1 shifrlangan linkdan kelgan — QR/copy bloklanadi. */
+    var encrypted: Boolean = false
+
     /** Transport turi: tcp, ws, grpc, xhttp, httpupgrade, quic, kcp */
     var transport: String = ""
 

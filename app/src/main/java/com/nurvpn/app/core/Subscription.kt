@@ -16,6 +16,9 @@ class Subscription(
     @JvmField var trafficTotal: Long = 0
     @JvmField var serverCount: Int = 0
 
+    /** Crypt1 shifrlangan linkdan kelgan — QR/copy bloklanadi. */
+    @JvmField var encrypted: Boolean = false
+
     fun isExpired(now: Long = System.currentTimeMillis()): Boolean =
         expireAt > 0 && now > expireAt
 

@@ -95,6 +95,9 @@ class MainActivity : AppCompatActivity() {
         ThemeHelper.applyTheme(this)
         prefs = getSharedPreferences("main", Context.MODE_PRIVATE)
 
+        // ═══ Deep link handler (incy://, crypt1://, nurvpn://) ═══
+        handleDeepLink(intent)
+
         // ═══ STALE SUBSCRIPTIONS PURGE ═══
         try {
             OpenSourceStore.cleanupOrphans(this)
@@ -410,6 +413,33 @@ class MainActivity : AppCompatActivity() {
         val i = Intent(this, NurVpnService::class.java)
         i.putExtra(EXTRA_STOP, true)
         startService(i)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleDeepLink(intent)
+    }
+
+    /**
+     * `incy://`, `crypt1://`, `nurvpn://` deep link'larni qabul qilish.
+     * URI'ni SharedPreferences'ga saqlaydi — Fragment onResume'da o'qiydi.
+     */
+    private fun handleDeepLink(intent: Intent?) {
+        val data = intent?.data ?: return
+        val uri = data.toString()
+        if (uri.isEmpty()) return
+
+        android.util.Log.i("NurVPN-DEEPLINK", "Received: ${uri.take(80)}")
+
+        // Faqat crypt link'lar
+        if (!com.nurvpn.app.parser.Crypt1Decoder.isCryptLink(uri)) {
+            android.util.Log.w("NurVPN-DEEPLINK", "Not a crypt link, ignore")
+            return
+        }
+
+        // Pending link sifatida saqlash
+        prefs.edit().putString("pending_deeplink", uri).apply()
+        android.util.Log.i("NurVPN-DEEPLINK", "Saved pending_deeplink")
     }
 
     override fun onDestroy() {
