@@ -7,7 +7,7 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blueviolet?logo=kotlin)
 ![Android](https://img.shields.io/badge/Android-7.0%2B-green?logo=android)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Version](https://img.shields.io/badge/version-1.7-blue)
+![Version](https://img.shields.io/badge/version-1.8-blue)
 
 ---
 
@@ -61,7 +61,7 @@
 ### APK yuklab olish
 
 1. **Releases** bo'limiga o'ting
-2. **nurvpn-v1.7-arm64-v8a.apk** ni yuklab oling (zamonaviy telefonlar, ~64 MB)
+2. **nurvpn-v1.8-arm64-v8a.apk** ni yuklab oling (zamonaviy telefonlar, ~64 MB)
 3. O'rnating
 
 ### Manbadan qurish
@@ -105,7 +105,7 @@
 
 ## 📝 O'zgarishlar tarixi
 
-### v1.7 (2026-10-15)
+### v1.8 (2026-10-15)
 
 - **HWID tizimi** (incy-style) — salt + Build.* → SHA-256 → 30 belgi
 - **VLESS REALITY**: `key_share: hybrid`, `fingerprint: chrome` majburiy
@@ -118,7 +118,7 @@
 - **Tarjimalar** — UZ va RU to'liq (370 string)
 - **Yangi keystore** (xavfsizlik yangilanishi — eski oshkor bo'lgan)
 
-### v1.6
+### v1.8
 
 - Birinchi ommaviy versiya
 

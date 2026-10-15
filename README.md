@@ -7,7 +7,7 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blueviolet?logo=kotlin)
 ![Android](https://img.shields.io/badge/Android-7.0%2B-green?logo=android)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Version](https://img.shields.io/badge/version-1.7-blue)
+![Version](https://img.shields.io/badge/version-1.8-blue)
 
 ---
 
@@ -61,7 +61,7 @@
 ### Download APK
 
 1. Go to **Releases** section
-2. Download **nurvpn-v1.7-arm64-v8a.apk** (modern phones, ~64 MB)
+2. Download **nurvpn-v1.8-arm64-v8a.apk** (modern phones, ~64 MB)
 3. Install it
 
 ### Build from source
@@ -105,7 +105,7 @@
 
 ## 📝 Changelog
 
-### v1.7 (2026-10-15)
+### v1.8 (2026-10-15)
 
 - **HWID system** (incy-style) — salt + Build.* → SHA-256 → 30 chars
 - **VLESS REALITY**: `key_share: hybrid`, `fingerprint: chrome` enforced
@@ -118,7 +118,7 @@
 - **Translations** — UZ and RU complete (370 strings each)
 - **New keystore** (security update — previous one was exposed)
 
-### v1.6
+### v1.8
 
 - Initial public release
 
