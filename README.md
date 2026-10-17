@@ -31,6 +31,9 @@
 - **AI Selector** — auto-select best server
 - **Pause/Resume** — notification panel
 - **Quick Settings Tile** — control center
+- **Crypt1 Decoder** — decrypts encrypted `incy://crypt1/...` subscriptions
+- **Deep Links** — `incy://`, `crypt1://`, `nurvpn://` schemes
+- **Biometric Lock** — fingerprint/face protection for encrypted subscriptions
 - **HWID** — incy-style device identification
 - **Provider name** — auto-detected from profile-title header
 

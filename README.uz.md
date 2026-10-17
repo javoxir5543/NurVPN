@@ -31,6 +31,9 @@
 - **AI Selector** — eng yaxshi server avtomatik tanlash
 - **Pauza/Davom etish** — notification panel
 - **Quick Settings Tile** — control center
+- **Crypt1 Dekoder** — `incy://crypt1/...` shifrlangan obunalarni ochish
+- **Deep Links** — `incy://`, `crypt1://`, `nurvpn://` havolalari
+- **Biometrik qulf** — shifrlangan obunalar uchun barmoq izi/yuz himoyasi
 - **HWID** — incy-style qurilma identifikatsiyasi
 - **Provayder nomi** — `profile-title` header'dan avtomatik o'qiladi
 
