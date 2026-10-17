@@ -4,6 +4,7 @@ import com.nurvpn.app.R
 import com.nurvpn.app.core.TunnelState
 import com.nurvpn.app.util.CountryLookup
 import com.nurvpn.app.util.MaskHelper
+import com.nurvpn.app.util.BiometricAuthHelper
 import com.nurvpn.app.util.ThemeHelper
 import com.nurvpn.app.util.ClashApiConfig
 import com.nurvpn.app.util.PingTester
@@ -629,12 +630,17 @@ class HomeFragment : Fragment() {
                     Toast.LENGTH_SHORT).show()
                 rebuildServerCards(force = true)
             }
-            if (target.encrypted) {
-                items.add(c.getString(R.string.encrypted_locked_title))
+            if (target.encrypted && !BiometricAuthHelper.isSessionActive(requireContext())) {
+                items.add(c.getString(R.string.bio_unlock))
                 actions.add {
-                    Toast.makeText(c,
-                        c.getString(R.string.encrypted_share_blocked),
-                        Toast.LENGTH_LONG).show()
+                    BiometricAuthHelper.authenticate(
+                        activity = requireActivity(),
+                        subtitle = c.getString(R.string.bio_sub_unlock, target.displayName()),
+                        onSuccess = {
+                            Toast.makeText(c, R.string.bio_unlocked_toast, Toast.LENGTH_SHORT).show()
+                        },
+                        onError = { Toast.makeText(c, it, Toast.LENGTH_SHORT).show() }
+                    )
                 }
             } else {
                 items.add("📋 " + c.getString(R.string.srv_menu_copy_link))
@@ -643,6 +649,14 @@ class HomeFragment : Fragment() {
                 actions.add { homeShareLink(target.link, target.displayName()) }
                 items.add("📱 " + c.getString(R.string.srv_menu_show_qr))
                 actions.add { QrShowDialog.show(c, target.displayName(), target.link) }
+                
+                if (target.encrypted) {
+                    items.add(c.getString(R.string.bio_lock))
+                    actions.add {
+                        BiometricAuthHelper.clearSession(requireContext())
+                        Toast.makeText(c, R.string.bio_locked_toast, Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
             items.add("✏️ " + c.getString(R.string.editor_server_title))
             actions.add {
@@ -1217,10 +1231,17 @@ class HomeFragment : Fragment() {
                     }
                     1 -> {
                         // URL nusxalash
-                        if (sub.encrypted) {
-                            Toast.makeText(ctx,
-                                ctx.getString(R.string.encrypted_copy_blocked),
-                                Toast.LENGTH_LONG).show()
+                        if (sub.encrypted && !BiometricAuthHelper.isSessionActive(ctx)) {
+                            BiometricAuthHelper.authenticate(
+                                activity = requireActivity(),
+                                subtitle = ctx.getString(R.string.bio_sub_copy, sub.name),
+                                onSuccess = {
+                                    val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                    cm?.setPrimaryClip(android.content.ClipData.newPlainText(getString(R.string.clip_label_sub_url), sub.url))
+                                    Toast.makeText(ctx, R.string.toast_url_copied, Toast.LENGTH_SHORT).show()
+                                },
+                                onError = { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show() }
+                            )
                             return@setItems
                         }
                         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE)
@@ -1232,10 +1253,15 @@ class HomeFragment : Fragment() {
                     }
                     2 -> {
                         // QR orqali ulashish
-                        if (sub.encrypted) {
-                            Toast.makeText(ctx,
-                                ctx.getString(R.string.encrypted_qr_blocked),
-                                Toast.LENGTH_LONG).show()
+                        if (sub.encrypted && !BiometricAuthHelper.isSessionActive(ctx)) {
+                            BiometricAuthHelper.authenticate(
+                                activity = requireActivity(),
+                                subtitle = ctx.getString(R.string.bio_sub_qr, sub.name),
+                                onSuccess = {
+                                    QrShowDialog.show(ctx, sub.name, sub.url)
+                                },
+                                onError = { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show() }
+                            )
                             return@setItems
                         }
                         QrShowDialog.show(ctx, sub.name, sub.url)
@@ -2612,6 +2638,12 @@ class HomeFragment : Fragment() {
         prefs.edit().remove("pending_deeplink").apply()
 
         android.util.Log.i("NurVPN-DEEPLINK", "Processing: ${pending.take(80)}")
+
+        // ═══ YANGI: to'g'ridan-to'g'ri obuna manzili (http/https) ═══
+        if (pending.startsWith("http://") || pending.startsWith("https://")) {
+            loadSubDialog(pending, wasEncrypted = false)
+            return
+        }
 
         val decoded = Crypt1Decoder.decode(ctx, pending)
         if (decoded == null) {

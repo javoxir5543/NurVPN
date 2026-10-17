@@ -394,4 +394,15 @@
     <string name="encrypted_qr_blocked">🔒 Shifrlangan obuna — QR ko\'rsatish mumkin emas</string>
     <string name="encrypted_decode_failed">❌ Shifrlangan linkni o\'qib bo\'lmadi</string>
     <string name="encrypted_url_hidden">🔒 Shifrlangan obuna URL yashirilgan</string>
+    <!-- Biometrika -->
+    <string name="bio_unlock">🔓 Biometrika orqali ochish</string>
+    <string name="bio_lock">🔒 Qulflash</string>
+    <string name="bio_locked_toast">🔒 Qulflandi</string>
+    <string name="bio_unlocked_toast">✅ Ochilindi</string>
+    <string name="bio_title">Xavfsizlikni tasdiqlang</string>
+    <string name="bio_sub_default">Shifrlangan ma\'lumotlarni ko\'rish uchun ruxsat bering</string>
+    <string name="bio_sub_unlock">%1$s ma\'lumotlarini ochish uchun tasdiqlang</string>
+    <string name="bio_sub_copy">%1$s nusxalash uchun tasdiqlang</string>
+    <string name="bio_sub_qr">%1$s QR kodini ko\'rish uchun tasdiqlang</string>
+    <string name="bio_no_lock">⚠️ Diqqat! Telefoningizda ekran qulfi yo\'q. Xavfsizlik uchun parol o\'rnating.</string>
 </resources>

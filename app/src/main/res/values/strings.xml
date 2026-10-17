@@ -394,4 +394,15 @@
     <string name="encrypted_qr_blocked">🔒 Encrypted subscription — QR display is not allowed</string>
     <string name="encrypted_decode_failed">❌ Could not decode encrypted link</string>
     <string name="encrypted_url_hidden">🔒 Hidden encrypted subscription URL</string>
+    <!-- Biometrika -->
+    <string name="bio_unlock">🔓 Open via biometrics</string>
+    <string name="bio_lock">🔒 Lock</string>
+    <string name="bio_locked_toast">🔒 Locked</string>
+    <string name="bio_unlocked_toast">✅ Unlocked</string>
+    <string name="bio_title">Confirm security</string>
+    <string name="bio_sub_default">Allow to view encrypted data</string>
+    <string name="bio_sub_unlock">%1$s - confirm to open data</string>
+    <string name="bio_sub_copy">%1$s - confirm to copy</string>
+    <string name="bio_sub_qr">%1$s - confirm to view QR code</string>
+    <string name="bio_no_lock">⚠️ Warning! Your phone has no screen lock. Please set a password for security.</string>
 </resources>

@@ -431,6 +431,14 @@ class MainActivity : AppCompatActivity() {
 
         android.util.Log.i("NurVPN-DEEPLINK", "Received: ${uri.take(80)}")
 
+        // ═══ YANGI: incy://import/ (to'g'ridan-to'g'ri obuna) ═══
+        if (uri.startsWith("incy://import/")) {
+            val importUrl = uri.removePrefix("incy://import/")
+            prefs.edit().putString("pending_deeplink", importUrl).apply()
+            android.util.Log.i("NurVPN-DEEPLINK", "Saved import URL: $importUrl")
+            return
+        }
+
         // Faqat crypt link'lar
         if (!com.nurvpn.app.parser.Crypt1Decoder.isCryptLink(uri)) {
             android.util.Log.w("NurVPN-DEEPLINK", "Not a crypt link, ignore")
