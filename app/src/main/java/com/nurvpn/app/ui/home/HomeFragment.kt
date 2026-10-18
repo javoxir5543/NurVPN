@@ -2630,6 +2630,7 @@ class HomeFragment : Fragment() {
      * `incy://crypt1/...`, `crypt1://...`, `nurvpn://...` linklarni decode qilib,
      * oddiy obuna sifatida yuklaydi.
      */
+
     private fun checkPendingDeepLink() {
         val ctx = context ?: return
         val prefs = ctx.getSharedPreferences("main", android.content.Context.MODE_PRIVATE)

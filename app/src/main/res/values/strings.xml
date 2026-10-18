@@ -405,4 +405,10 @@
     <string name="bio_sub_copy">%1$s - confirm to copy</string>
     <string name="bio_sub_qr">%1$s - confirm to view QR code</string>
     <string name="bio_no_lock">⚠️ Warning! Your phone has no screen lock. Please set a password for security.</string>
+    <string name="kill_switch_title">🛡 Full Security (Kill Switch)</string>
+    <string name="kill_switch_msg">To prevent your real IP from leaking when the internet disconnects, please enable "Always-on VPN" and "Block connections without VPN" in Android system settings.\n\nGo to settings now?</string>
+    <string name="kill_switch_btn">Go to settings</string>
+    <string name="kill_switch_later">Later</string>
+    <string name="kill_switch_msg_on">To prevent your real IP from leaking, please ENABLE "Always-on VPN" and "Block connections without VPN" in system settings.</string>
+    <string name="kill_switch_msg_off">To completely disable Kill Switch and restore normal internet, please DISABLE "Always-on VPN" and "Block connections without VPN" in system settings.</string>
 </resources>

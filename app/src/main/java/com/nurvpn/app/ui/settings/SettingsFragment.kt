@@ -349,7 +349,7 @@ class SettingsFragment : Fragment() {
 
         killSwitch?.setOnCheckedChangeListener { _, ch ->
             if (binding) return@setOnCheckedChangeListener
-            a.prefs.edit().putBoolean("kill_switch", ch).apply()
+            showSystemVpnPrompt(ch)
         }
 
         ipv6Switch?.setOnCheckedChangeListener { _, ch ->
@@ -648,5 +648,39 @@ class SettingsFragment : Fragment() {
             Toast.makeText(requireContext(), getString(R.string.toast_export_error, t.message ?: ""),
                 Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun showSystemVpnPrompt(isEnabling: Boolean) {
+        val c = requireContext()
+        val msgRes = if (isEnabling) R.string.kill_switch_msg_on else R.string.kill_switch_msg_off
+        
+        androidx.appcompat.app.AlertDialog.Builder(c)
+            .setTitle(R.string.kill_switch_title)
+            .setMessage(msgRes)
+            .setPositiveButton(R.string.kill_switch_btn) { _, _ ->
+                // Foydalanuvchi rozi bo'ldi -> Endi sozlamani saqlaymiz
+                val a = activity as? com.nurvpn.app.ui.MainActivity
+                a?.prefs?.edit()?.putBoolean("kill_switch", isEnabling)?.apply()
+                
+                try {
+                    val intent = android.content.Intent("android.net.vpn.SETTINGS")
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(c, "Error: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(R.string.kill_switch_later) { _, _ ->
+                // "Keyinroq" tanlandi -> Holatni orqaga qaytaramiz
+                binding = true
+                killSwitch?.isChecked = !isEnabling
+                binding = false
+            }
+            .setOnCancelListener {
+                // Oynadan tashqariga bosildi -> Holatni orqaga qaytaramiz
+                binding = true
+                killSwitch?.isChecked = !isEnabling
+                binding = false
+            }
+            .show()
     }
 }

@@ -402,4 +402,10 @@
     <string name="bio_sub_copy">%1$s - подтвердите, чтобы скопировать</string>
     <string name="bio_sub_qr">%1$s - подтвердите, чтобы посмотреть QR-код</string>
     <string name="bio_no_lock">⚠️ Внимание! На телефоне нет блокировки экрана. Установите пароль для безопасности.</string>
+    <string name="kill_switch_title">🛡 Полная безопасность (Kill Switch)</string>
+    <string name="kill_switch_msg">Чтобы ваш реальный IP не утек при обрыве интернета, включите \'Постоянная VPN\' и \'Блокировать соединения без VPN\' в настройках Android.\n\nПерейти в настройки?</string>
+    <string name="kill_switch_btn">Перейти в настройки</string>
+    <string name="kill_switch_later">Позже</string>
+    <string name="kill_switch_msg_on">Чтобы ваш реальный IP не утек, ВКЛЮЧИТЕ \'Постоянная VPN\' и \'Блокировать соединения без VPN\' в настройках системы.</string>
+    <string name="kill_switch_msg_off">Чтобы полностью отключить Kill Switch и вернуть интернет, ОТКЛЮЧИТЕ \'Постоянная VPN\' и \'Блокировать соединения без VPN\' в настройках системы.</string>
 </resources>

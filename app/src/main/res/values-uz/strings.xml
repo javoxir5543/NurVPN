@@ -405,4 +405,10 @@
     <string name="bio_sub_copy">%1$s nusxalash uchun tasdiqlang</string>
     <string name="bio_sub_qr">%1$s QR kodini ko\'rish uchun tasdiqlang</string>
     <string name="bio_no_lock">⚠️ Diqqat! Telefoningizda ekran qulfi yo\'q. Xavfsizlik uchun parol o\'rnating.</string>
+    <string name="kill_switch_title">🛡 To\'liq xavfsizlik (Kill Switch)</string>
+    <string name="kill_switch_msg">Internet uzilib qolganda haqiqiy IP manzilingiz ochilib qolmasligi uchun Android tizim sozlamalarida \'Doimiy VPN\' va \'Bloklash\' funksiyalarini yoqing.\n\nHozir sozlamalarga o\'tasizmi?</string>
+    <string name="kill_switch_btn">Sozlamalarga o\'tish</string>
+    <string name="kill_switch_later">Keyinroq</string>
+    <string name="kill_switch_msg_on">IP manzilingiz sizib chiqmasligi uchun tizim sozlamalarida "Doimiy VPN" va "Bloklash" funksiyalarini YOQING.</string>
+    <string name="kill_switch_msg_off">Kill Switch\'ni to\'liq o\'chirish va internetni tiklash uchun tizim sozlamalarida "Doimiy VPN" va "Bloklash" funksiyalarini O\'CHIRING.</string>
 </resources>
