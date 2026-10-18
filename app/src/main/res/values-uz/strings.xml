@@ -411,4 +411,7 @@
     <string name="kill_switch_later">Keyinroq</string>
     <string name="kill_switch_msg_on">IP manzilingiz sizib chiqmasligi uchun tizim sozlamalarida "Doimiy VPN" va "Bloklash" funksiyalarini YOQING.</string>
     <string name="kill_switch_msg_off">Kill Switch\'ni to\'liq o\'chirish va internetni tiklash uchun tizim sozlamalarida "Doimiy VPN" va "Bloklash" funksiyalarini O\'CHIRING.</string>
+    <string name="sub_limit_title">⚠️ Obuna ishlamayapti</string>
+    <string name="sub_limit_msg">Provayder qurilmalar limitini oshirgan.\n\nYechim:\n1. Provayder botida qurilmalarni reset qiling\n2. Yoki yangi obuna oling\n3. Yoki + Qo\'shish orqali linklarni qo\'lda kiriting</string>
+    <string name="sub_limit_btn">Tushundim</string>
 </resources>

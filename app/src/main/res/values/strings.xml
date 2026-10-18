@@ -411,4 +411,7 @@
     <string name="kill_switch_later">Later</string>
     <string name="kill_switch_msg_on">To prevent your real IP from leaking, please ENABLE "Always-on VPN" and "Block connections without VPN" in system settings.</string>
     <string name="kill_switch_msg_off">To completely disable Kill Switch and restore normal internet, please DISABLE "Always-on VPN" and "Block connections without VPN" in system settings.</string>
+    <string name="sub_limit_title">⚠️ Subscription not working</string>
+    <string name="sub_limit_msg">The provider has exceeded the device limit.\n\nSolution:\n1. Reset devices in the provider bot\n2. Or get a new subscription\n3. Or enter links manually via + Add</string>
+    <string name="sub_limit_btn">Got it</string>
 </resources>

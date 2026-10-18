@@ -2140,14 +2140,9 @@ class HomeFragment : Fragment() {
             if (allPlaceholder) {
                 activity?.runOnUiThread {
                     AlertDialog.Builder(c)
-                        .setTitle(R.string.dialog_sub_failed)
-                        .setMessage(
-                            "Provider qurilmalar limitini oshirgan.\n\n" +
-                            "Yechim:\n" +
-                            "1. Provider botida qurilmalarni reset qiling\n" +
-                            "2. Yoki yangi obuna oling\n" +
-                            "3. Yoki + Qo'shish orqali linklarni qo'lda kiriting")
-                        .setPositiveButton(R.string.dialog_understand, null)
+                        .setTitle(R.string.sub_limit_title)
+                        .setMessage(R.string.sub_limit_msg)
+                        .setPositiveButton(R.string.sub_limit_btn, null)
                         .show()
                 }
                 return@Thread

@@ -408,4 +408,7 @@
     <string name="kill_switch_later">Позже</string>
     <string name="kill_switch_msg_on">Чтобы ваш реальный IP не утек, ВКЛЮЧИТЕ \'Постоянная VPN\' и \'Блокировать соединения без VPN\' в настройках системы.</string>
     <string name="kill_switch_msg_off">Чтобы полностью отключить Kill Switch и вернуть интернет, ОТКЛЮЧИТЕ \'Постоянная VPN\' и \'Блокировать соединения без VPN\' в настройках системы.</string>
+    <string name="sub_limit_title">⚠️ Подписка не работает</string>
+    <string name="sub_limit_msg">Провайдер превысил лимит устройств.\n\nРешение:\n1. Сбросьте устройства в боте провайдера\n2. Или получите новую подписку\n3. Или введите ссылки вручную через + Добавить</string>
+    <string name="sub_limit_btn">Понятно</string>
 </resources>
