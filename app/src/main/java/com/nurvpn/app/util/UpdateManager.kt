@@ -109,8 +109,8 @@ object UpdateManager {
                 conn.connect()
 
                 val fileLength = conn.contentLength
-                val downloadDir = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-                if (downloadDir != null && !downloadDir.exists()) downloadDir.mkdirs()
+                val downloadDir = activity.cacheDir
+                if (!downloadDir.exists()) downloadDir.mkdirs()
                 val apkFile = File(downloadDir, "update.apk")
                 if (apkFile.exists()) apkFile.delete()
 
@@ -168,7 +168,12 @@ object UpdateManager {
             setDataAndType(uri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
-        activity.startActivity(intent)
+        try {
+            activity.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(activity, "O'rnatishni boshlashda xato: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 }
