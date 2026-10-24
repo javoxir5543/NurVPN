@@ -6,7 +6,7 @@
 
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blueviolet?logo=kotlin)
 ![Android](https://img.shields.io/badge/Android-7.0%2B-green?logo=android)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+![License](https://img.shields.io/badge/License-GPLv3-blue)
 ![Version](https://img.shields.io/badge/version-1.8-blue)
 
 ---
@@ -141,7 +141,7 @@ Pull request va issue'lar xush kelibsiz!
 
 ## Litsenziya
 
-**MIT License** — batafsil: [LICENSE](LICENSE)
+**GNU General Public License v3.0** — batafsil: [LICENSE](LICENSE)
 
 ---
 

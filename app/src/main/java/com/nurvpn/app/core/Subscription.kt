@@ -16,6 +16,9 @@ class Subscription(
     @JvmField var trafficTotal: Long = 0
     @JvmField var serverCount: Int = 0
 
+    /** Asosiy (Home) ekranda ko'rsatilmasin — faqat Serverlar bo'limida ko'rinadi. */
+    @JvmField var hiddenOnHome: Boolean = false
+
     /** Crypt1 shifrlangan linkdan kelgan — QR/copy bloklanadi. */
     @JvmField var encrypted: Boolean = false
 

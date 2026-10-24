@@ -414,4 +414,19 @@
     <string name="sub_limit_title">⚠️ Subscription not working</string>
     <string name="sub_limit_msg">The provider has exceeded the device limit.\n\nSolution:\n1. Reset devices in the provider bot\n2. Or get a new subscription\n3. Or enter links manually via + Add</string>
     <string name="sub_limit_btn">Got it</string>
+
+    <string name="sub_menu_hide_from_home">&#x1F648; Asosiy ekrandan yashirish</string>
+    <string name="sub_menu_show_on_home">&#x1F441; Asosiy ekranda ko\'rsatish</string>
+    <string name="sub_hidden_toast">Yashirildi: %1$s</string>
+
+    <string name="sub_shown_toast">Ko\'rsatildi: %1$s</string>
+
+    <string name="update_title">Yangi versiya mavjud!</string>
+    <string name="update_message">NurVPN v%1$s tayyor. Yangilashni xohlaysizmi?</string>
+    <string name="update_btn_now">Yangilash</string>
+    <string name="update_btn_later">Keyinroq</string>
+    <string name="update_downloading">Yuklanmoqda...</string>
+    <string name="update_wait">Iltimos kuting...</string>
+    <string name="update_error">Yuklashda xatolik: %1$s</string>
+    <string name="update_unknown_sources">Noma\'lum manbalardan o\'rnatishga ruxsat bering</string>
 </resources>

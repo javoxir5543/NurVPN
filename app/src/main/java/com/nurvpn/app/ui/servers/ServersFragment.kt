@@ -1762,20 +1762,20 @@ class ServersFragment : Fragment() {
         private fun showAwgSettingsDialogServer() {
             val ctx = context ?: return
             val current = AwgSortStore.getMode(ctx)
-            val modes = arrayOf(
-                "default" to ctx.getString(R.string.sort_default),
-                "ping_asc" to ctx.getString(R.string.sort_ping_asc),
-                "ping_desc" to ctx.getString(R.string.sort_ping_desc),
-                "name_asc" to ctx.getString(R.string.sort_name_asc),
-                "name_desc" to ctx.getString(R.string.sort_name_desc)
+            val keys = arrayOf("default", "ping_asc", "ping_desc", "name_asc", "name_desc")
+            val labels = arrayOf(
+                ctx.getString(R.string.sort_default),
+                ctx.getString(R.string.sort_ping_asc),
+                ctx.getString(R.string.sort_ping_desc),
+                ctx.getString(R.string.sort_name_asc),
+                ctx.getString(R.string.sort_name_desc)
             )
-            val labels = modes.map { it.second }.toTypedArray()
-            val idx = modes.indexOfFirst { it.first == current }.coerceAtLeast(0)
+            val idx = keys.indexOf(current).coerceAtLeast(0)
 
             androidx.appcompat.app.AlertDialog.Builder(ctx)
                 .setTitle(ctx.getString(R.string.awg_settings_title))
                 .setSingleChoiceItems(labels, idx) { d, which ->
-                    AwgSortStore.setMode(ctx, modes[which].first)
+                    AwgSortStore.setMode(ctx, keys[which])
                     rebuild()
                     d.dismiss()
                 }
@@ -1910,7 +1910,27 @@ class ServersFragment : Fragment() {
                 val parts = row.name.split(" ", limit = 2)
                 icon.text = parts.getOrElse(0) { "📡" }
                 title.text = parts.getOrElse(1) { row.name }
-                count.text = itemView.context.getString(R.string.text_count_ta, row.count)
+                // Asosiy matn: "N ta" + kun/GB
+                var infoText = itemView.context.getString(R.string.text_count_ta, row.count)
+                val sid = row.subId
+                if (sid != null && sid != Row.AWG_HEADER_ID) {
+                    val sub = act?.subscriptions?.find { it.id == sid }
+                    if (sub != null) {
+                        val extra = mutableListOf<String>()
+                        if (sub.expireAt > 0) {
+                            val days = ((sub.expireAt - System.currentTimeMillis()) / 86400_000L).toInt()
+                            if (days < 0) extra.add("\uD83D\uDCC5 \u26D4")
+                            else extra.add("\uD83D\uDCC5 ${days}d")
+                        }
+                        if (sub.trafficTotal > 0) {
+                            val leftBytes = (sub.trafficTotal - sub.trafficUsed).coerceAtLeast(0L)
+                            val leftG = leftBytes / 1024.0 / 1024 / 1024
+                            extra.add(String.format(java.util.Locale.US, "\u2705 %.1fG", leftG))
+                        }
+                        if (extra.isNotEmpty()) infoText += "  " + extra.joinToString("  ")
+                    }
+                }
+                count.text = infoText
 
                 // ⬆️/⬇️ arrow
                 val arrowView = itemView.findViewById<TextView>(R.id.sec_arrow)
@@ -1964,10 +1984,15 @@ class ServersFragment : Fragment() {
         private fun showSubMenu(subId: String, name: String) {
             val c = frag.context ?: return
             val sub = act?.subscriptions?.find { it.id == subId } ?: return
+            val hideLabel = if (sub.hiddenOnHome)
+                R.string.sub_menu_show_on_home
+            else R.string.sub_menu_hide_from_home
+            val hideIcon = if (sub.hiddenOnHome) "\uD83D\uDC41" else "\uD83D\uDE48"
             val items = arrayOf(
                 "\uD83D\uDD04  " + c.getString(R.string.sub_menu_refresh),
                 "\uD83D\uDCD1  " + c.getString(R.string.sub_menu_copy_url),
-                "\uD83D\uDDD1  " + c.getString(R.string.sub_menu_delete)
+                "\uD83D\uDDD1  " + c.getString(R.string.sub_menu_delete),
+                "$hideIcon  " + c.getString(hideLabel)
             )
             AlertDialog.Builder(c)
                 .setTitle(name)
@@ -1983,6 +2008,15 @@ class ServersFragment : Fragment() {
                                 Toast.LENGTH_SHORT).show()
                         }
                         2 -> confirmDeleteSub(sub)
+                        3 -> {
+                            sub.hiddenOnHome = !sub.hiddenOnHome
+                            act?.let { a -> SubscriptionStore.save(a, a.subscriptions) }
+                            rebuild()
+                            val msg = if (sub.hiddenOnHome)
+                                c.getString(R.string.sub_hidden_toast, sub.name)
+                            else c.getString(R.string.sub_shown_toast, sub.name)
+                            Toast.makeText(c, msg, Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
                 .show()

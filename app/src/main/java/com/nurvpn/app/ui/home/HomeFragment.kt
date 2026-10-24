@@ -468,12 +468,13 @@ class HomeFragment : Fragment() {
 
         // ═══ 1. HAR BIR SUBSCRIPTION — ALOHIDA KARTA ═══
         // LIMIT: ko'p serverlar UI thread'ni bloklaydi
-        val MAX_CARDS = 5
+        val MAX_CARDS = 999
         var cardCount = 0
         val sortedSubs = a.subscriptions.sortedBy { it.order }
         // ═══ BIR MARTA guruhlash (2000×10 filter o'rniga) ═══
         val serversBySub = a.servers.groupBy { it.subId }
         for (sub in sortedSubs) {
+            if (sub.hiddenOnHome) continue
             if (cardCount >= MAX_CARDS) break
             cardCount++
             val rawList = serversBySub[sub.id] ?: emptyList()
@@ -1095,21 +1096,22 @@ class HomeFragment : Fragment() {
         val ctx = requireContext()
         val a = activity as? MainActivity ?: return
         val current = AwgSortStore.getMode(ctx)
-        val modes = arrayOf(
-            "default" to getString(R.string.sort_default),
-            "ping_asc" to getString(R.string.sort_ping_asc),
-            "ping_desc" to getString(R.string.sort_ping_desc),
-            "name_asc" to getString(R.string.sort_name_asc),
-            "name_desc" to getString(R.string.sort_name_desc)
+        val keys = arrayOf("default", "ping_asc", "ping_desc", "name_asc", "name_desc")
+        val labels = arrayOf(
+            getString(R.string.sort_default),
+            getString(R.string.sort_ping_asc),
+            getString(R.string.sort_ping_desc),
+            getString(R.string.sort_name_asc),
+            getString(R.string.sort_name_desc)
         )
-        val labels = modes.map { it.second }.toTypedArray()
-        val idx = modes.indexOfFirst { it.first == current }.coerceAtLeast(0)
+        val idx = keys.indexOf(current).coerceAtLeast(0)
 
         androidx.appcompat.app.AlertDialog.Builder(ctx)
             .setTitle(getString(R.string.awg_settings_title))
             .setSingleChoiceItems(labels, idx) { d, which ->
-                AwgSortStore.setMode(ctx, modes[which].first)
-                rebuildServerCards()
+                AwgSortStore.setMode(ctx, keys[which])
+                rebuildAwgList()
+                rebuildServerCards(force = true)
                 d.dismiss()
             }
             .setNegativeButton(R.string.dialog_no, null)
@@ -1219,7 +1221,8 @@ class HomeFragment : Fragment() {
             "\uD83D\uDD04  " + getString(R.string.sub_menu_refresh),
             "\uD83D\uDCD1  " + getString(R.string.sub_menu_copy_url),
             "\uD83D\uDCF1  " + getString(R.string.sub_menu_show_qr),
-            "\uD83D\uDDD1  " + getString(R.string.sub_menu_delete)
+            "\uD83D\uDDD1  " + getString(R.string.sub_menu_delete),
+            "\uD83D\uDE48  " + getString(R.string.sub_menu_hide_from_home)
         )
         androidx.appcompat.app.AlertDialog.Builder(ctx)
             .setTitle(name)
@@ -1288,6 +1291,15 @@ class HomeFragment : Fragment() {
                             }
                             .setNegativeButton(R.string.dialog_no, null)
                             .show()
+                    }
+                    4 -> {
+                        // Asosiy ekrandan yashirish
+                        sub.hiddenOnHome = true
+                        SubscriptionStore.save(a, a.subscriptions)
+                        rebuildServerCards(force = true)
+                        Toast.makeText(ctx,
+                            getString(R.string.sub_hidden_toast, sub.name),
+                            Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -1598,7 +1610,9 @@ class HomeFragment : Fragment() {
             body.addView(tv)
             return
         }
-        for (cfg in a.awgConfigs) {
+        val sortMode = AwgSortStore.getMode(requireContext())
+        val sortedAwg = AwgSortStore.sort(a.awgConfigs, sortMode)
+        for (cfg in sortedAwg) {
             val row = LayoutInflater.from(requireContext())
                 .inflate(R.layout.item_server_row, body, false)
             val isMasque1 = cfg.type == "masque"

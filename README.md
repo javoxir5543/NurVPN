@@ -6,7 +6,7 @@
 
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blueviolet?logo=kotlin)
 ![Android](https://img.shields.io/badge/Android-7.0%2B-green?logo=android)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+![License](https://img.shields.io/badge/License-GPLv3-blue)
 ![Version](https://img.shields.io/badge/version-1.8-blue)
 
 ---
@@ -141,7 +141,7 @@ Pull requests and issues are welcome!
 
 ## License
 
-**MIT License** — see [LICENSE](LICENSE) for details.
+**GNU General Public License v3.0** — see [LICENSE](LICENSE) for details.
 
 ---
 

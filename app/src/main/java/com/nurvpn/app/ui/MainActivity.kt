@@ -92,6 +92,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Fon rejimida yangilanishni tekshirish
+        com.nurvpn.app.util.UpdateManager.checkForUpdates(this)
         ThemeHelper.applyTheme(this)
         prefs = getSharedPreferences("main", Context.MODE_PRIVATE)
 
@@ -292,7 +294,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun selectServer(s: ServerItem) {
-        val changed = currentServer?.link != s.link
+        val changed = currentServer?.link != s.link || protocol != PROTO_XRAY
         currentServer = s
         protocol = PROTO_XRAY
         prefs.edit()
@@ -306,7 +308,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun selectAWG(c: AWGConfig, autoConnect: Boolean = false) {
-        val changed = currentAWG?.rawConf != c.rawConf
+        val changed = currentAWG?.rawConf != c.rawConf || protocol != PROTO_AWG
         currentAWG = c
         protocol = PROTO_AWG
         prefs.edit()
@@ -356,12 +358,16 @@ class MainActivity : AppCompatActivity() {
             val si2 = Intent(this, NurVpnService::class.java)
             si2.putExtra(EXTRA_FORCE, true)
             si2.putExtra("generation", myGen)
-            val cur = currentServer
-            if (cur != null) {
-                si2.putExtra(EXTRA_LINK, cur.link)
-                si2.putExtra(EXTRA_NAME, cur.displayName())
-            } else if (currentAWG != null) {
-                si2.putExtra(EXTRA_AWG, currentAWG!!.rawConf)
+            if (PROTO_AWG == protocol) {
+                currentAWG?.let {
+                    si2.putExtra(EXTRA_AWG, it.rawConf)
+                    si2.putExtra(EXTRA_NAME, it.name ?: "AWG")
+                }
+            } else {
+                currentServer?.let {
+                    si2.putExtra(EXTRA_LINK, it.link)
+                    si2.putExtra(EXTRA_NAME, it.displayName())
+                }
             }
             si2.putExtra("protocol", protocol)
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(si2)

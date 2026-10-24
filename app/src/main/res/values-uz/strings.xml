@@ -414,4 +414,19 @@
     <string name="sub_limit_title">⚠️ Obuna ishlamayapti</string>
     <string name="sub_limit_msg">Provayder qurilmalar limitini oshirgan.\n\nYechim:\n1. Provayder botida qurilmalarni reset qiling\n2. Yoki yangi obuna oling\n3. Yoki + Qo\'shish orqali linklarni qo\'lda kiriting</string>
     <string name="sub_limit_btn">Tushundim</string>
+
+    <string name="sub_menu_hide_from_home">&#x1F648; Asosiy ekrandan yashirish</string>
+    <string name="sub_menu_show_on_home">&#x1F441; Asosiy ekranda ko\'rsatish</string>
+    <string name="sub_hidden_toast">Yashirildi: %1$s</string>
+
+    <string name="sub_shown_toast">Ko\'rsatildi: %1$s</string>
+
+    <string name="update_title">Yangi versiya mavjud!</string>
+    <string name="update_message">NurVPN v%1$s tayyor. Yangilashni xohlaysizmi?</string>
+    <string name="update_btn_now">Yangilash</string>
+    <string name="update_btn_later">Keyinroq</string>
+    <string name="update_downloading">Yuklanmoqda...</string>
+    <string name="update_wait">Iltimos kuting...</string>
+    <string name="update_error">Yuklashda xatolik: %1$s</string>
+    <string name="update_unknown_sources">Noma\'lum manbalardan o\'rnatishga ruxsat bering</string>
 </resources>

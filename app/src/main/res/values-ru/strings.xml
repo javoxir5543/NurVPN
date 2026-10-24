@@ -411,4 +411,19 @@
     <string name="sub_limit_title">⚠️ Подписка не работает</string>
     <string name="sub_limit_msg">Провайдер превысил лимит устройств.\n\nРешение:\n1. Сбросьте устройства в боте провайдера\n2. Или получите новую подписку\n3. Или введите ссылки вручную через + Добавить</string>
     <string name="sub_limit_btn">Понятно</string>
+
+    <string name="sub_menu_hide_from_home">&#x1F648; Скрыть с главного</string>
+    <string name="sub_menu_show_on_home">&#x1F441; Показать на главном</string>
+    <string name="sub_hidden_toast">Скрыто: %1$s</string>
+
+    <string name="sub_shown_toast">Показано: %1$s</string>
+
+    <string name="update_title">Доступно обновление!</string>
+    <string name="update_message">NurVPN v%1$s готов. Хотите обновить?</string>
+    <string name="update_btn_now">Обновить</string>
+    <string name="update_btn_later">Позже</string>
+    <string name="update_downloading">Загрузка...</string>
+    <string name="update_wait">Пожалуйста, подождите...</string>
+    <string name="update_error">Ошибка загрузки: %1$s</string>
+    <string name="update_unknown_sources">Разрешите установку из неизвестных источников</string>
 </resources>

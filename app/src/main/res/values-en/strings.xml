@@ -381,4 +381,19 @@
     <string name="os_masque2_desc">MASQUE (HTTP/2). mail.ru SNI. YouTube, Instagram, AI.</string>
     <string name="os_masque3_name">MASQUE WARP #3 (162.159.198.2)</string>
     <string name="os_masque3_desc">MASQUE (HTTP/2). 4pda SNI. Backup account.</string>
+
+    <string name="sub_menu_hide_from_home">&#x1F648; Hide from Home</string>
+    <string name="sub_menu_show_on_home">&#x1F441; Show on Home</string>
+    <string name="sub_hidden_toast">Hidden: %1$s</string>
+
+    <string name="sub_shown_toast">Shown: %1$s</string>
+
+    <string name="update_title">Update available!</string>
+    <string name="update_message">NurVPN v%1$s is ready. Do you want to update?</string>
+    <string name="update_btn_now">Update</string>
+    <string name="update_btn_later">Later</string>
+    <string name="update_downloading">Downloading...</string>
+    <string name="update_wait">Please wait...</string>
+    <string name="update_error">Download error: %1$s</string>
+    <string name="update_unknown_sources">Allow installation from unknown sources</string>
 </resources>

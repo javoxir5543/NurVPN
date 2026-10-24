@@ -12,7 +12,7 @@ object AwgSortStore {
 
     fun setMode(ctx: android.content.Context, mode: String) =
         ctx.getSharedPreferences(PREF, android.content.Context.MODE_PRIVATE)
-            .edit().putString(KEY, mode).apply()
+            .edit().putString(KEY, mode).commit()
 
     /** AWG listini sortMode bo'yicha saralash. */
     fun sort(list: List<AWGConfig>, mode: String): List<AWGConfig> =
