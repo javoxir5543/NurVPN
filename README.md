@@ -164,24 +164,6 @@ If useful — give a star!
 
 ---
 
-## 📦 F-Droid Repository
-
-Add the official repository for automatic updates:
-
-**Repo URL:** `https://javoxir5543.github.io/nurvpn-repo/repo`
-
-### How to add:
-
-1. Open **F-Droid** or **Neo Store**
-2. **Settings** → **Repositories** → **Add repository**
-3. Enter the URL above
-4. Tap **Add**
-5. **Updates** → **NurVPN** appears
-
-Or direct link: [F-Droid repository](https://javoxir5543.github.io/nurvpn-repo/repo)
-
----
-
 ## 🚊 Code Documentation
 
 All source files are documented in MD format:

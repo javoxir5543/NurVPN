@@ -164,24 +164,6 @@ Agar foydali bo'lsa — star bosing!
 
 ---
 
-## 📦 F-Droid Repozitoriysi
-
-Avtomatik yangilanishlar uchun rasmiy repozitoriyni qo'shing:
-
-**Repo URL:** `https://javoxir5543.github.io/nurvpn-repo/repo`
-
-### Qanday qo'shish:
-
-1. **F-Droid** yoki **Neo Store** ilovasini oching
-2. **Sozlamalar** → **Repozitoriylar** → **Repozitoriy qo'shish**
-3. Yuqoridagi URL'ni kiriting
-4. **Qo'shish** tugmasini bosing
-5. **Yangilanishlar** → **NurVPN** ko'rinadi
-
-Yoki to'g'ridan-to'g'ri havola: [F-Droid repozitoriysi](https://javoxir5543.github.io/nurvpn-repo/repo)
-
----
-
 ## 🚊 Kod Hujjatlari
 
 Loyihaning barcha kod fayllari MD formatida hujjatlashtirilgan:
