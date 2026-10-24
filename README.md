@@ -64,7 +64,7 @@
 ### Download APK
 
 1. Go to **Releases** section
-2. Download **nurvpn-v1.8-arm64-v8a.apk** (modern phones, ~64 MB)
+2. Download **nurvpn-v1.9-arm64-v8a.apk** (modern phones, ~64 MB)
 3. Install it
 
 ### Build from source

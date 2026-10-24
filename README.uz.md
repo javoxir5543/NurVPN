@@ -64,7 +64,7 @@
 ### APK yuklab olish
 
 1. **Releases** bo'limiga o'ting
-2. **nurvpn-v1.8-arm64-v8a.apk** ni yuklab oling (zamonaviy telefonlar, ~64 MB)
+2. **nurvpn-v1.9-arm64-v8a.apk** ni yuklab oling (zamonaviy telefonlar, ~64 MB)
 3. O'rnating
 
 ### Manbadan qurish
