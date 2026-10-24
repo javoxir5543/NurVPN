@@ -1,7 +1,0 @@
-• GitHub Releases orqali avtomatik yangilanishni tekshirish qo'shildi.
-• Asosiy ekranda obuna kartalarining yo'qolishi tuzatildi.
-• Obunalar uchun "Asosiy ekrandan yashirish" / "Ko'rsatish" opsiyasi qo'shildi.
-• Serverlar bo'limida obuna ma'lumotlari qo'shildi.
-• VLESS va AWG o'rtasida protokol almashish tuzatildi.
-• AWG ping saralash tuzatildi.
-• GPL-3.0 litsenziyasi qo'shildi.

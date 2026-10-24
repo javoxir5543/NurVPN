@@ -1,9 +1,0 @@
-v1.6 — MASQUE + Auto-connect
-- New: MASQUE (Cloudflare WARP) support
-- New: Auto-connect for AWG and MASQUE
-- New: Separate MASQUE editor
-- New: YAML import (Clash/Mihomo)
-- Improved: AmneziaWG 1.x/2.x/3.x support
-- Improved: Badge indicators (MASQUE / AWG)
-- Improved: Ping (TCP-first)
-- Optimized: APK size reduced

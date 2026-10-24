@@ -1,9 +1,0 @@
-v1.6 — MASQUE + Avtoulanish
-- Yangi: MASQUE (Cloudflare WARP) qo'llab-quvvatlash
-- Yangi: AWG va MASQUE uchun avtoulanish
-- Yangi: Alohida MASQUE editor
-- Yangi: YAML import (Clash/Mihomo)
-- Yaxshilandi: AmneziaWG 1.x/2.x/3.x
-- Yaxshilandi: Badge (MASQUE / AWG)
-- Yaxshilandi: Ping (TCP-first)
-- Optimizatsiya: APK hajmi kamaytirildi

@@ -1,9 +1,0 @@
-# `gradle.properties`
-
-```properties
-org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
-android.useAndroidX=true
-android.nonTransitiveRClass=true
-kotlin.code.style=official
-
-```

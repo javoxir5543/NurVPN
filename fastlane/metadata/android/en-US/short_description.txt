@@ -1,1 +1,0 @@
-Fast and secure VPN client with VLESS, AWG, and MASQUE support
