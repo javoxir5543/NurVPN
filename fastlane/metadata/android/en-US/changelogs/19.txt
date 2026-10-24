@@ -1,0 +1,7 @@
+• Added automatic update checking via GitHub Releases.
+• Fixed subscription cards disappearing on the home screen.
+• Added "Hide from Home" / "Show on Home" option for subscriptions.
+• Added subscription info (days left, GB remaining) in the Servers section.
+• Fixed protocol switching between VLESS and AWG while VPN is connected.
+• Fixed AWG ping sorting.
+• Added GPL-3.0 license.
