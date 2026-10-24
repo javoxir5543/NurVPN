@@ -69,12 +69,26 @@
 
 ### Build from source
 
-    git clone https://github.com/javoxir5543/NurVPN.git
-    cd NurVPN
-    ./gradlew assembleRelease
+1. Clone the repository:
+git clone https://github.com/javoxir5543/NurVPN.git
+cd NurVPN
 
-**Note:** `libbox.aar` is already included in `app/libs/`. Create `keystore.properties` with your signing config before release build.
+2. Add libbox.aar (Required!):
+The core VPN engine (libbox.aar) is not tracked in Git due to its size.
+- Download libbox.aar from the releases page.
+- Place it in app/libs/libbox.aar.
 
+3. Setup Signing Config:
+Create a keystore.properties file in the root directory:
+storeFile=keystore/my-release.jks
+storePassword=yourpassword
+keyAlias=myalias
+keyPassword=yourpassword
+
+4. Build the APK:
+./gradlew assembleDebug
+
+---
 ---
 
 ## Usage
