@@ -264,7 +264,7 @@
     <string name="reason_new_server">Новый сервер: %1$s</string>
     <string name="reason_awg">AWG: %1$s</string>
     <string name="error_no_server">Сервер не выбран</string>
-    <string name="toast_link_not_found">Ссылка не найдена. Должна начинаться с vless://</string>
+    <string name="toast_link_not_found">Ссылка не найдена.</string>
     <string name="toast_clipboard_no_link">В буфере нет ссылки. Ссылка начинается с vless://</string>
     <string name="toast_no_endpoint">Endpoint отсутствует</string>
     <string name="toast_awg_config_error">Ошибка AWG конфига: %1$s</string>

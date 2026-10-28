@@ -147,7 +147,7 @@ class HomeFragment : Fragment() {
     private val homeExpandedSubs = mutableSetOf<String>()
     private val pingRebuildRunnable = Runnable {
         pingUpdateScheduled = false
-        if (isAdded) rebuildServerCards()
+        if (isAdded) rebuildServerCards(force = true)
     }
     private var pulseY: android.animation.ObjectAnimator? = null
 
@@ -998,7 +998,7 @@ class HomeFragment : Fragment() {
                     pingUpdateScheduled = false
                     val a2 = activity as? MainActivity ?: return
                     ServerStore.save(a2, a2.servers)
-                    rebuildServerCards()
+                    rebuildServerCards(force = true)
                     Toast.makeText(context, R.string.ping_done,
                         Toast.LENGTH_SHORT).show()
                 }
@@ -1034,7 +1034,7 @@ class HomeFragment : Fragment() {
                     pingUpdateScheduled = false
                     val a2 = activity as? MainActivity ?: return
                     ServerStore.save(a2, a2.servers)
-                    rebuildServerCards()
+                    rebuildServerCards(force = true)
                     Toast.makeText(context, R.string.ping_done,
                         Toast.LENGTH_SHORT).show()
                 }
@@ -1849,7 +1849,7 @@ class HomeFragment : Fragment() {
 
                 val a = activity as? MainActivity ?: return@setPositiveButton
 
-                val regex = Regex("(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://.*?(?=(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://|\\s|$)")
+                val regex = Regex("(?:vless|vmess|trojan|ss|ssr|hy2|hysteria2|tuic|anytls|incy|crypt1|nurvpn|juicity|socks5|shadowtls)://.*?(?=(?:vless|vmess|trojan|ss|ssr|hy2|hysteria2|tuic|anytls|incy|crypt1|nurvpn|juicity|socks5|shadowtls)://|\\s|$)")
                 val matches = regex.findAll(text).map { it.value }.toList()
                 if (matches.isEmpty()) {
                     Toast.makeText(context,
@@ -2282,7 +2282,7 @@ class HomeFragment : Fragment() {
                         String(android.util.Base64.decode(body.trim(),
                             android.util.Base64.DEFAULT), Charsets.UTF_8)
                     } catch (ignored: Throwable) { body }
-                    val regex = Regex("(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://.*?(?=(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://|\\s|$)")
+                    val regex = Regex("(?:vless|vmess|trojan|ss|ssr|hy2|hysteria2|tuic|anytls|incy|crypt1|nurvpn|juicity|socks5|shadowtls)://.*?(?=(?:vless|vmess|trojan|ss|ssr|hy2|hysteria2|tuic|anytls|incy|crypt1|nurvpn|juicity|socks5|shadowtls)://|\\s|$)")
                     val links = regex.findAll(decoded)
                 .map { it.value.trim() }
                 .filter { it.length > 15 }
@@ -2372,7 +2372,7 @@ class HomeFragment : Fragment() {
 
         val a = activity as? MainActivity ?: return
 
-        val regex = Regex("(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://.*?(?=(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://|\\s|$)")
+        val regex = Regex("(?:vless|vmess|trojan|ss|ssr|hy2|hysteria2|tuic|anytls|incy|crypt1|nurvpn|juicity|socks5|shadowtls)://.*?(?=(?:vless|vmess|trojan|ss|ssr|hy2|hysteria2|tuic|anytls|incy|crypt1|nurvpn|juicity|socks5|shadowtls)://|\\s|$)")
         val matches = regex.findAll(text).map { it.value }.toList()
         if (matches.isEmpty()) {
             Toast.makeText(context,
@@ -2490,7 +2490,7 @@ class HomeFragment : Fragment() {
                     pingUpdateScheduled = false
                     val a2 = activity as? MainActivity ?: return
                     ServerStore.save(a2, a2.servers)
-                    rebuildServerCards()
+                    rebuildServerCards(force = true)
                     Toast.makeText(context, R.string.ping_done,
                         Toast.LENGTH_SHORT).show()
                 }

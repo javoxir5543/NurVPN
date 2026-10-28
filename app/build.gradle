@@ -33,8 +33,8 @@ android {
         applicationId "com.nurvpn.app"
         minSdk 24
         targetSdk 34
-        versionCode 21
-        versionName "1.11"
+        versionCode 19
+        versionName "1.11.1"
         ndk {
             debugSymbolLevel = "NONE"
         }

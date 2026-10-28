@@ -137,6 +137,14 @@ object SingBoxConfig {
         if (insecureOf(q)) tls.put("insecure", true)
         val alpn = q["alpn"]?.takeIf { it.isNotBlank() } ?: defaultAlpn
         if (alpn != null) tls.put("alpn", alpnArray(alpn))
+        
+        // Havolaga qarab avtomatik va xavfsiz tanlash
+        var rawFp = q["fp"]?.takeIf { it.isNotBlank() }?.lowercase() ?: "chrome"
+        val validFps = listOf("chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq", "random", "randomized")
+        if (rawFp !in validFps) {
+            rawFp = "chrome"
+        }
+        tls.put("utls", JSONObject().put("enabled", true).put("fingerprint", rawFp))
         return tls
     }
 
