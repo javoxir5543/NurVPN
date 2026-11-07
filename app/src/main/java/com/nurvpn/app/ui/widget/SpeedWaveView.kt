@@ -72,7 +72,8 @@ class SpeedWaveView @JvmOverloads constructor(
     private var lastFrameNanos = 0L
     private var zeroSpeedFrames = 0
     private var running = false
-    private var permanentlyStopped = false
+    private var animationEnabled = false
+    private var windowVisible = true
 
     // ═══ Geometry ═══
     private var cx = 0f; private var cy = 0f; private var radius = 0f
@@ -191,9 +192,15 @@ class SpeedWaveView @JvmOverloads constructor(
     private var frameCount = 0L
     private var lastLogTimeMs = 0L
 
+    /** Debug build'da true (NurVpnService bilan bir xil usul). Release'da log o'chadi. */
+    private val DEBUG_LOG: Boolean by lazy {
+        (context.applicationInfo.flags and
+            android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
+
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
-            if (!running || permanentlyStopped) return
+            if (!running || !animationEnabled) return
             val dt = if (lastFrameNanos == 0L) 1f / 60f
                      else ((frameTimeNanos - lastFrameNanos) / 1_000_000_000f)
                          .coerceIn(0.008f, 0.05f)
@@ -201,14 +208,21 @@ class SpeedWaveView @JvmOverloads constructor(
             updateAnimation(dt)
             invalidate()
             frameCount++
-            val now = SystemClock.uptimeMillis()
-            if (now - lastLogTimeMs >= 1000L) {
-                lastLogTimeMs = now
-                val ratio = (currentSpeed / maxSpeed).coerceIn(0f, 1f)
-                Log.d(TAG, "frame=$frameCount speed=${"%.0f".format(currentSpeed)} " +
-                    "ratio=${"%.2f".format(ratio)} connected=$connected")
+            // ★ Batareya/CPU: diagnostika log'i faqat debug build'da.
+            // Release'da R8 -assumenosideeffects bilan o'chiriladi, lekin
+            // debug'da har 5s da 2 ta String.format() + Log.d bajarilardi.
+            if (DEBUG_LOG) {
+                val now = SystemClock.uptimeMillis()
+                if (now - lastLogTimeMs >= 5000L) {
+                    lastLogTimeMs = now
+                    val ratio = (currentSpeed / maxSpeed).coerceIn(0f, 1f)
+                    Log.d(TAG, "frame=$frameCount speed=${"%.0f".format(currentSpeed)} " +
+                        "ratio=${"%.2f".format(ratio)} connected=$connected")
+                }
             }
-            if (running && !permanentlyStopped) choreographer.postFrameCallback(this)
+            if (running && animationEnabled && isAttachedToWindow && isShown && windowVisible) {
+                choreographer.postFrameCallback(this)
+            }
         }
     }
 
@@ -216,15 +230,36 @@ class SpeedWaveView @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         Log.d(TAG, "onAttached connected=$connected")
-        permanentlyStopped = false
-        startAnimation()
+        animationEnabled = true
+        syncAnimation()
     }
     override fun onDetachedFromWindow() {
         stopAnimation()
         super.onDetachedFromWindow()
     }
+    
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        syncAnimation()
+    }
+    
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        windowVisible = (visibility == View.VISIBLE)
+        syncAnimation()
+    }
+    
+    private fun syncAnimation() {
+        val shouldRun = animationEnabled && isAttachedToWindow && isShown && windowVisible
+        if (shouldRun) startAnimation() else stopAnimation()
+    }
+    
+    fun setAnimationEnabled(enabled: Boolean) {
+        animationEnabled = enabled
+        syncAnimation()
+    }
     private fun startAnimation() {
-        if (running || permanentlyStopped) return
+        if (running) return
         running = true; lastFrameNanos = 0L
         choreographer.postFrameCallback(frameCallback)
     }
@@ -234,7 +269,7 @@ class SpeedWaveView @JvmOverloads constructor(
         choreographer.removeFrameCallback(frameCallback)
     }
     fun stop() {
-        permanentlyStopped = true
+        animationEnabled = false
         stopAnimation()
         currentSpeed = 0f; targetSpeed = 0f; animationTime = 0f
         invalidate()
@@ -245,7 +280,7 @@ class SpeedWaveView @JvmOverloads constructor(
         if (this.connected != connected) Log.d(TAG, "setConnected($connected)")
         this.connected = connected
         if (!connected) { targetSpeed = 0f; zeroSpeedFrames = 0 }
-        if (isAttachedToWindow && !permanentlyStopped) startAnimation()
+        syncAnimation()
         invalidate()
     }
     fun setSpeed(downloadBytesPerSec: Long, uploadBytesPerSec: Long) {
@@ -258,7 +293,7 @@ class SpeedWaveView @JvmOverloads constructor(
                 Log.d(TAG, "setSpeed auto-CONNECT total=$total")
             }
         }
-        if (isAttachedToWindow && !permanentlyStopped) startAnimation()
+        syncAnimation()
     }
     fun setMaxSpeed(bytesPerSec: Long) {
         maxSpeed = bytesPerSec.coerceAtLeast(1L).toFloat()

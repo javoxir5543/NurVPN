@@ -46,3 +46,11 @@ app/libs/libbox.aar.bak*
 
 # === Submodule ===
 sing-box-lx/
+
+# Fix skriptlarining zaxira nusxalari (manba daraxtiga TEGMASIN)
+.fix-backups/
+__pycache__/
+*.bak*
+keystore.properties
+*.jks
+keystore/

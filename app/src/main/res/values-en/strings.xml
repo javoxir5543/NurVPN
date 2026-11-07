@@ -396,4 +396,65 @@
     <string name="update_wait">Please wait...</string>
     <string name="update_error">Download error: %1$s</string>
     <string name="update_unknown_sources">Allow installation from unknown sources</string>
+    <string name="no_subscription_redirect">No subscription found. Enable one of the open sources.</string>
+    <!-- ★ FIX150-INCYSTYLE: subscription card metadata -->
+    <string name="sub_btn_support">Support</string>
+    <string name="sub_btn_web">Website</string>
+    <string name="sub_bytes_used">%1$s / %2$s</string>
+    <string name="sub_remaining">Left: %1$s</string>
+    <string name="sub_announce_title">Announcement</string>
+    <string name="sub_unlimited">Unlimited</string>
+    <string name="editor_field_final_mask">FinalMask (JSON)</string>
+
+    <!-- ★ FIX157-RELEASEPREP: qo'shilgan stringlar -->
+    <string name="toast_sub_url_hint">This is a subscription URL. To add it, use the &quot;Open sources&quot; section</string>
+    <string name="bio_lock">🔒 Lock</string>
+    <string name="bio_locked_toast">🔒 Locked</string>
+    <string name="bio_unlock">🔓 Open via biometrics</string>
+    <string name="bio_unlocked_toast">✅ Unlocked</string>
+    <string name="bio_title">Confirm security</string>
+    <string name="bio_no_lock">⚠️ Warning! Your phone has no screen lock. Please set a password for security.</string>
+    <string name="bio_sub_default">Allow to view encrypted data</string>
+    <string name="bio_sub_unlock">%1$s - confirm to open data</string>
+    <string name="bio_sub_copy">%1$s - confirm to copy</string>
+    <string name="bio_sub_qr">%1$s - confirm to view QR code</string>
+    <string name="encrypted_decode_failed">❌ Could not decode encrypted link</string>
+    <string name="encrypted_locked_title">🔒 Encrypted subscription — copy/share/QR blocked</string>
+    <string name="encrypted_share_blocked">🔒 Encrypted subscription — sharing is not allowed</string>
+    <string name="encrypted_copy_blocked">🔒 Encrypted subscription — copying is not allowed</string>
+    <string name="encrypted_qr_blocked">🔒 Encrypted subscription — QR display is not allowed</string>
+    <string name="kill_switch_title">🛡 Full Security (Kill Switch)</string>
+    <string name="kill_switch_msg">To prevent your real IP from leaking when the internet disconnects, please enable &quot;Always-on VPN&quot; and &quot;Block connections without VPN&quot; in Android settings.</string>
+    <string name="kill_switch_msg_on">To prevent your real IP from leaking, please ENABLE &quot;Always-on VPN&quot; and &quot;Block connections without VPN&quot; in Android settings.</string>
+    <string name="kill_switch_msg_off">To completely disable Kill Switch and restore normal internet, please DISABLE &quot;Always-on VPN&quot; and &quot;Block connections without VPN&quot; in Android settings.</string>
+    <string name="kill_switch_btn">Go to settings</string>
+    <string name="kill_switch_later">Later</string>
+    <string name="sub_limit_title">⚠️ Subscription not working</string>
+    <string name="sub_limit_msg">The provider has exceeded the device limit.\n\nSolution:\n1. Reset devices in the provider bot\n2. If that does not help, contact support</string>
+    <string name="sub_limit_btn">Got it</string>
+    <string name="settings_proto_transport">Protocol / Transport</string>
+    <string name="os_radikal_hy2_name">Radikal Hysteria2</string>
+    <string name="os_radikal_hy2_desc">Hysteria2 configs by 0xRadikal</string>
+    <string name="os_sigridforum_name">Sigrid Forum</string>
+    <string name="os_sigridforum_desc">Hiddify subscription</string>
+    <string name="os_aeryx_name">Aeryx VPN</string>
+    <string name="os_aeryx_desc">AeryxVPN subscription</string>
+    <string name="os_aetris_name">Aetris VPN</string>
+    <string name="os_aetris_desc">AetrisVPN blacklist subscription</string>
+    <string name="os_masque_1_name">MASQUE 1</string>
+    <string name="os_masque_1_desc">162.159.198.2. Cloudflare CONNECT-IP. SNI 4pda.</string>
+    <string name="os_masque_2_name">MASQUE 2</string>
+    <string name="os_masque_2_desc">162.159.199.2. SNI mail.ru.</string>
+    <string name="os_masque_3_name">MASQUE 3</string>
+    <string name="os_masque_3_desc">162.159.198.2. Backup account.</string>
+    <string name="os_masque_4_name">MASQUE 4</string>
+    <string name="os_masque_4_desc">162.159.198.2. Cloudflare WARP via MASQUE.</string>
+    <string name="os_masque_5_name">MASQUE 5</string>
+    <string name="os_masque_5_desc">162.159.199.2. Cloudflare WARP via MASQUE.</string>
+
+    <!-- ★ FIX157-RELEASEPREP: qo'shilgan stringlar -->
+    <string name="toast_server_empty">Server is empty</string>
+    <string name="toast_yaml_masque_error">YAML MASQUE parse error</string>
+    <string name="toast_yaml_wg_error">YAML WireGuard parse error</string>
+    <string name="toast_install_error_fmt">Error starting installation: %1$s</string>
 </resources>

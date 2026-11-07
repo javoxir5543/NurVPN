@@ -17,8 +17,15 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission"/>
 
+    <!-- ★ AUTO-UPDATE uchun MAJBURIY (API 26+).
+         UpdateManager.kt:152 canRequestPackageInstalls() ni chaqiradi va
+         UpdateManager.kt:167 ACTION_VIEW + package-archive intent yuboradi.
+         Bu ruxsat bo'lmasa canRequestPackageInstalls() DOIM false qaytaradi,
+         ya'ni avtomatik yangilanish hech qachon ishlamaydi. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+
+    <!-- FIX124-ORIENT: barcha ekranlar portret -->
     <application
-        android:largeHeap="true"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -28,11 +35,15 @@
         android:usesCleartextTraffic="true"
        
         android:localeConfig="@xml/locales_config">
+        <!-- ★ Batareya: largeHeap olib tashlandi. VPN klient 128MB+ heap talab
+             qilmaydi; katta heap GC bosimini va fon jarayonining xotira
+             limitini keraksiz oshiradi. -->
 
         <activity
             android:name="com.nurvpn.app.ui.editor.ServerEditorActivity"
             android:exported="false"
             android:label="@string/editor_server_title"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
             android:parentActivityName="com.nurvpn.app.ui.MainActivity"/>
 
@@ -40,18 +51,21 @@
             android:name="com.nurvpn.app.ui.awg.AWGEditorActivity"
             android:exported="false"
             android:label="@string/editor_title"
+            android:screenOrientation="portrait"
             android:parentActivityName="com.nurvpn.app.ui.MainActivity"/>
 
         <activity
             android:name="com.nurvpn.app.ui.awg.MasqueEditorActivity"
             android:exported="false"
             android:label="@string/masque_edit_title"
+            android:screenOrientation="portrait"
             android:parentActivityName="com.nurvpn.app.ui.MainActivity"/>
 
         <activity
             android:name="com.nurvpn.app.ui.split.SplitAppsActivity"
             android:exported="false"
             android:label="@string/split_title"
+            android:screenOrientation="portrait"
             android:parentActivityName="com.nurvpn.app.ui.MainActivity"/>
 
         <activity
@@ -62,6 +76,7 @@
         <activity
             android:name="com.nurvpn.app.ui.MainActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:launchMode="singleTop">
             <intent-filter>
@@ -77,6 +92,40 @@
                 <data android:scheme="incy"/>
                 <data android:scheme="crypt1"/>
                 <data android:scheme="nurvpn"/>
+                <data android:scheme="vless"/>
+                <data android:scheme="vmess"/>
+                <data android:scheme="trojan"/>
+                <data android:scheme="ss"/>
+                <data android:scheme="ssr"/>
+                <data android:scheme="hysteria2"/>
+                <data android:scheme="hy2"/>
+                <data android:scheme="tuic"/>
+                <data android:scheme="juicity"/>
+                <data android:scheme="anytls"/>
+                <data android:scheme="shadowtls"/>
+                <data android:scheme="socks5"/>
+                <data android:scheme="ssh"/>
+            </intent-filter>
+
+            <!-- ═══════════════════════════════════════════════════════
+                 ★ TUZATISH #9: Obuna havolalari (http/https)
+
+                 ⚠️ MUHIM: host cheklovi SHART.
+                 `<data android:scheme="https"/>` ni yolg'iz qo'shsak,
+                 HAR QANDAY veb-sayt havolasini bosganda Android
+                 NurVPN ni ochishni taklif qilardi — bu qabul qilib
+                 bo'lmaydigan xatti-harakat.
+
+                 Shuning uchun faqat MA'LUM obuna xizmatlari uchun
+                 ochamiz. Yangi xizmat qo'shilsa — shu ro'yxatga
+                 host qo'shiladi.
+                 ═══════════════════════════════════════════════════════ -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="sub.dark-bit.cc"/>
+                <data android:scheme="http" android:host="sub.dark-bit.cc"/>
             </intent-filter>
         </activity>
 

@@ -16,6 +16,40 @@ class Subscription(
     @JvmField var trafficTotal: Long = 0
     @JvmField var serverCount: Int = 0
 
+    // ═══ ★ FIX149-SUBINFO: obuna HTTP header'laridan keladigan metama'lumot
+    //
+    //   Bular HECH QAYERDA saqlanmasdi — shuning uchun karta qayta
+    //   chizilganda (fragment qayta yaratilganda, tab almashganda)
+    //   ma'lumot YO'QOLARDI. Endi diskda saqlanadi.
+
+    /** `profile-update-interval` — yangilanish intervali (kun). 0 = noma'lum. */
+    @JvmField var updateIntervalDays: Int = 0
+
+    /** `profile-web-page-url` — provayder sayti. */
+    @JvmField var webPage: String = ""
+
+    /** `support-url` — qo'llab-quvvatlash havolasi. */
+    @JvmField var supportUrl: String = ""
+
+    /** `announce` — provayder e'loni. */
+    @JvmField var announce: String = ""
+
+    /** Karta uchun qulay ko'rinish: "domen.com" (sxemasiz). */
+    fun webPageShort(): String = shortUrl(webPage)
+
+    /** Karta uchun qulay ko'rinish: support domeni yoki "Support". */
+    fun supportShort(): String = shortUrl(supportUrl)
+
+    private fun shortUrl(u: String): String {
+        if (u.isBlank()) return ""
+        var s = u.trim()
+        s = s.removePrefix("https://").removePrefix("http://")
+        s = s.removePrefix("t.me/").removePrefix("telegram.me/")
+        s = s.trimEnd('/')
+        if (s.length > 26) s = s.take(25) + "…"
+        return s
+    }
+
     /** Asosiy (Home) ekranda ko'rsatilmasin — faqat Serverlar bo'limida ko'rinadi. */
     @JvmField var hiddenOnHome: Boolean = false
 

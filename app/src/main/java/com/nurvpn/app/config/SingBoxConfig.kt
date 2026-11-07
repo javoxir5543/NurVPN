@@ -130,31 +130,66 @@ object SingBoxConfig {
         return a
     }
 
-    private fun baseTls(q: Map<String, String>, host: String, defaultAlpn: String? = null): JSONObject {
+    private fun baseTls(q: Map<String, String>, host: String, defaultAlpn: String? = null, isQuic: Boolean = false): JSONObject {
         val tls = JSONObject()
         tls.put("enabled", true)
-        tls.put("server_name", cleanSni(q["sni"]) ?: cleanSni(q["peer"]) ?: host)
+        tls.put("server_name", cleanSni(q["sni"]) ?: cleanSni(q["peer"]) ?: cleanSni(q["serverName"]) ?: cleanSni(q["servername"]) ?: cleanSni(q["host"]) ?: host)
         if (insecureOf(q)) tls.put("insecure", true)
         val alpn = q["alpn"]?.takeIf { it.isNotBlank() } ?: defaultAlpn
         if (alpn != null) tls.put("alpn", alpnArray(alpn))
         
-        // Havolaga qarab avtomatik va xavfsiz tanlash
-        var rawFp = q["fp"]?.takeIf { it.isNotBlank() }?.lowercase() ?: "chrome"
-        val validFps = listOf("chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq", "random", "randomized")
-        if (rawFp !in validFps) {
-            rawFp = "chrome"
+        // ★ Yagona tekshiruv: sanitizeFp() bilan bir xil ro'yxat ishlatiladi.
+        // (Avval bu yerda alohida ro'yxat bor edi va u sanitizeFp() bilan
+        //  mos kelmasdi — ikki xil xatti-harakat hosil bo'lardi.)
+        val rawFp = sanitizeFp(q["fp"])
+        if (!isQuic) {
+            tls.put("utls", JSONObject().put("enabled", true).put("fingerprint", rawFp))
         }
-        tls.put("utls", JSONObject().put("enabled", true).put("fingerprint", rawFp))
         return tls
     }
 
 
-    /** sing-box qo'llab-quvvatlamaydigan fingerprint'larni chrome'ga almashtiradi. */
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     * YAGONA HAQIQAT MANBASI: sing-box qo'llab-quvvatlaydigan uTLS fingerprint'lar.
+     * ═══════════════════════════════════════════════════════════════════════
+     * Ro'yxat libbox.so (sing-box v1.14.3-lx18) ICHIDAN olindi — bu taxmin
+     * emas, binar ichidagi sxema:
+     *
+     *   enum:"chrome_psk,chrome_psk_shuffle,chrome_padding_psk_shuffle,
+     *          chrome_pq,chrome_pq_psk,chrome,chrome_155,firefox,edge,
+     *          safari,360,qq,ios,android,random,randomized"
+     *
+     * Tekshirish buyrug'i:
+     *   strings jni/arm64-v8a/libbox.so | grep -oE 'enum:"chrome_psk[^"]*"'
+     *
+     * NEGA BU MUHIM: notanish qiymat berilsa sing-box ishga tushmaydi:
+     *   "unknown uTLS fingerprint: <qiymat>"
+     * (bu ham binarda mavjud). Ya'ni bitta noto'g'ri `fp=` butun
+     * konfiguratsiyani yiqitadi va VPN umuman ulanmaydi.
+     */
+    private val VALID_FINGERPRINTS = setOf(
+        "chrome", "chrome_155", "chrome_pq", "chrome_psk",
+        "chrome_psk_shuffle", "chrome_padding_psk_shuffle",
+        "firefox", "edge", "safari", "360", "qq", "ios", "android",
+        "random", "randomized"
+    )
+
+    /** Yaroqsiz/bo'sh fingerprint uchun xavfsiz standart qiymat. */
+    private const val DEFAULT_FINGERPRINT = "chrome"
+
+    /**
+     * sing-box qo'llab-quvvatlamaydigan fingerprint'larni chrome'ga almashtiradi.
+     *
+     * ⚠️ TARIX: v1.12.0 da bu funksiyaning tekshiruvi olib tashlangan edi
+     * (izoh qolgan, kod esa qiymatni o'zgartirmasdan qaytarardi). Natijada
+     * obunadagi noto'g'ri `fp=` qiymati to'g'ridan-to'g'ri sing-box'ga borib,
+     * "unknown uTLS fingerprint" xatosi bilan ulanishni yiqitardi.
+     * Endi tekshiruv [VALID_FINGERPRINTS] asosida qaytarildi.
+     */
     private fun sanitizeFp(raw: String?): String {
-        val v = raw?.trim().orEmpty()
-        return if (v.isEmpty() || v.lowercase() in setOf("qq", "random", "randomized", "randomizednoalpn"))
-            "chrome"
-        else v
+        val v = raw?.trim()?.lowercase().orEmpty()
+        return if (v in VALID_FINGERPRINTS) v else DEFAULT_FINGERPRINT
     }
 
     private fun withUtls(tls: JSONObject, fp: String?) {
@@ -211,6 +246,8 @@ object SingBoxConfig {
         o.put("server", host)
         o.put("server_port", port)
         o.put("password", u.userInfo ?: "")
+        android.util.Log.i("NurVPN-HY2",
+            "hysteria2: host=$host, obfs=${q["obfs"]}, insecure=true (majburiy)")
 
         // Port hopping: mport=20000-30000 yoki 443,20000-30000
         val mport = q["mport"] ?: u.rawPort.takeIf { it.contains(",") || it.contains("-") }
@@ -229,7 +266,10 @@ object SingBoxConfig {
 
         // ★ XAVFSIZLIK: sertifikat tekshiruvi sukut bo'yicha YOQILGAN.
         //   Faqat link o'zida insecure=1 bo'lsagina o'chiriladi.
-        o.put("tls", baseTls(q, host, "h3"))
+        // FIX: Hysteria2 uchun sertifikat tekshiruvini o'chirish (IP/self-signed uchun)
+        val tlsObj = baseTls(q, host, "h3", isQuic = true)
+        tlsObj.put("insecure", true)
+        o.put("tls", tlsObj)
 
         val obfs = q["obfs"]
         if (!obfs.isNullOrEmpty() && obfs != "none") {
@@ -239,7 +279,8 @@ object SingBoxConfig {
         }
         q["upmbps"]?.toIntOrNull()?.let { o.put("up_mbps", it) }
         q["downmbps"]?.toIntOrNull()?.let { o.put("down_mbps", it) }
-        Log.i(TAG, "Hysteria2: $host:$port insecure=${insecureOf(q)}")
+        Log.i(TAG, "Hysteria2: $host:$port insecure=TRUE (majburiy), obfs=$obfs, obfs-pass=${if (q["obfs-password"] != null) "BOR" else "YO'Q"}")
+        Log.i(TAG, "Hysteria2 JSON: $o")
         return o
     }
 
@@ -259,7 +300,7 @@ object SingBoxConfig {
         o.put("congestion_control", q["congestion_control"]?.takeIf { it.isNotEmpty() } ?: "bbr")
         val mode = q["udp_relay_mode"]
         if (mode == "native" || mode == "quic") o.put("udp_relay_mode", mode)
-        o.put("tls", baseTls(q, host, "h3"))
+        o.put("tls", baseTls(q, host, "h3", isQuic = true))
         Log.i(TAG, "TUIC: $host:$port")
         return o
     }
@@ -316,7 +357,7 @@ object SingBoxConfig {
                 withUtls(tls, "chrome")
             } else {
                 // fp ko'rsatilmasa ham chrome (Go TLS barmoq izi bloklanadi, Vision'ga ham mos)
-                withUtls(tls, sanitizeFp(fp) ?: "chrome")
+                withUtls(tls, fp)
             }
             // ═══ DPI BYPASS: TLS Fragment ═══
             if (com.nurvpn.app.storage.AdvSettings.isFragmentEnabled(ctx)) {
@@ -372,7 +413,7 @@ object SingBoxConfig {
             tls.put("server_name", sni)
             val alpn = v.optString("alpn")
             if (alpn.isNotEmpty()) tls.put("alpn", alpnArray(alpn))
-            withUtls(tls, v.optString("fp").ifEmpty { null })
+            withUtls(tls, sanitizeFp(v.optString("fp")))
             if (isTrue(v.optString("allowInsecure")) || isTrue(v.optString("insecure"))) {
                 tls.put("insecure", true)
             }
@@ -433,7 +474,7 @@ object SingBoxConfig {
             if (!tls.has("server_name") || q["sni"] == null) {
                 tls.put("server_name", cleanSni(q["sni"]) ?: cleanSni(q["host"]) ?: host)
             }
-            withUtls(tls, q["fp"]?.takeIf { it.isNotEmpty() } ?: "chrome")
+            withUtls(tls, sanitizeFp(q["fp"]))
             o.put("tls", tls)
         }
         addTransport(o, q)
@@ -452,7 +493,7 @@ object SingBoxConfig {
         o.put("password", u.userInfo ?: "")
         if (q["security"] != "none") {
             val tls = baseTls(q, host)
-            withUtls(tls, q["fp"]?.takeIf { it.isNotEmpty() } ?: "chrome")
+            withUtls(tls, sanitizeFp(q["fp"]))
             // TLS fragmentatsiya faqat link so'ragandagina (sukut bo'yicha tezlikni tushiradi)
             if (isTrue(q["fragment"])) {
                 tls.put("fragment", true)
@@ -722,7 +763,7 @@ object SingBoxConfig {
         val ui = u.userInfo ?: ""
         o.put("uuid", ui.substringBefore(':'))
         if (ui.contains(':')) o.put("password", ui.substringAfter(':'))
-        o.put("tls", baseTls(q, host, "h3"))
+        o.put("tls", baseTls(q, host, "h3", isQuic = true))
         q["congestion_control"]?.takeIf { it.isNotEmpty() }
             ?.let { o.put("congestion_control", it) }
         return o
@@ -972,7 +1013,8 @@ object SingBoxConfig {
         val proxy = parseMasque(rawConf, false)
         val hasV6 = proxy.has("ipv6") && proxy.optString("ipv6").isNotEmpty()
         android.util.Log.i("NurVPN-CFG", "MASQUE hasV6=$hasV6 ipv6=${proxy.optString("ipv6")}")
-        return assemble(proxy, false, dns, null, !hasV6, 1400, hasV6, "gvisor")
+        return assemble(proxy, false, dns, null, !hasV6,
+            tunMtu = 1400, tunV6 = hasV6, stack = "gvisor")
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -985,6 +1027,9 @@ object SingBoxConfig {
         remoteDns: String,
         serverHost: String?,
         ipv6Blocked: Boolean,
+        // ★ TUZATISH #7: DNS leak himoyasi (standart YOQILGAN = xavfsiz).
+        //   Yoqilgan bo'lsa bootstrap DNS ham proxy orqali ketadi.
+        dnsLeakProtect: Boolean = true,
         tunMtu: Int = 1400,
         tunV6: Boolean = !ipv6Blocked,
         stack: String = "gvisor",
@@ -1009,7 +1054,11 @@ object SingBoxConfig {
                 .put("server", remoteDns).put("detour", "proxy"))
             .put(JSONObject()
                 .put("type", "udp").put("tag", "dns-direct")
-                .put("server", BOOTSTRAP_DNS))
+                .put("server", BOOTSTRAP_DNS)
+                // ★ TUZATISH #7: DNS leak himoyasi ON bo'lsa bootstrap ham
+                //   proxy orqali ketadi. Avval bu sozlama faqat VpnService
+                //   route'larida ishlatilib, config'ga yetib bormasdi.
+                .apply { if (dnsLeakProtect) put("detour", "proxy") })
         val dnsRules = JSONArray()
         // Server domeni HAR DOIM avval (VPN'siz) hal qilinadi
         if (!serverHost.isNullOrEmpty() && !isIpAddress(serverHost)) {
@@ -1045,7 +1094,7 @@ object SingBoxConfig {
         root.put("dns", dns)
 
         // ═══ LOG ═══ (fayl yo'q — cheksiz o'sib ketmasin)
-        root.put("log", JSONObject().put("level", "debug").put("timestamp", true))
+        root.put("log", JSONObject().put("level", "info").put("timestamp", true))
 
         // ═══ INBOUND: TUN ═══
         val addrs = JSONArray().put("172.19.0.1/30")
@@ -1073,6 +1122,9 @@ object SingBoxConfig {
         val rules = JSONArray()
         rules.put(JSONObject().put("action", "sniff"))
         rules.put(JSONObject().put("protocol", "dns").put("action", "hijack-dns"))
+        // STUN trafigini rad etish: tashqi (public) IP WebRTC orqali oshkor bo'lmasin.
+        // 3478/5349 portlari bloklanmaydi, aks holda WhatsApp/Telegram qo'ng'iroqlari buzilishi mumkin.
+        rules.put(JSONObject().put("protocol", "stun").put("action", "reject"))
         if (!serverHost.isNullOrEmpty()) {
             if (isIpAddress(serverHost)) {
                 rules.put(JSONObject()
@@ -1089,11 +1141,13 @@ object SingBoxConfig {
         // ═══ FAQAT YouTube uchun QUIC bloklash ═══
         rules.put(JSONObject()
             .put("domain_suffix", JSONArray()
-                .put(".youtube.com")
-                .put(".googlevideo.com")
-                .put(".ytimg.com")
-                .put(".youtu.be")
-                .put(".ggpht.com"))
+                .put("youtube.com")
+                .put("googlevideo.com")
+                .put("ytimg.com")
+                .put("youtu.be")
+                .put("ggpht.com")
+                .put("youtube-nocookie.com")
+                .put("yt.be"))
             .put("port", 443)
             .put("network", "udp")
             .put("action", "reject"))
@@ -1128,11 +1182,13 @@ object SingBoxConfig {
         //   AWG sarlavha/junk qo'shadi, shuning uchun yuqori chegara 1280.
         val tunMtu = minOf(a.mtu, 1200)
         // Config'da IPv6 manzil bo'lmasa, tunnelda IPv6 yo'q: AAAA javoblar va IPv6 ulanishlar osilib qolmasin
-        return assemble(a.endpoint, true, remoteDns, a.host, ipv6Blocked, tunMtu, a.hasV6 && !ipv6Blocked,
+        return assemble(a.endpoint, true, remoteDns, a.host, ipv6Blocked,
+            dnsLeakProtect = true,
+            tunMtu = tunMtu, tunV6 = a.hasV6 && !ipv6Blocked,
             // ★ gvisor: TCP ham, UDP ham userspace'da. "gvisor" TCP'ni yadro (system) stack'iga
             //   beradi — u Android'da (o'z paketimiz VPN'dan chiqarilgani uchun) javob paketlari
             //   yo'qolib, TCP umuman ishlamasligi, UDP/QUIC esa ishlashi mumkin.
-            "gvisor")
+            stack = "gvisor")
     }
 
     @Throws(ParseException::class)
@@ -1141,7 +1197,11 @@ object SingBoxConfig {
         dns: String,
         @Suppress("UNUSED_PARAMETER") cachePath: String = "",
         ipv6Blocked: Boolean = false,
-        ctx: android.content.Context? = null
+        ctx: android.content.Context? = null,
+        // ★ TUZATISH #7: DNS leak himoyasi (Sozlamalar → Xavfsizlik).
+        //   Avval bu sozlama FAQAT VpnService route'larida ishlatilardi va
+        //   sing-box konfiguratsiyasiga umuman yetib bormasdi.
+        dnsLeakProtect: Boolean = true
     ): JSONObject {
         val c = ctx ?: throw ParseException("ctx yo'q")
         val proxy = outboundFor(link, c)
@@ -1156,6 +1216,7 @@ object SingBoxConfig {
         }
         Log.i(TAG, "TUN MTU: $mtu ($protoType)")
         return assemble(proxy, false, dns, proxy.optString("server"), ipv6Blocked,
+            dnsLeakProtect = dnsLeakProtect,
             tunMtu = mtu,
             fakeDns = fake)
     }

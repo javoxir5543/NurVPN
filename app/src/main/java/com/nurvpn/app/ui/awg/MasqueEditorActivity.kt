@@ -116,7 +116,8 @@ class MasqueEditorActivity : AppCompatActivity() {
     private fun save() {
         val srv = serverEt.text.toString().trim()
         if (srv.isEmpty()) {
-            Toast.makeText(this, "Server bo'sh", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.toast_server_empty),
+                Toast.LENGTH_SHORT).show()
             return
         }
         if (index < 0 || index >= AWGEditorBus.configs.size) return

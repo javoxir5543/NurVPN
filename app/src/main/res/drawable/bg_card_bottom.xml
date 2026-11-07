@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ★ FIX141-CARDSTYLE: karta guruhining "bottom" qismi.
+
+     ═══ NEGA CHEGARA (stroke) YO'Q ═══
+
+     Har bir item alohida View bo'lgani uchun chegara qo'yilsa,
+     qo'shni itemlar orasida IKKI QAVAT chiziq ko'rinadi:
+
+         ┌───────────┐  ← top (pastki chegara)
+         ├───────────┤  ← 2dp! (top past + mid yuqori)
+         │   qator   │  ← mid (yuqori chegara)
+         ├───────────┤  ← yana 2dp
+         └───────────┘  ← bottom
+
+     Shuning uchun chegara OLIB TASHLANDI — karta faqat FON RANGI
+     bilan ajralib turadi (@color/card_bg), bu yetarli.
+
+     Burchaklar esa qismga qarab beriladi — natijada BITTA karta
+     ko'rinadi.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/card_bg"/>
+    <corners android:topLeftRadius="0dp" android:topRightRadius="0dp" android:bottomLeftRadius="16dp" android:bottomRightRadius="16dp"/>
+</shape>

@@ -69,6 +69,24 @@ class ServerItem(@JvmField var link: String) {
         }
         val fromRemark = CountryLookup.flagFromRemark(remark)
         if (fromRemark.isNotEmpty()) return fromRemark
+
+        // ★ TUZATISH #2: emoji bayroq bo'lmasa, remark dagi DAVLAT NOMI
+        // bo'yicha aniqlaymiz ("Russia Moscow" → 🇷🇺, "Japan Tokyo" → 🇯🇵).
+        // Avval bu qadam yo'q edi va oddiy nomli obunalar 🌍 bo'lib qolardi.
+        val ccFromName = CountryLookup.ccFromRemark(remark)
+        if (ccFromName.length == 2) {
+            val sb = StringBuilder()
+            for (c in ccFromName) sb.appendCodePoint(0x1F1E6 + (c - 'A'))
+            return sb.toString()
+        }
+
+        // Host domenidan ham urinib ko'ramiz ("de.example.com" kabi)
+        val ccHost = CountryLookup.lookup(host).firstOrNull().orEmpty()
+        if (ccHost.length == 2) {
+            val sb = StringBuilder()
+            for (c in ccHost) sb.appendCodePoint(0x1F1E6 + (c - 'A'))
+            return sb.toString()
+        }
         return "🌍"
     }
 

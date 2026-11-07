@@ -13,7 +13,41 @@ object ServerStore {
 
     fun save(ctx: Context, servers: List<ServerItem>) {
         val arr = JSONArray()
-        for (si in servers) {
+        // ★ FIX154-SNAPSHOT: nusxa ustida ishlaymiz.
+        //
+        //   ═══ ILDIZ SABAB ═══
+        //
+        //   Bu funksiya 37 ta joydan chaqiriladi va deyarli har doim
+        //   `a.servers` — MainActivity'ning JONLI ro'yxati — uzatiladi.
+        //   Ba'zi chaqiruvlar fon oqimida
+        //   (`Thread { ServerStore.save(...) }`), boshqalari asosiy
+        //   oqimda. Natijada:
+        //
+        //       java.util.ConcurrentModificationException
+        //         at java.util.ArrayList$Itr.next
+        //         at ServerStore.save(ServerStore.kt:16)
+        //         at HomeFragment...loadSubscription$lambda...
+        //
+        //   Obuna yuklanayotganda UI oqimi ro'yxatga server qo'shadi,
+        //   fon oqimi esa ayni paytda shu ro'yxatni aylanib chiqadi
+        //   → ilova YIQILADI.
+        //
+        //   ═══ YECHIM ═══
+        //
+        //   Bir marta nusxa olamiz. Bu O(n) qo'shimcha xotira
+        //   (686 server uchun ~o'nlab KB), lekin yiqilishni butunlay
+        //   yo'q qiladi. 37 ta chaqiruv joyini tuzatishdan ko'ra
+        //   bitta umumiy joyda tuzatish to'g'ri.
+        val snapshot = try {
+            ArrayList(servers)
+        } catch (t: Throwable) {
+            // O'ta kam holat: ro'yxat ayni damda o'zgartirilgan.
+            // Bu holda saqlamaymiz — chala ma'lumot yozgandan ko'ra
+            // keyingi muvaffaqiyatli saqlashni kutgan yaxshi.
+            Log.w("NurVPN-STORE", "save: snapshot xatosi: ${t.message}")
+            return
+        }
+        for (si in snapshot) {
             val o = JSONObject()
             o.put("link", si.link)
             o.put("host", si.host)
@@ -39,6 +73,27 @@ object ServerStore {
             val s = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
                 .getString(KEY, "[]") ?: "[]"
             val arr = JSONArray(s)
+            // ═══════════════════════════════════════════════════════════
+            //  ★ FIX133-STARTUP: HAR BIR SERVER UCHUN LOG YOZILMASIN!
+            //
+            //  ═══ ILDIZ SABAB ═══
+            //
+            //  Avval tsikl ICHIDA shartsiz log bor edi:
+            //
+            //      Log.d("NurVPN-PING", "load: ${si.host}:${si.port} ...")
+            //
+            //  `Log.d()` — SINXRON I/O. 686 ta server bo'lsa 686 ta
+            //  log yoziladi. Har biri bir necha ms olsa jami 5-9
+            //  SEKUND, va bu ASOSIY OQIMDA (`onCreate`) bajariladi
+            //  → ilova ochilishi 8-9 sekundga cho'ziladi!
+            //
+            //  ═══ YECHIM ═══
+            //
+            //  Faqat DEBUG build'da va faqat kichik ro'yxatda log
+            //  yozamiz. Katta ro'yxatda (686 ta) — o'chiq.
+            // ═══════════════════════════════════════════════════════════
+            // ★ FIX133-STARTUP: faqat kichik ro'yxatda log (686 ta emas)
+            val debugLog = arr.length() <= 40
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val si = ServerItem(o.getString("link"))
@@ -56,7 +111,10 @@ object ServerStore {
                 si.transport = o.optString("transport", "")
                 si.security = o.optString("security", "")
                 si.ensureTransport()
-                Log.d("NurVPN-PING", "load: ${si.host}:${si.port} proto=${si.protocol} transport=${si.transport} security=${si.security}")
+                if (debugLog) {
+                    Log.d("NurVPN-PING",
+                        "load: ${si.host}:${si.port} proto=${si.protocol}")
+                }
                 out.add(si)
             }
         } catch (e: Throwable) { Log.e("NurVPN", "load servers", e) }

@@ -173,7 +173,10 @@ object UpdateManager {
         try {
             activity.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(activity, "O'rnatishni boshlashda xato: ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(activity,
+                activity.getString(
+                    com.nurvpn.app.R.string.toast_install_error_fmt, e.message),
+                Toast.LENGTH_LONG).show()
         }
     }
 }

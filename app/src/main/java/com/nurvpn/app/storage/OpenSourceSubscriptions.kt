@@ -21,97 +21,25 @@ data class OpenSourceSubscription(
 object OpenSourceCatalog {
 
     val ALL: List<OpenSourceSubscription> = listOf(
-        OpenSourceSubscription(
-            id = "nikita29a",
-            nameRes = R.string.os_nikita_name,
-            descriptionRes = R.string.os_nikita_desc,
-            url = "https://raw.githubusercontent.com/nikita29a/FreeProxyList/main/mirror/4.txt",
-            flag = "\uD83C\uDDF7\uD83C\uDDFA"
-        ),
-        OpenSourceSubscription(
-            id = "hidashimora",
-            nameRes = R.string.os_hidashimora_name,
-            descriptionRes = R.string.os_hidashimora_desc,
-            url = "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/1.txt",
-            flag = "\uD83C\uDDF7\uD83C\uDDFA"
-        ),
-        OpenSourceSubscription(
-            id = "igareck",
-            nameRes = R.string.os_igareck_name,
-            descriptionRes = R.string.os_igareck_desc,
-            url = "https://raw.githack.com/igareck/vpn-configs-for-russia/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
-            flag = "\uD83C\uDDF7\uD83C\uDDFA"
-        ),
-        OpenSourceSubscription(
-            id = "hidashimora2",
-            nameRes = R.string.os_hidashimora2_name,
-            descriptionRes = R.string.os_hidashimora2_desc,
-            url = "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/2.txt",
-            flag = "\uD83C\uDDF7\uD83C\uDDFA"
-        ),
-        OpenSourceSubscription(
-            id = "ebrasha",
-            nameRes = R.string.os_ebrasha_name,
-            descriptionRes = R.string.os_ebrasha_desc,
-            url = "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/refs/heads/main/V2Ray-Config-By-EbraSha.txt",
-            flag = "\uD83C\uDF10"
-        ),
-        OpenSourceSubscription(
-            id = "ruk1ng",
-            nameRes = R.string.os_ruk1ng_name,
-            descriptionRes = R.string.os_ruk1ng_desc,
-            url = "https://raw.githubusercontent.com/Ruk1ng001/freeSub/main/v2ray",
-            flag = "\uD83C\uDF10"
-        ),
-        OpenSourceSubscription(
-            id = "ermaozi",
-            nameRes = R.string.os_ermaozi_name,
-            descriptionRes = R.string.os_ermaozi_desc,
-            url = "https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt",
-            flag = "\uD83C\uDF10"
-        ),
-        OpenSourceSubscription(
-            id = "warp_cf1",
-            nameRes = R.string.os_warp1_name,
-            descriptionRes = R.string.os_warp1_desc,
-            awgId = "warp_cf1",
-            flag = "\u2601\uFE0F"
-        ),
-        OpenSourceSubscription(
-            id = "warp_cf2",
-            nameRes = R.string.os_warp2_name,
-            descriptionRes = R.string.os_warp2_desc,
-            awgId = "warp_cf2",
-            flag = "\u2601\uFE0F"
-        ),
-        OpenSourceSubscription(
-            id = "warp_cf3",
-            nameRes = R.string.os_warp3_name,
-            descriptionRes = R.string.os_warp3_desc,
-            awgId = "warp_cf3",
-            flag = "\u2601\uFE0F"
-        ),
-        OpenSourceSubscription(
-            id = "warp_masque1",
-            nameRes = R.string.os_masque1_name,
-            descriptionRes = R.string.os_masque1_desc,
-            awgId = "warp_masque1",
-            flag = "\uD83C\uDF10"
-        ),
-        OpenSourceSubscription(
-            id = "warp_masque2",
-            nameRes = R.string.os_masque2_name,
-            descriptionRes = R.string.os_masque2_desc,
-            awgId = "warp_masque2",
-            flag = "\uD83C\uDF10"
-        ),
-        OpenSourceSubscription(
-            id = "warp_masque3",
-            nameRes = R.string.os_masque3_name,
-            descriptionRes = R.string.os_masque3_desc,
-            awgId = "warp_masque3",
-            flag = "\uD83C\uDF10"
-        )
+        OpenSourceSubscription(id = "nikita29a", nameRes = R.string.os_nikita_name, descriptionRes = R.string.os_nikita_desc, url = "https://raw.githubusercontent.com/nikita29a/FreeProxyList/main/mirror/4.txt", flag = "\uD83C\uDDF7\uD83C\uDDFA"),
+        OpenSourceSubscription(id = "hidashimora", nameRes = R.string.os_hidashimora_name, descriptionRes = R.string.os_hidashimora_desc, url = "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/1.txt", flag = "\uD83C\uDDF7\uD83C\uDDFA"),
+        OpenSourceSubscription(id = "igareck", nameRes = R.string.os_igareck_name, descriptionRes = R.string.os_igareck_desc, url = "https://raw.githack.com/igareck/vpn-configs-for-russia/main/Vless-Reality-White-Lists-Rus-Mobile.txt", flag = "\uD83C\uDDF7\uD83C\uDDFA"),
+        OpenSourceSubscription(id = "hidashimora2", nameRes = R.string.os_hidashimora2_name, descriptionRes = R.string.os_hidashimora2_desc, url = "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/2.txt", flag = "\uD83C\uDDF7\uD83C\uDDFA"),
+        OpenSourceSubscription(id = "ebrasha", nameRes = R.string.os_ebrasha_name, descriptionRes = R.string.os_ebrasha_desc, url = "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/refs/heads/main/V2Ray-Config-By-EbraSha.txt", flag = "\uD83C\uDF10"),
+        OpenSourceSubscription(id = "ruk1ng", nameRes = R.string.os_ruk1ng_name, descriptionRes = R.string.os_ruk1ng_desc, url = "https://raw.githubusercontent.com/Ruk1ng001/freeSub/main/v2ray", flag = "\uD83C\uDF10"),
+        OpenSourceSubscription(id = "ermaozi", nameRes = R.string.os_ermaozi_name, descriptionRes = R.string.os_ermaozi_desc, url = "https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt", flag = "\uD83C\uDF10"),
+        OpenSourceSubscription(id = "amnezia_1", nameRes = R.string.os_warp1_name, descriptionRes = R.string.os_warp1_desc, awgId = "amnezia_1", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "amnezia_2", nameRes = R.string.os_warp2_name, descriptionRes = R.string.os_warp2_desc, awgId = "amnezia_2", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "amnezia_3", nameRes = R.string.os_warp3_name, descriptionRes = R.string.os_warp3_desc, awgId = "amnezia_3", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "sigridforum", nameRes = R.string.os_sigridforum_name, descriptionRes = R.string.os_sigridforum_desc, url = "https://raw.githubusercontent.com/Remiuc0ff/vpn-hiddifycode/refs/heads/main/sigridforum", flag = "\uD83C\uDF10"),
+        OpenSourceSubscription(id = "aeryx", nameRes = R.string.os_aeryx_name, descriptionRes = R.string.os_aeryx_desc, url = "https://github.com/cheesyx-rudy/AeryxVPN/raw/main/AeryxVPN", flag = "\uD83C\uDF10"),
+        OpenSourceSubscription(id = "aetris", nameRes = R.string.os_aetris_name, descriptionRes = R.string.os_aetris_desc, url = "https://raw.githubusercontent.com/flaafix/AetrisVPN-black-list/refs/heads/main/configs.txt", flag = "\uD83C\uDF10"),
+        OpenSourceSubscription(id = "masque_1", nameRes = R.string.os_masque_1_name, descriptionRes = R.string.os_masque_1_desc, awgId = "masque_1", flag = "\uD83C\uDF10"),
+        OpenSourceSubscription(id = "masque_2", nameRes = R.string.os_masque_2_name, descriptionRes = R.string.os_masque_2_desc, awgId = "masque_2", flag = "\uD83C\uDF10"),
+        OpenSourceSubscription(id = "masque_3", nameRes = R.string.os_masque_3_name, descriptionRes = R.string.os_masque_3_desc, awgId = "masque_3", flag = "\uD83C\uDF10"),
+        OpenSourceSubscription(id = "masque_4", nameRes = R.string.os_masque_4_name, descriptionRes = R.string.os_masque_4_desc, awgId = "masque_4", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "masque_5", nameRes = R.string.os_masque_5_name, descriptionRes = R.string.os_masque_5_desc, awgId = "masque_5", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "radikal_hy2", nameRes = R.string.os_radikal_hy2_name, descriptionRes = R.string.os_radikal_hy2_desc, url = "https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs/main/protocols/hysteria2.txt", flag = "\uD83C\uDF10"),
     )
 
     fun byId(id: String): OpenSourceSubscription? = ALL.firstOrNull { it.id == id }

@@ -145,10 +145,52 @@ class NurVpnService : VpnService() {
     @Volatile private var isRestarting = false           // restart ketmoqda
     @Volatile private var lastNetworkHandle: Long = 0L   // oxirgi tarmoq
     @Volatile private var lastRestartTime: Long = 0L     // oxirgi restart vaqti
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ★ FIX122-LOOP: BIRINCHI TARMOQ HODISASINI AJRATISH
+    //
+    //  ILDIZ SABAB (logcat 00:37:10 bilan tasdiqlangan):
+    //  VPN birinchi yoqilganda `onAvailable` chaqiriladi va uchta filtr
+    //  ham ishlamaydi:
+    //     • lastRestartTime = 0 → "cooldown o'tgan" deb hisoblanadi
+    //     • lastNetworkHandle = 0 → "boshqa tarmoq" deb hisoblanadi
+    //  Natijada VPN HECH QANDAY sababsiz restart qilinadi, restart
+    //  paytida TUN o'chib-yonadi va YANA onAvailable → LOOP.
+    //
+    //  Yechim: birinchi hodisani "joriy tarmoq" sifatida yozib olamiz,
+    //  restart FAQAT keyingi haqiqiy tarmoq o'zgarishida bo'ladi.
+    // ═══════════════════════════════════════════════════════════════════
+    @Volatile private var networkBaselineReady = false
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ★ FIX123-SYSRESTART: TIZIM TIKLASH BAYROG'I
+    //
+    //  QURILMADA TASDIQLANDI (00:40:03, 90 sekundlik test):
+    //    sing-box started : 16 marta  ← har 5 sekundda qayta!
+    //    onStartCommand   : 23 marta, HAMMASI intent = null
+    //
+    //  `onStartCommand(null)` = Android xizmatni QAYTA TIKLAMOQDA.
+    //  Bu holatda ilova VPN ni XOHLAMAYDI — hech narsa ochilmasligi
+    //  kerak. Lekin `stopSelf(startId)` YETARLI EMAS: agar shu payt
+    //  boshqa (kattaroq) startId bilan START kelgan bo'lsa, xizmat
+    //  TO'XTAMAYDI va allaqachon ishga tushgan `runConnect()` thread
+    //  `Libbox.setup` + `openTun` ni QAYTA bajaradi → LOOP.
+    //
+    //  Bu bayroq `runConnect`/`connectLocked` ga "to'xta" deb aytadi.
+    // ═══════════════════════════════════════════════════════════════════
+    @Volatile private var isSystemRestart = false
+
     @Volatile private var restartScheduledTime: Long = 0L // rejalashtirilgan vaqt
 
-    private val MIN_RESTART_INTERVAL_MS = 5_000L   // 5 sekund (tez o'zgarish uchun)
-    private val NETWORK_STABILIZE_MS = 3_000L      // 3 sekund kutish
+    // ★ TUZATISH #12 (BUG #3): loop'ni to'xtatish uchun vaqtlar oshirildi.
+    //   Avval 5s/3s edi — bu aynan foydalanuvchi ko'rgan 2-3 sekundlik
+    //   ON/OFF siklini hosil qilardi.
+    private val MIN_RESTART_INTERVAL_MS = 15_000L  // 15 sekund (5s → 15s)
+    private val NETWORK_STABILIZE_MS = 8_000L      // 8 sekund (3s → 8s)
+
+    /** ★ TUZATISH #12: ketma-ket xatolar — 3 tadan keyin to'xtaymiz. */
+    private val consecutiveFailures = java.util.concurrent.atomic.AtomicInteger(0)
+    private val maxConsecutiveFailures = 3
     // NET_PATCH_APPLIED
 
     private val networkRestartHandler = Handler(Looper.getMainLooper())
@@ -158,6 +200,51 @@ class NurVpnService : VpnService() {
      * Network switch restart logikasi — alohida funksiya.
      * (Runnable ichida o'ziga murojaat qilish Kotlin'da xato beradi)
      */
+    /**
+     * ★ TUZATISH #12 (BUG #3): xizmat yaratilganda crash guard o'rnatiladi.
+     *
+     * ⚠️ Bu metod AVVAL YO'Q edi. Endi qo'shildi — chunki crash
+     * oldini olish uchun ilova darajasida ushlagich kerak.
+     */
+    override fun onCreate() {
+        super.onCreate()
+        installCrashGuard()
+    }
+
+
+    /**
+     * ★ TUZATISH #12 (BUG #3): crash-oldini-ushlash himoyasi.
+     *
+     * Agar qandaydir kutilmagan istisno baribir ushlanmasa, bu handler
+     * ishga tushadi. U:
+     *   1. Xatoni to'liq logga yozadi (stack trace bilan)
+     *   2. Xizmatni to'xtatadi (loop bo'lmasin)
+     *   3. Foydalanuvchiga xabar beradi
+     *
+     * ⚠️ Bu "yashirish" emas — chunki xato TO'LIQ logga tushadi va
+     * foydalanuvchi xabar oladi. Maqsad: loop'ni to'xtatish.
+     */
+    private fun installCrashGuard() {
+        val prev = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                Log.e(TAG, "‼️ USHLANMAGAN ISTISNO (${thread.name})", throwable)
+                com.nurvpn.app.core.LogBuffer.add(
+                    "CRASH: ${throwable.javaClass.simpleName}: ${throwable.message}")
+                // Xizmatni to'xtatamiz — Android qayta ishga tushirmasin
+                try { stopSelf() } catch (_: Throwable) {}
+                try { broadcast("error",
+                    "Kutilmagan xato: ${throwable.javaClass.simpleName}") } catch (_: Throwable) {}
+            } catch (_: Throwable) {
+                // handler ichida ham crash bo'lmasin
+            } finally {
+                // Oldingi handler'ga uzatamiz (Android o'z ishini qilsin)
+                prev?.uncaughtException(thread, throwable)
+            }
+        }
+        Log.i(TAG, "Crash guard o'rnatildi")
+    }
+
     private fun doNetworkRestart() {
         if (!pendingNetworkRestart) return
         if (isRestarting) {
@@ -256,6 +343,18 @@ class NurVpnService : VpnService() {
      * Tarmoq almashganda tunnelni qayta ulash (2s debounce).
      * Bir nechta onAvailable/onLost chaqirilsa — bitta restart.
      */
+    /**
+     * ★ FIX122-LOOP: tarmoq baseline'ini tozalash.
+     *
+     * Xizmat to'xtaganda/keyingi ulanishda chaqiriladi — keyingi
+     * birinchi `onAvailable` yana "joriy tarmoq" bo'lib yozilsin.
+     */
+    private fun resetNetworkBaseline() {
+        networkBaselineReady = false
+        lastNetworkHandle = 0L
+        Log.i(TAG, "🔰 Tarmoq baseline tozalandi")
+    }
+
     private fun scheduleNetworkRestart(delayMs: Long = 8000L) {
         val now = System.currentTimeMillis()
         // ★ Takroriy rejalashtirishni oldini olish
@@ -581,14 +680,36 @@ class NurVpnService : VpnService() {
                         Log.i(TAG, "onAvailable: $network (handle=$handle)")
                         pushDefaultInterface(l)
 
+                        // ═══════════════════════════════════════════════
+                        //  ★ FIX122-LOOP: BIRINCHI hodisa — baseline
+                        //
+                        //  VPN birinchi yoqilganda bu FAQAT "joriy tarmoq" ni
+                        //  yozib olish bo'lishi kerak, RESTART EMAS.
+                        //
+                        //  Avval bu yerda restart rejalashtirilardi, chunki
+                        //  lastRestartTime=0 va lastNetworkHandle=0 edi —
+                        //  ikkala tekshiruv ham "o'tib ketardi". Natijada
+                        //  VPN o'zi ishga tushishi bilan restart bo'lardi.
+                        // ═══════════════════════════════════════════════
+                        if (!networkBaselineReady) {
+                            networkBaselineReady = true
+                            lastNetworkHandle = handle
+                            lastRestartTime = now   // cooldown DARHOL boshlanadi
+                            Log.i(TAG, "🔰 Baseline tarmoq yozildi (handle=$handle) " +
+                                "— restart YO'Q")
+                            this@NurVpnService.updateUnderlyingNetworksFromSystem()
+                            return
+                        }
+
                         // ═══ QAT'IY FILTER ═══
                         // 1. Restart ketmoqda? — skip
                         if (isRestarting) {
                             Log.i(TAG, "⏭️  Skip (restart ketmoqda)")
                             return
                         }
-                        // 2. 30 sekund cooldown? — skip
-                        if (now - lastRestartTime < MIN_RESTART_INTERVAL_MS) {
+                        // 2. Cooldown? — skip (lastRestartTime endi 0 emas)
+                        if (lastRestartTime > 0 &&
+                            now - lastRestartTime < MIN_RESTART_INTERVAL_MS) {
                             Log.i(TAG, "⏭️  Skip (cooldown ${(now - lastRestartTime) / 1000}s)")
                             return
                         }
@@ -609,11 +730,17 @@ class NurVpnService : VpnService() {
                         Log.i(TAG, "onLost: $network (handle=$handle)")
                         pushDefaultInterface(l)
 
+                        // ★ FIX122-LOOP: baseline tayyor bo'lmasa — restart yo'q
+                        if (!networkBaselineReady) {
+                            Log.i(TAG, "⏭️  Skip (baseline hali tayyor emas)")
+                            return
+                        }
                         if (isRestarting) {
                             Log.i(TAG, "⏭️  Skip (restart ketmoqda)")
                             return
                         }
-                        if (now - lastRestartTime < MIN_RESTART_INTERVAL_MS) {
+                        if (lastRestartTime > 0 &&
+                            now - lastRestartTime < MIN_RESTART_INTERVAL_MS) {
                             Log.i(TAG, "⏭️  Skip (cooldown)")
                             return
                         }
@@ -859,9 +986,35 @@ class NurVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "═══ onStartCommand: ${intent?.action}")
 
-        // Tizim jarayonni o'ldirib qayta tiklagan (intent = null) — o'zi ulanmaydi
+        // ═══════════════════════════════════════════════════════════════
+        //  ★ FIX123-SYSRESTART: TIZIM TIKLASH — HECH NARSA QILMAYMIZ
+        //
+        //  QURILMADA TASDIQLANDI: bu blok 23 marta chaqirilgan va
+        //  HAR SAFAR `Libbox.setup` + `openTun` qayta bajarilib,
+        //  VPN har ~5 sekundda ON/OFF bo'lgan.
+        //
+        //  `stopSelf(startId)` YETARLI EMAS edi, chunki:
+        //    • undan keyin kelgan boshqa START xizmatni tirik saqlaydi
+        //    • allaqachon ishga tushgan runConnect() thread davom etadi
+        //
+        //  Endi: bayroq o'rnatamiz, eski intent'ni unutamiz va
+        //  barcha ochiq resurslarni yopamiz. Qayta ishga tushsa ham
+        //  hech narsa ochilmaydi.
+        // ═══════════════════════════════════════════════════════════════
         if (intent == null) {
-            stopSelf(startId)
+            Log.w(TAG, "⚠️  TIZIM TIKLASH (intent=null) — VPN ochilmaydi")
+            isSystemRestart = true
+            lastConnectIntent = null          // eski intent'ni unutamiz
+            opSeq.incrementAndGet()           // barcha eski amallarni bekor qilamiz
+            hideForeground()
+            Thread {
+                synchronized(lifecycleLock) {
+                    try { cleanup() } catch (t: Throwable) {
+                        Log.e(TAG, "sysRestart cleanup xatosi", t)
+                    }
+                }
+                stopSelf(startId)
+            }.apply { name = "NurVPN-sysrestart" }.start()
             return START_NOT_STICKY
         }
 
@@ -887,8 +1040,12 @@ class NurVpnService : VpnService() {
             Log.i(TAG, "RESUME so'rovi")
             if (isPaused) {
                 isPaused = false
+                // ★ FIX123-SYSRESTART: tizim tiklashdan keyin eski intent
+                // bilan qayta ulanmaymiz (`lastConnectIntent` null qilingan)
                 val saved = lastConnectIntent
-                if (saved != null) runConnect(saved, opSeq.incrementAndGet())
+                if (saved != null && !isSystemRestart) {
+                    runConnect(saved, opSeq.incrementAndGet())
+                }
             }
             return START_NOT_STICKY
         }
@@ -912,6 +1069,11 @@ class NurVpnService : VpnService() {
         }
 
         // ═══ START (ilovadan, tile'dan yoki Always-on VPN'dan) ═══
+        // ★ FIX123-SYSRESTART: haqiqiy START keldi — tizim tiklash rejimidan chiqamiz
+        if (isSystemRestart) {
+            Log.i(TAG, "✅ Haqiqiy START — tizim tiklash rejimi bekor qilindi")
+            isSystemRestart = false
+        }
         isPaused = false
         lastConnectIntent = intent
         startForegroundWithNotif()
@@ -922,19 +1084,48 @@ class NurVpnService : VpnService() {
     /** Eski serverni yopib, yangisini fon oqimida ishga tushiradi. */
     private fun runConnect(src: Intent?, my: Long) {
         Thread {
-            synchronized(lifecycleLock) {
-                if (opSeq.get() != my) {
-                    Log.i(TAG, "connect[$my] bekor qilindi (yangi amal bor)")
-                } else {
-                    val hadServer = server != null
-                    cleanup()
-                    if (hadServer) {
-                        try { Thread.sleep(300) } catch (_: InterruptedException) {}
-                    }
-                    connectLocked(src, my)
+            // ═══════════════════════════════════════════════════════════
+            //  ★ TUZATISH #12 (BUG #3): TO'LIQ himoya
+            //
+            //  Ilgari bu Thread'da try-catch YO'Q edi. `connectLocked`
+            //  himoyalangan bo'lsa ham, `cleanup()` yoki boshqa kod
+            //  istisno tashlasa — THREAD crash → PROCESS o'ladi →
+            //  Android xizmatni qayta ishga tushiradi → ON/OFF LOOP.
+            //
+            //  Endi har qanday istisno ushlanadi, logga yoziladi va
+            //  foydalanuvchiga xabar beriladi. Loop BO'LMAYDI.
+            // ═══════════════════════════════════════════════════════════
+            try {
+                // ★ FIX123-SYSRESTART: tizim tiklash — umuman ulanmaymiz
+                if (isSystemRestart) {
+                    Log.w(TAG, "connect[$my] BEKOR — tizim tiklash rejimi")
+                    return@Thread
                 }
+                synchronized(lifecycleLock) {
+                    if (opSeq.get() != my) {
+                        Log.i(TAG, "connect[$my] bekor qilindi (yangi amal bor)")
+                    } else {
+                        val hadServer = server != null
+                        cleanup()
+                        if (hadServer) {
+                            try { Thread.sleep(300) } catch (_: InterruptedException) {}
+                        }
+                        connectLocked(src, my)
+                    }
+                }
+            } catch (t: Throwable) {
+                // ★ KRITIK: bu yerda hech qachon crash bo'lmasin
+                Log.e(TAG, "runConnect[$my] KUTILMAGAN XATO", t)
+                com.nurvpn.app.core.LogBuffer.add(
+                    "FATAL-GUARD: ${t.javaClass.simpleName}: ${t.message}")
+                try { cleanup() } catch (_: Throwable) {}
+                consecutiveFailures.incrementAndGet()
+                try {
+                    broadcast("error", t.message ?: t.javaClass.simpleName)
+                } catch (_: Throwable) {}
+                try { stopSelf() } catch (_: Throwable) {}
             }
-        }.start()
+        }.apply { name = "NurVPN-connect" }.start()
     }
 
     private fun hideForeground() {
@@ -1069,11 +1260,17 @@ class NurVpnService : VpnService() {
             }
 
             val ipv6Blocked = IPv6Blocker.isBlocked(this)
+            // ★ TUZATISH #7: DNS leak sozlamasi config'ga ham uzatiladi.
+            //   (Avval u faqat VpnService route'larida ishlatilardi va
+            //    sing-box konfiguratsiyasiga umuman yetib bormasdi.)
+            val dnsLeakOn = DNSLeakProtection.isEnabled(this)
             val cfg = if (awg != null) {
                 Log.i(TAG, "AWG rejimi: ${awg.length} belgi config")
                 SingBoxConfig.buildAwgConfig(awg, dns, ipv6Blocked)
             } else {
-                SingBoxConfig.buildFullConfig(link!!, dns, "", ipv6Blocked, this)
+                SingBoxConfig.buildFullConfig(
+                    link!!, dns, "", ipv6Blocked, this,
+                    dnsLeakProtect = dnsLeakOn)
             }
             val cfgJson = cfg.toString(2)
             com.nurvpn.app.core.LogBuffer.clear()
@@ -1195,6 +1392,8 @@ class NurVpnService : VpnService() {
     }
 
     private fun cleanup() {
+        // ★ FIX122-LOOP: keyingi ulanishda baseline qayta yozilsin
+        resetNetworkBaseline()
         runCatching { server?.closeService() }
         runCatching { server?.close() }
         runCatching { tun?.close() }

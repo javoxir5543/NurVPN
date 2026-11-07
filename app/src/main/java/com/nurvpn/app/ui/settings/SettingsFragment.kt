@@ -99,10 +99,50 @@ class SettingsFragment : Fragment() {
                 // UI yangilash
                 val v = view
                 if (v != null) setupOpenSources(v)
-                (activity as? MainActivity)?.refreshAllTabs()
+                (activity as? MainActivity)?.refreshTabsUiOnly()   // ★ FIX132-LAG
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ★ v1.13: "Ochiq manbalar" bo'limiga scroll + highlight
+    //
+    //  HomeFragment.toggleConnection() da obuna yo'q bo'lsa
+    //  `scroll_to_open_sources` flag o'rnatiladi va switchToTab(2)
+    //  chaqiriladi. Bu metod flag bo'lsa scroll qiladi va bir marta
+    //  o'chiradi (keyingi tab almashishda qayta scroll qilmaydi).
+    // ═══════════════════════════════════════════════════════════════
+    private fun scrollToOpenSourcesIfRequested(root: View) {
+        try {
+            val ctx = context ?: return
+            val prefs = ctx.getSharedPreferences("main", android.content.Context.MODE_PRIVATE)
+            if (!prefs.getBoolean("scroll_to_open_sources", false)) return
+            // ★ Bir martalik — darhol o'chiramiz
+            prefs.edit().putBoolean("scroll_to_open_sources", false).apply()
+
+            val sv = root.findViewById<android.widget.ScrollView>(R.id.settings_scroll) ?: return
+            val box = root.findViewById<android.view.View>(R.id.open_source_container) ?: return
+
+            sv.post {
+                try {
+                    val y = box.top
+                    sv.smoothScrollTo(0, y)
+                } catch (_: Throwable) {}
+            }
+
+            // ★ Highlight: fon rangini 1.5 soniya yorqin qilib, keyin qaytaramiz
+            try {
+                val orig = box.background
+                box.setBackgroundColor(android.graphics.Color.parseColor("#33FFC107"))
+                box.postDelayed({
+                    try { box.background = orig } catch (_: Throwable) {}
+                }, 1500L)
+            } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            android.util.Log.e("NurVPN-DBG", "scrollToOpenSources xato", t)
+        }
     }
 
     private fun setupOpenSources(view: View) {
@@ -171,15 +211,31 @@ class SettingsFragment : Fragment() {
                             }
                         }
                     }
-                    (activity as? MainActivity)?.refreshAllTabs()
+                    (activity as? MainActivity)?.refreshTabsUiOnly()   // ★ FIX132-LAG
                     return@setOnCheckedChangeListener
                 }
 
                 // ═══ SUBSCRIPTION ═══
                 if (checked) {
+                    // ★ FIX132-LAG: BO'SH URL BILAN OBUNA YARATILMASIN!
+                    //
+                    // Avval `open.url ?: ""` edi — URL null bo'lsa BO'SH
+                    // satr bilan obuna yaratilardi. Keyin `java.net.URL("")`
+                    // chaqirilganda MalformedURLException → CRASH bo'lardi.
+                    val url = open.url?.trim().orEmpty()
+                    if (url.isEmpty()) {
+                        android.util.Log.w("NurVPN-DBG",
+                            "open ON: ${open.id} — URL BO'SH, obuna qo'shilmadi")
+                        Toast.makeText(ctx,
+                            "⚠️ ${open.name(ctx)}: URL mavjud emas",
+                            Toast.LENGTH_SHORT).show()
+                        // Switch'ni orqaga qaytaramiz
+                        OpenSourceStore.setEnabled(ctx, open.id, false)
+                        return@setOnCheckedChangeListener
+                    }
                     val list = SubscriptionStore.load(ctx)
                     if (list.none { it.id == subId }) {
-                        val sub = Subscription(subId, open.url ?: "", open.name(requireContext()))
+                        val sub = Subscription(subId, url, open.name(requireContext()))
                         list.add(sub)
                         SubscriptionStore.save(ctx, list)
                     }
@@ -210,7 +266,7 @@ class SettingsFragment : Fragment() {
                         }
                     }
                 }
-                (activity as? MainActivity)?.refreshAllTabs()
+                (activity as? MainActivity)?.refreshTabsUiOnly()   // ★ FIX132-LAG
             }
 
             // Uzoq bosish — o'chirish (delete) dialogi
@@ -288,6 +344,8 @@ class SettingsFragment : Fragment() {
         }
         binding = false
         setupOpenSources(v)
+        // ★ v1.13: obuna yo'qligi sababli kelgan bo'lsa — scroll qilamiz
+        scrollToOpenSourcesIfRequested(v)
 
         themeGroup?.setOnCheckedChangeListener { _, id ->
             if (binding) return@setOnCheckedChangeListener
@@ -666,7 +724,9 @@ class SettingsFragment : Fragment() {
                     val intent = android.content.Intent("android.net.vpn.SETTINGS")
                     startActivity(intent)
                 } catch (e: Exception) {
-                    android.widget.Toast.makeText(c, "Error: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(c,
+                        getString(R.string.toast_error_prefix, e.message),
+                        android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton(R.string.kill_switch_later) { _, _ ->

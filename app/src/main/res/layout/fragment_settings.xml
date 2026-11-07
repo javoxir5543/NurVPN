@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/settings_scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg"
@@ -546,7 +547,7 @@
                     android:id="@+id/adv_fakedns_switch"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:saveEnabled="false"/>
+                    />
             </LinearLayout>
 
             <LinearLayout
@@ -578,7 +579,7 @@
                     android:id="@+id/adv_fragment_switch"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:saveEnabled="false"/>
+                    />
             </LinearLayout>
 
             <!-- ═══ Fragment uchun qo'shimcha ma'lumot ═══ -->
@@ -624,7 +625,7 @@
                     android:id="@+id/adv_mux_switch"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:saveEnabled="false"/>
+                    />
             </LinearLayout>
 
             <TextView
@@ -698,8 +699,7 @@
                 android:id="@+id/hwid_switch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:saveEnabled="false"
-                />
+                    />
         </LinearLayout>
 
 <!-- ========== OCHIQ MANBALAR ========== -->

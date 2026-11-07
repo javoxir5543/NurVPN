@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ★ FIX150-INCYSTYLE: provayder e'loni uchun fon.
+
+     Avval e'lon oddiy kulrang matn edi — muhim ogohlantirish
+     E'TIBORDAN CHETDA qolardi. Endi sariq fon + chap chegara
+     chizig'i bilan ajralib turadi.
+
+     ⚠️ `danger` (qizil) ATAYLAB ishlatilmadi: e'lon ko'pincha
+     shunchaki ma'lumot bo'ladi (yangilanish haqida), qizil esa
+     "xato" degan taassurot beradi. Sariq = "diqqat, o'qing". -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#1FB8860B"/>
+            <corners android:radius="6dp"/>
+        </shape>
+    </item>
+    <item android:width="3dp" android:gravity="left|start">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/warning"/>
+            <corners android:radius="2dp"/>
+        </shape>
+    </item>
+</layer-list>

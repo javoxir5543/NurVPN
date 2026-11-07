@@ -71,6 +71,7 @@ object LinkBuilder {
                 cfg.sni = q["sni"] ?: ""
                 cfg.obfs = q["obfs"] ?: ""
                 cfg.obfsPassword = q["obfs-password"] ?: ""
+                cfg.finalMask = q["finalmask"] ?: ""   // ★ FIX153
                 cfg.allowInsecure = q["insecure"] == "1"
                 cfg.upMbps = q["upmbps"] ?: ""
                 cfg.downMbps = q["downmbps"] ?: ""
@@ -243,6 +244,8 @@ object LinkBuilder {
         if (c.allowInsecure) params.add("insecure=1")
         if (c.upMbps.isNotEmpty()) params.add("upmbps=${c.upMbps}")
         if (c.downMbps.isNotEmpty()) params.add("downmbps=${c.downMbps}")
+        // ★ FIX153: FinalMask saqlanadi (libbox JSON ga yozmaydi)
+        if (c.finalMask.isNotEmpty()) params.add("finalmask=${enc(c.finalMask)}")
         val sb = StringBuilder("hysteria2://")
         sb.append(enc(c.password)).append("@").append(c.host).append(":").append(c.port)
         if (params.isNotEmpty()) sb.append("?").append(params.joinToString("&"))

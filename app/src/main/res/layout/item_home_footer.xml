@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ★ FIX144-FOOTER: AWG kartasi + pastki tugmalar.
+
+  ═══ NEGA AJRATILDI ═══
+
+  Avval bularning HAMMASI `item_home_header.xml` da edi:
+
+      Tanlash + Title + Stats + SpeedWave(240dp) + Connect(110dp)
+      + Status + ServerInfo + Chips + AWG + BottomButtons
+      = 824dp = 1648px   ← EKRANDAN KATTA!
+
+  Natijada `RecyclerView` faqat Header'ni ko'rsatardi va server
+  kartalari EKRANDAN TASHQARIDA qolardi — foydalanuvchi
+  "ekran kichik" deb shikoyat qildi.
+
+  ═══ ASL TARTIB (eski `fragment_home.xml`) ═══
+
+      1. Tanlash paneli
+      2. Title + ping + globe
+      3. Stats (up / timer / down)
+      4. SpeedWave + Connect        ← 240dp
+      5. Status
+      6. Server info
+      7. Chips
+      8. ★ SERVER KARTALARI ★       ← SHU YERDA EDI!
+      9. AWG kartasi                ← kartalardan KEYIN
+     10. Bottom tugmalar            ← kartalardan KEYIN
+
+  ═══ YANGI TUZILMA (RecyclerView) ═══
+
+      item 0    : Header   (1-7)
+      item 1..N : Kartalar + qatorlar + hint
+      item N+1  : ★ FOOTER (9-10) — shu fayl
+
+  Endi ekranda SpeedWave'dan keyin DARHOL kartalar ko'rinadi.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="24dp">
+
+        <!-- ══════ EXPANDABLE: AWG ══════ -->
+        <LinearLayout
+            android:id="@+id/card_awg"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card">
+
+            <LinearLayout
+                android:id="@+id/header_awg"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="14dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground">
+
+                <FrameLayout
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/bg_icon_box">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="🛡"
+                        android:textSize="16sp"/>
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="12dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/awg_config"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:id="@+id/awg_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/count_zero_ta"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="12sp"/>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/awg_arrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⬇"
+                    android:textColor="@color/accent"
+                    android:textSize="14sp"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/body_awg"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="8dp"
+                android:visibility="gone"/>
+        </LinearLayout>
+
+        <!-- ══════ BOTTOM BUTTONS ══════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/btn_add"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_button_primary"
+                android:gravity="center"
+                android:text="@string/btn_add_short"
+                android:textColor="@color/on_accent"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:clickable="true"
+                android:focusable="true"/>
+
+            <TextView
+                android:id="@+id/btn_paste"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_button_secondary"
+                android:gravity="center"
+                android:text="📋"
+                android:textSize="16sp"
+                android:clickable="true"
+                android:focusable="true"/>
+
+            <TextView
+                android:id="@+id/btn_scan"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_button_secondary"
+                android:gravity="center"
+                android:text="📷"
+                android:textSize="16sp"
+                android:clickable="true"
+                android:focusable="true"/>
+</LinearLayout>
+</LinearLayout>

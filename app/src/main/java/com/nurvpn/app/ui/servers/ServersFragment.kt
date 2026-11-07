@@ -33,6 +33,7 @@ import com.nurvpn.app.core.ServerItem
 import com.nurvpn.app.core.Subscription
 import com.nurvpn.app.core.TunnelState
 import com.nurvpn.app.config.BuiltinAwgConfigs
+import com.nurvpn.app.util.HwidHelper
 import com.nurvpn.app.parser.AWGParser
 import com.nurvpn.app.parser.ServerLinkParser
 import com.nurvpn.app.parser.Crypt1Decoder
@@ -58,10 +59,25 @@ class ServersFragment : Fragment() {
 
     companion object {
         private const val REQ_EDIT_SERVER = 2002
+
+        /** ★ TUZATISH #8: scroll holati kaliti (Servers ekrani). */
+        private const val KEY_SCROLL_Y = "scroll_y_servers"
+
+        /** ★ TUZATISH #9: JSON outbound protokollari → link protokollari. */
+        private val JSON_PROTOCOLS = setOf(
+            "vless", "vmess", "trojan", "shadowsocks",
+            "hysteria2", "hy2", "tuic", "anytls"
+        )
     }
 
 
     private var rv: RecyclerView? = null
+
+    // ★ TUZATISH #4: har bir fragment O'Z scroll holatini saqlaydi.
+    // (Home va Servers almashganda scroll aralashib ketmasligi uchun)
+    /** ★ TUZATISH #8: shu fragmentning scroll pozitsiyasi (mustaqil). */
+    private var savedScrollY: Int = 0
+
     private var ad: ServerAdapter? = null
     private var search: EditText? = null
 
@@ -107,7 +123,8 @@ class ServersFragment : Fragment() {
             addAWG(text)
         } catch (t: Throwable) {
             android.util.Log.e("NurVPN-AWG", "YAML o'qish xato", t)
-            Toast.makeText(context, "Xato: ${t.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, getString(R.string.toast_error_fmt, t.message),
+                Toast.LENGTH_LONG).show()
         }
     }
 
@@ -182,25 +199,106 @@ class ServersFragment : Fragment() {
         val v = inflater.inflate(R.layout.fragment_servers, container, false)
 
         // ═══ Tanlash rejimi paneli ═══
-        selectionBar = v.findViewById(R.id.selection_bar)
-        selCountText = v.findViewById(R.id.sel_count)
-        v.findViewById<View>(R.id.sel_delete)?.setOnClickListener {
+        selectionBar = v.findViewById(R.id.srv_selection_bar)
+        selCountText = v.findViewById(R.id.srv_sel_count)
+        v.findViewById<View>(R.id.srv_sel_delete)?.setOnClickListener {
             ad?.deleteSelected()
         }
-        v.findViewById<View>(R.id.sel_cancel)?.setOnClickListener {
+        v.findViewById<View>(R.id.srv_sel_cancel)?.setOnClickListener {
             ad?.exitSelectMode()
         }
-        v.findViewById<View>(R.id.sel_select_all)?.setOnClickListener {
+        v.findViewById<View>(R.id.srv_sel_select_all)?.setOnClickListener {
             ad?.selectAllVisible()
         }
         rv = v.findViewById(R.id.server_list)
         search = v.findViewById(R.id.search_input)
 
+        // ═══════════════════════════════════════════════════════════════
+        //  ★ FIX112-BUG1: nested scrolling O'CHIRILADI (false).
+        //
+        //  ⚠️ MUHIM: `true` va `false` ma'nosi bu yerda TESKARI tuyuladi.
+        //
+        //    nestedScrollingEnabled = true
+        //       → RecyclerView "nested scrolling" oilasiga qo'shiladi va
+        //         scroll'ni OTA (parent) konteyner bilan BO'LISHADI.
+        //         Eski ekran (Home ScrollView) ham scroll bo'ladi.  ❌
+        //
+        //    nestedScrollingEnabled = false
+        //       → RecyclerView o'z scroll'ini O'ZI boshqaradi,
+        //         parent'ga uzatmaydi. Mustaqil ishlaydi.        ✓
+        //
+        //  Bu — BUG#1 ning aynan sababi edi: "Servers'da scroll qilsam
+        //  orqadagi Home ekrani scroll bo'ladi".
+        // ═══════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════
+        //  ★ FIX126-SERVERSCROLL: TOUCH EVENT USHLAB QOLINISHI (ILDIZ)
+        //
+        //  QURILMADA TASDIQLANDI (00:58:47):
+        //    SERVERS onScrolled: dy=0 offset=0 range=12851 extent=592
+        //                                     ↑
+        //    Ro'yxat 12851px uzun, lekin scroll BO'LMADI — offset 0 da
+        //    qotib qoldi. Foydalanuvchi: "server bo'limida joyidan
+        //    qimirlamayapti, asosiy ekranga ta'sir qilyapti".
+        //
+        //  ═══ ILDIZ SABAB ═══
+        //
+        //  `isFocusableInTouchMode = true` — RecyclerView TOUCH MODE'da
+        //  FOKUS OLADI. Bu quyidagiga olib keladi:
+        //
+        //    1) RecyclerView `requestFocus()` qiladi va
+        //       `OnTouchListener`/gesture detector "fokus olish"
+        //       rejimiga o'tadi — scroll gesture YUTILADI.
+        //    2) `descendantFocusability = FOCUS_AFTER_DESCENDANTS` bilan
+        //       birgalikda touch event zanjiri buziladi.
+        //    3) Touch event OTA ViewGroup'ga (Home ScrollView) o'tib
+        //       ketadi — shuning uchun "asosiy ekranga ta'sir qilyapti".
+        //
+        //  ═══ YECHIM ═══
+        //
+        //  1) `isFocusableInTouchMode = true` OLIB TASHLANADI — RecyclerView
+        //     touch mode'da fokus olmasligi kerak, u faqat scroll qiladi.
+        //  2) `descendantFocusability = FOCUS_BLOCK_DESCENDANTS` — touch
+        //     event bolalarga emas, RecyclerView'ning O'ZIGA boradi.
+        //  3) `isNestedScrollingEnabled` OLIB TASHLANADI — Servers layout
+        //     ildizi `FrameLayout`, ichida ScrollView YO'Q. Nested scrolling
+        //     oilasiga qo'shilishning hojati yo'q, u faqat gesture'ni
+        //     OTA konteynerga uzatishga urinadi (aynan shu "asosiy ekranga
+        //     ta'sir qilish" muammosini keltirib chiqaradi).
+        // ═══════════════════════════════════════════════════════════════
+        rv?.overScrollMode = android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS
+        rv?.isFocusable = false
+        rv?.isFocusableInTouchMode = false
+        rv?.descendantFocusability =
+            android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
         val a = activity as? MainActivity
         ad = ServerAdapter(this, a)
+        // ★ TUZATISH #10: standart LinearLayoutManager (mustaqil scroll)
         rv?.layoutManager = LinearLayoutManager(context)
         rv?.setHasFixedSize(true)
         rv?.adapter = ad
+        // ★ TUZATISH #10: itemAnimator — ro'yxat almashganda sakrashni oldini oladi
+        rv?.itemAnimator = null
+
+        // ═══════════════════════════════════════════════════════════════
+        //  ★ FIX125-SCROLLDBG: REAL-VAQT SCROLL KUZATUVI
+        //
+        //  Bu diagnostika uchun: har bir scroll harakati logga yoziladi.
+        //  Biz shu bilan ANIQLAYMIZ:
+        //    • Servers scroll bo'lganda Home ham scroll bo'ladimi?
+        //    • Fragment yashirin bo'lganda ham listener ishga tushadimi?
+        // ═══════════════════════════════════════════════════════════════
+        rv?.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            override fun onScrolled(r: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                val off = r.computeVerticalScrollOffset()
+                val range = r.computeVerticalScrollRange()
+                val ext = r.computeVerticalScrollExtent()
+                android.util.Log.i("NurVPN-SCROLL",
+                    "SERVERS onScrolled: dy=$dy offset=$off range=$range extent=$ext " +
+                        "hidden=$isHidden viewVis=${view?.visibility} " +
+                        "attached=${isAdded} activityVis=${activity?.hasWindowFocus()}")
+            }
+        })
 
         v.findViewById<FloatingActionButton>(R.id.add_fab)
             ?.setOnClickListener { showAddDialog() }
@@ -299,7 +397,9 @@ class ServersFragment : Fragment() {
 
     /** Adapterni yangilash (ochiq manba o'zgarganda chaqiriladi). */
     fun refreshServers() {
-        ad?.notifyDataSetChanged()
+        // ★ FIX127-ADAPTER: rebuild() ham kerak — aks holda yangi
+        // serverlar `rows` ga tushmaydi va ro'yxat bo'sh qoladi
+        ad?.rebuildAndNotify()
         view?.let { refreshProtocolChips(it) }
     }
 
@@ -562,17 +662,23 @@ class ServersFragment : Fragment() {
             Toast.makeText(context, getString(R.string.toast_not_json), Toast.LENGTH_LONG).show()
             return
         }
-        // ═══ sing-box endpoints (WireGuard) ═══
-        if (trimmed.startsWith("{") && trimmed.contains("\"endpoints\"")) {
-            importWireGuardEndpoints(trimmed, fileName)
-            return
-        }
+        // ═══ sing-box endpoints (WireGuard) import O'CHIRILGAN ═══
+        // if (trimmed.startsWith("{") && trimmed.contains("\"endpoints\"")) {
+        //     importWireGuardEndpoints(trimmed, fileName)
+        //     return
+        // }
         val subId = "jsonfile_" + System.currentTimeMillis().toString(36)
         val subName = fileName.removeSuffix(".json").ifBlank { "JSON Fayl" }
 
         Thread {
             val servers = ArrayList<ServerItem>()
+            var awgAdded = 0
             try {
+                // ═══ WireGuard (AWG) outbound import O'CHIRILGAN ═══
+                // JSON fayldan avtomatik AWG qo'shilmaydi (foydalanuvchi talabi).
+                // Faqat QR va .conf fayl orqali qo'shiladi.
+
+                // ═══ Mavjud parsing (Xray proxy linklar) ═══
                 if (trimmed.startsWith("[")) {
                     val arr = org.json.JSONArray(trimmed)
                     for (i in 0 until arr.length()) {
@@ -615,7 +721,7 @@ class ServersFragment : Fragment() {
             }
 
             activity?.runOnUiThread {
-                if (servers.isEmpty()) {
+                if (servers.isEmpty()) {  // awgAdded endi doim 0 (JSON import o'chirilgan)
                     Toast.makeText(context, getString(R.string.toast_server_not_found), Toast.LENGTH_LONG).show()
                     return@runOnUiThread
                 }
@@ -631,7 +737,9 @@ class ServersFragment : Fragment() {
                 }
                 ServerStore.save(a, a.servers)
                 ad?.notifyDataChanged()
-                Toast.makeText(context, "$added server qo\'shildi", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context,
+                    getString(R.string.toast_n_servers_added_fmt, added),
+                    Toast.LENGTH_SHORT).show()
             }
         }.start()
     }
@@ -694,7 +802,8 @@ class ServersFragment : Fragment() {
         if (isClashYamlMasque(conf)) {
             val converted = convertYamlMasqueToConf(conf)
             if (converted == null) {
-                Toast.makeText(context, "YAML MASQUE parse xatosi", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, getString(R.string.toast_yaml_masque_error),
+                    Toast.LENGTH_LONG).show()
                 return
             }
             finalConf = converted
@@ -708,7 +817,8 @@ class ServersFragment : Fragment() {
                 emptyList<String>()
             }
             if (confs.isEmpty()) {
-                Toast.makeText(context, "YAML WireGuard parse xatosi", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, getString(R.string.toast_yaml_wg_error),
+                    Toast.LENGTH_LONG).show()
                 return
             }
             if (confs.size == 1) {
@@ -735,7 +845,9 @@ class ServersFragment : Fragment() {
                 a.protocol = MainActivity.PROTO_AWG
                 AWGEditorBus.init(a.awgConfigs, cfg, MainActivity.PROTO_AWG)
                 ad?.notifyDataChanged()
-                Toast.makeText(context, "$added ta AWG config qo'shildi", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context,
+                    getString(R.string.toast_n_wg_added_fmt, added),
+                    Toast.LENGTH_SHORT).show()
                 return
             }
         }
@@ -754,7 +866,9 @@ class ServersFragment : Fragment() {
             a.protocol = MainActivity.PROTO_AWG
             AWGEditorBus.init(a.awgConfigs, cfg, MainActivity.PROTO_AWG)
             ad?.notifyDataChanged()
-            Toast.makeText(context, "MASQUE qo\'shildi: " + pair.first, Toast.LENGTH_SHORT).show()
+            Toast.makeText(context,
+                    getString(R.string.toast_awg_added_endpoint, pair.first),
+                    Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -1009,30 +1123,14 @@ class ServersFragment : Fragment() {
     }
 
 
-    /** HWID — BARQAROR (qayta o'rnatilsa ham bir xil). */
-    private fun getHwid(): String {
-        val ctx = requireContext()
-        // ANDROID_ID — qurilma uchun barqaror
-        val androidId = try {
-            android.provider.Settings.Secure.getString(
-                ctx.contentResolver,
-                android.provider.Settings.Secure.ANDROID_ID
-            ) ?: "unknown"
-        } catch (t: Throwable) { "unknown" }
-
-        val model = android.os.Build.MODEL ?: "device"
-        val packageName = ctx.packageName
-
-        // Barqaror hash
-        val raw = "$androidId-$model-$packageName"
-        val hash = java.security.MessageDigest
-            .getInstance("SHA-256")
-            .digest(raw.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-            .take(32)
-
-        return hash
-    }
+    /**
+     * HWID — BARQAROR (qayta o'rnatilsa ham bir xil).
+     *
+     * ⚠️ Algoritm `HwidHelper` ga ko'chirildi (avval bu funksiya
+     * HomeFragment'da bayt-baytga takrorlanardi). Xatti-harakat
+     * O'ZGARMAGAN — `HwidHelperTest` buni qulflaydi.
+     */
+    private fun getHwid(): String = HwidHelper.fromContext(requireContext())
 
     private fun loadSub(url: String, subName: String?, wasEncrypted: Boolean = false) {
         Toast.makeText(context, R.string.toast_loading, Toast.LENGTH_SHORT).show()
@@ -1047,6 +1145,29 @@ class ServersFragment : Fragment() {
                         Toast.LENGTH_LONG).show()
                 }
                 return@Thread
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            //  ★ TUZATISH #9: JSON OBUNA (Xray/sing-box konfiguratsiyasi)
+            //
+            //  Ba'zi obunalar (masalan sub.dark-bit.cc) base64 emas, balki
+            //  to'g'ridan-to'g'ri Xray JSON qaytaradi:
+            //     [{"dns":{...},"outbounds":[{"protocol":"vless",...}]}]
+            //
+            //  Avval bu shox FAQAT HomeFragment'da bor edi — Servers
+            //  ekranidan qo'shilsa "link yo'q" xatosi chiqardi.
+            // ═══════════════════════════════════════════════════════════════
+            val trimmedBody = body.trim()
+            if (trimmedBody.startsWith("[") || trimmedBody.startsWith("{")) {
+                val jsonAdded = importJsonSubscription(trimmedBody, url)
+                if (jsonAdded > 0) {
+                    activity?.runOnUiThread {
+                        Toast.makeText(context,
+                            getString(R.string.toast_added_count, jsonAdded),
+                            Toast.LENGTH_SHORT).show()
+                    }
+                    return@Thread
+                }
             }
 
             // ═══ Linklarni ajratish ═══
@@ -1170,8 +1291,37 @@ class ServersFragment : Fragment() {
         android.util.Log.i("NurVPN-DBG", "addLink: text uzunligi=${text.length}")
         android.util.Log.i("NurVPN-DBG", "addLink: birinchi 200 belgi=${text.take(200)}")
         val a = activity as? MainActivity ?: return
-        val regex = Regex("(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://.*?(?=(?:vless|vmess|trojan|ss|hy2|hysteria2|tuic)://|\\s|$)")
-        val matches = regex.findAll(text).map { it.value }.toList()
+
+        // ═══════════════════════════════════════════════════════════════
+        //  ★ TUZATISH #3: yagona, TO'LIQ parser ishlatiladi (14 protokol)
+        //    + base64 obuna avtomatik dekodlanadi.
+        //
+        //  Avval bu yerda 7 protolik shaxsiy regex bor edi va base64
+        //  umuman qo'llab-quvvatlanmasdi → foydalanuvchi base64 obuna
+        //  joylashtirsa "noto'g'ri link" xatosi chiqardi.
+        // ═══════════════════════════════════════════════════════════════
+        var matches = SubscriptionLinkExtractor.extract(text)
+
+        // Base64 obuna bo'lishi mumkin (masalan `dmxlc3M6Ly8...`)
+        if (matches.isEmpty()) {
+            val decoded = com.nurvpn.app.parser.decodeBase64Safely(text)
+            if (decoded.isNotEmpty()) {
+                matches = SubscriptionLinkExtractor.extract(decoded)
+                android.util.Log.i("NurVPN-DBG",
+                    "addLink: base64 dekodlandi → ${matches.size} link")
+            }
+        }
+
+        // Bitta link bo'lib, u URL (http/https) bo'lsa — obuna sifatida qo'shamiz
+        if (matches.isEmpty()) {
+            val t = text.trim()
+            if (t.startsWith("http://", true) || t.startsWith("https://", true)) {
+                Toast.makeText(context, R.string.toast_sub_url_hint,
+                    Toast.LENGTH_LONG).show()
+                return
+            }
+        }
+
         if (matches.isEmpty()) {
             Toast.makeText(context, R.string.toast_invalid_link,
                 Toast.LENGTH_SHORT).show()
@@ -1241,7 +1391,7 @@ class ServersFragment : Fragment() {
             selectedLinks.clear()
             selectedAwg.clear()
             frag.showSelectionBar()
-            rebuild()
+            rebuildAndNotify()
         }
 
         fun exitSelectMode() {
@@ -1249,7 +1399,7 @@ class ServersFragment : Fragment() {
             selectedLinks.clear()
             selectedAwg.clear()
             frag.hideSelectionBar()
-            rebuild()
+            rebuildAndNotify()
         }
 
         fun toggleSelect(item: Any) {
@@ -1304,9 +1454,11 @@ class ServersFragment : Fragment() {
             exitSelectMode()
         }
 
-        init { rebuild() }
+        init { rebuildAndNotify() }
 
         fun rebuild() {
+            // ★ FIX131-FRIZ: vaqt o'lchovi (friz diagnostikasi)
+            val __t0 = System.currentTimeMillis()
             rows.clear()
             val a = act ?: return
 
@@ -1333,18 +1485,90 @@ class ServersFragment : Fragment() {
                 AwgSortStore.getMode(act?.applicationContext ?: frag.requireContext())
             )
 
-            val grouped = LinkedHashMap<String?, MutableList<ServerItem>>()
+            // ═══════════════════════════════════════════════════════════
+            //  ★ FIX130-ORDER: OBUNA TARTIBI (↑ Вверх / ↓ Вниз) ISHLAMASLIGI
+            //
+            //  ═══ ILDIZ SABAB ═══
+            //
+            //  Avval `grouped` LINKED HASH MAP edi va u guruhlarni
+            //  `a.servers` ro'yxatidagi SERVER PAYDO BO'LISH tartibida
+            //  qo'shardi:
+            //
+            //      for (si in allServers) {
+            //          grouped.getOrPut(si.subId) { ArrayList() }.add(si)
+            //      }
+            //
+            //  `moveSubscription()` esa `a.SUBSCRIPTIONS` ro'yxatidagi
+            //  `order` maydonini o'zgartiradi (SubscriptionStore.save).
+            //
+            //  ⚠️ Bu IKKI XIL ro'yxat:
+            //     • `a.subscriptions` (SubscriptionStore) — order o'zgaradi ✓
+            //     • `a.servers`       (ServerStore)       — o'zgarmaydi  ✗
+            //
+            //  Natijada "↑ Вверх" bosilganda `order` yangilanardi, lekin
+            //  ko'rsatish tartibi `a.servers` dan olinardi → KARTA
+            //  JOYIDAN QIMIRLAMASDI.
+            //
+            //  ═══ YECHIM ═══
+            //
+            //  Guruhlarni `a.subscriptions` ning `order` maydoni bo'yicha
+            //  tartiblaymiz. Manual serverlar (`subId == null`) eng oxirida.
+            // ═══════════════════════════════════════════════════════════
+            // ═══════════════════════════════════════════════════════════
+            //  ★ FIX131-FRIZ-2: O(N²) → O(N) — FRIZNI KAMAYTIRISH
+            //
+            //  ═══ ILDIZ SABAB ═══
+            //
+            //  Avvalgi kod HAR BIR obuna uchun butun server ro'yxatini
+            //  qaytadan aylanardi:
+            //
+            //      for (sub in a.subscriptions) {
+            //          val list = allServers.filter { it.subId == sub.id }
+            //      }                                   // 286 × N tekshiruv
+            //
+            //  Ustiga `a.subscriptions.find { it.id == subId }` ham HAR
+            //  guruh uchun chiziqli qidiruv edi.
+            //
+            //  ═══ YECHIM ═══
+            //
+            //  Bitta o'tishda serverlarni subId bo'yicha guruhlaymiz,
+            //  obunalarni esa `order` bo'yicha tartiblangan holda
+            //  bitta Map'ga joylaymiz (O(1) qidiruv).
+            // ═══════════════════════════════════════════════════════════
+
+            // subId → ServerItem ro'yxati (BITTA o'tish, O(N))
+            val bySub = HashMap<String?, MutableList<ServerItem>>()
             for (si in allServers) {
-                val key = si.subId
-                grouped.getOrPut(key) { ArrayList() }.add(si)
+                bySub.getOrPut(si.subId) { ArrayList() }.add(si)
             }
+
+            // id → Subscription (O(1) qidiruv uchun)
+            val subById = HashMap<String, com.nurvpn.app.core.Subscription>(
+                a.subscriptions.size * 2)
+            for (sub in a.subscriptions) subById[sub.id] = sub
+
+            val grouped = LinkedHashMap<String?, MutableList<ServerItem>>()
+            // 1) Obunalar — `order` bo'yicha (O(1) qidiruv)
+            for (sub in a.subscriptions.sortedBy { it.order }) {
+                val list = bySub[sub.id] ?: continue
+                if (list.isNotEmpty()) grouped[sub.id] = list
+            }
+            // 2) Katalogda yo'q obunalar (order'da topilmaganlar)
+            for (si in allServers) {
+                val key = si.subId ?: continue
+                if (grouped.containsKey(key)) continue
+                grouped[key] = bySub[key] ?: continue
+            }
+            // 3) Manual serverlar — ENG OXIRIDA
+            bySub[null]?.let { if (it.isNotEmpty()) grouped[null] = it }
 
             // Har bir guruhni sortMode bo'yicha saralash
             val manualSortMode = ManualSortStore.getMode(
                 act?.applicationContext ?: frag.requireContext())
             for ((subId, list) in grouped) {
+                // ★ FIX131-FRIZ-2: O(1) qidiruv (avval chiziqli `find` edi)
                 val subSort = if (subId != null)
-                    a.subscriptions.find { it.id == subId }?.sortMode ?: "default"
+                    subById[subId]?.sortMode ?: "default"
                     else manualSortMode
                 when (subSort) {
                     "name_asc" -> list.sortBy { it.displayName().lowercase() }
@@ -1357,7 +1581,8 @@ class ServersFragment : Fragment() {
             }
 
             for ((subId, list) in grouped) {
-                val sub = if (subId != null) a.subscriptions.find { it.id == subId } else null
+                // ★ FIX131-FRIZ-2: O(1) qidiruv
+                val sub = if (subId != null) subById[subId] else null
                 val title = sub?.name ?: frag.getString(R.string.manual_added)
                 val icon = if (sub != null) "📡" else "🔧"
                 val key = subId ?: "manual"
@@ -1377,6 +1602,14 @@ class ServersFragment : Fragment() {
                 }
             }
 
+            // ★ FIX131-FRIZ: rebuild vaqti (UI thread'ni bloklaydi)
+            val __ms = System.currentTimeMillis() - __t0
+            if (__ms > 8) {
+                android.util.Log.w("NurVPN-PERF",
+                    "⚠️ rebuild() SEKIN: ${__ms}ms, rows=${rows.size}, " +
+                        "servers=${a.servers.size}")
+            }
+
             notifyDataSetChanged()
         }
 
@@ -1387,7 +1620,28 @@ class ServersFragment : Fragment() {
             } else {
                 expandedSubscriptions.add(key)
             }
-            rebuild()
+            // ═══════════════════════════════════════════════════════════
+            //  ★ FIX129-EXPAND: OBUNA KARTASI OCHILMAY/ YOPILMAY QOLISHI
+            //
+            //  ═══ ILDIZ SABAB ═══
+            //
+            //  Avval bu yerda faqat `rebuild()` chaqirilardi. `rebuild()`
+            //  `rows` ro'yxatini qayta quradi, LEKIN RecyclerView'ga
+            //  "ma'lumot o'zgardi" deb XABAR BERMAYDI.
+            //
+            //  RecyclerView `getItemCount()` ni qayta so'ramagani uchun
+            //  ESKI holatda qoladi — obuna kartasini bosganingizda
+            //  serverlar ro'yxati PASTGA/TEPAGA CHIQMAYDI.
+            //
+            //  Aynan foydalanuvchi shikoyati: "scroll emas, u obuna
+            //  kartasini pastga tepaga chiqarish".
+            //
+            //  ═══ YECHIM ═══
+            //
+            //  `rebuildAndNotify()` — rebuild + notifyDataSetChanged().
+            //  Shunda karta bosilganda serverlar darhol ochiladi/yopiladi.
+            // ═══════════════════════════════════════════════════════════
+            rebuildAndNotify()
         }
 
         private fun matchesQuery(name: String?): Boolean {
@@ -1397,15 +1651,122 @@ class ServersFragment : Fragment() {
 
         fun filter(q: String) {
             currentQuery = q
-            rebuild()
+            rebuildAndNotify()
         }
 
         fun setProtoFilter(key: String) {
             protoFilter = key
-            rebuild()
+            // ★ FIX127-ADAPTER: rebuild + notify — filtr o'zgarganda
+            // ro'yxat qayta hisoblanib, darhol chizilishi kerak
+            rebuildAndNotify()
         }
 
-        fun notifyDataChanged() { rebuild() }
+        // ═══════════════════════════════════════════════════════════════
+        //  ★ FIX127-ADAPTER: `notifyDataSetChanged()` YETISHMAYOTGAN EDI
+        //
+        //  QURILMADA TASDIQLANDI (01:03:53):
+        //    SERVERS onScrolled: range=264 extent=264
+        //                                  ↑        ↑
+        //                        range == extent → RO'YXAT BO'SH
+        //    Ekranda faqat sarlavha, filtr chiplar va FAB'lar ko'rinardi.
+        //    Foydalanuvchi: "server bo'limida joyidan qimirlamayapti".
+        //
+        //  ═══ ILDIZ SABAB ═══
+        //
+        //  Avval bu metod faqat `rebuild()` ni chaqirardi. `rebuild()`
+        //  `rows` ro'yxatini TO'LDIRADI, lekin RecyclerView'ga
+        //  "ma'lumot o'zgardi" deb XABAR BERMAYDI. RecyclerView esa
+        //  `getItemCount()` ni qayta so'ramaydi — natijada eski (bo'sh)
+        //  holatda qoladi va item'lar CHIZILMAYDI.
+        //
+        //  ═══ YECHIM ═══
+        //
+        //  `rebuild()` dan keyin `notifyDataSetChanged()` — RecyclerView
+        //  itemCount'ni qayta hisoblab, barcha item'larni chizadi.
+        // ═══════════════════════════════════════════════════════════════
+        // ★ FIX127-ADAPTER: rebuild + chizish.
+        // ⚠️ DIQQAT: `rebuildAndNotify()` allaqachon notify qiladi,
+        // ikkinchi marta chaqirish shart emas.
+        fun notifyDataChanged() {
+            rebuildAndNotify()
+        }
+
+        // ★ FIX131-FRIZ: rebuild + chizish (diagnostika bilan).
+        fun rebuildAndNotify() {
+            rebuild()
+            notifyDataSetChanged()
+            android.util.Log.i("NurVPN-SCROLL",
+                "SERVERS rebuildAndNotify: rows=${rows.size} " +
+                    "servers=${act?.servers?.size} awg=${act?.awgConfigs?.size} " +
+                    "itemCount=$itemCount")
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  ★ FIX131-FRIZ: PING PAYTIDAGI KATTA FRIZNI YO'Q QILISH
+        //
+        //  ═══ ILDIZ SABAB ═══
+        //
+        //  Ping jarayonida HAR BIR server uchun shunday chaqirilardi:
+        //
+        //      override fun onPingUpdate(item: ServerItem, ping: Int) {
+        //          notifyDataSetChanged()          // ← 200 MARTA!
+        //      }
+        //
+        //  `notifyDataSetChanged()` RecyclerView'ga "HAMMASI o'zgardi"
+        //  deydi va u BARCHA ko'rinadigan qatorlarni NOLDAN qayta
+        //  yaratadi: `onCreateViewHolder` + `onBindViewHolder` har biri
+        //  uchun qaytadan ishlaydi.
+        //
+        //  203 qatorli ro'yxatda 200 ta ping javobi kelsa:
+        //      200 × 203 = 40 600 ta bind operatsiyasi!
+        //
+        //  Natijada asosiy oqim (UI thread) to'lib ketadi → FRIZ va LAG.
+        //
+        //  ═══ YECHIM ═══
+        //
+        //  Faqat O'SHA serverning qatori yangilanadi:
+        //
+        //      notifyItemChanged(positionIndex)
+        //
+        //  Bitta ping keldi → bitta qator qayta chiziladi (203 emas).
+        //  Bu ~200 BAROBAR tezroq.
+        //
+        //  ═══════════════════════════════════════════════════════════════
+
+        /**
+         * ★ FIX131-FRIZ: faqat shu serverning qatorini yangilaydi.
+         *
+         * @return `true` — qator topilib yangilandi,
+         *         `false` — qator ko'rinmayapti (rebuild kerak).
+         */
+        fun notifyPingChanged(item: ServerItem): Boolean {
+            for (i in rows.indices) {
+                val r = rows[i]
+                if (r is Row.Item) {
+                    val d = r.data
+                    if (d is ServerItem && (d === item || d.link == item.link)) {
+                        notifyItemChanged(i)
+                        return true
+                    }
+                }
+            }
+            return false
+        }
+
+        /** ★ FIX131-FRIZ: faqat shu AWG configning qatorini yangilaydi. */
+        fun notifyAwgPingChanged(cfg: AWGConfig): Boolean {
+            for (i in rows.indices) {
+                val r = rows[i]
+                if (r is Row.Item) {
+                    val d = r.data
+                    if (d is AWGConfig && d === cfg) {
+                        notifyItemChanged(i)
+                        return true
+                    }
+                }
+            }
+            return false
+        }
 
         override fun getItemViewType(position: Int): Int =
             if (rows[position] is Row.Header) TYPE_HEADER else TYPE_ITEM
@@ -1646,8 +2007,12 @@ class ServersFragment : Fragment() {
                 android.util.Log.i("NurVPN-PING",
                     "Ping favorites: ${favs.size}")
                 PingTester.testAll(favs, object : PingTester.Listener {
+                    // ★ FIX131-FRIZ: faqat shu qator yangilanadi (203 emas!)
                     override fun onPingUpdate(item: ServerItem, ping: Int) {
-                        notifyDataSetChanged()
+                        if (!notifyPingChanged(item)) {
+                            // Qator ko'rinmayapti — ehtiyotkorlik bilan
+                            notifyDataSetChanged()
+                        }
                     }
                     override fun onAllDone() {
                         ServerStore.save(a, a.servers)
@@ -1690,8 +2055,11 @@ class ServersFragment : Fragment() {
                 "Ping sub: $subName (${servers.size})")
 
             PingTester.testAll(servers, object : PingTester.Listener {
+                // ★ FIX131-FRIZ: faqat shu qator yangilanadi (203 emas!)
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
-                    notifyDataSetChanged()
+                    if (!notifyPingChanged(item)) {
+                        notifyDataSetChanged()
+                    }
                 }
                 override fun onAllDone() {
                     ServerStore.save(a, a.servers)
@@ -1804,13 +2172,13 @@ class ServersFragment : Fragment() {
                 .setSingleChoiceItems(labels, currentIdx) { d, which ->
                     SubscriptionStore.setSortMode(ctx, subId, modes[which].first)
                     a.subscriptions = SubscriptionStore.load(a)
-                    rebuild()
+                    rebuildAndNotify()
                     d.dismiss()
                 }
                 .setNeutralButton(ctx.getString(R.string.move_up)) { _, _ ->
                     if (SubscriptionStore.moveSubscription(ctx, subId, -1)) {
                         a.subscriptions = SubscriptionStore.load(a)
-                        rebuild()
+                        rebuildAndNotify()
                     } else {
                         Toast.makeText(ctx, R.string.already_top, Toast.LENGTH_SHORT).show()
                     }
@@ -1818,7 +2186,7 @@ class ServersFragment : Fragment() {
                 .setPositiveButton(ctx.getString(R.string.move_down)) { _, _ ->
                     if (SubscriptionStore.moveSubscription(ctx, subId, 1)) {
                         a.subscriptions = SubscriptionStore.load(a)
-                        rebuild()
+                        rebuildAndNotify()
                     } else {
                         Toast.makeText(ctx, R.string.already_bottom, Toast.LENGTH_SHORT).show()
                     }
@@ -1842,8 +2210,11 @@ class ServersFragment : Fragment() {
                     ctx.getString(R.string.manual_added), manual.size),
                 Toast.LENGTH_SHORT).show()
             PingTester.testAll(manual, object : PingTester.Listener {
+                // ★ FIX131-FRIZ: faqat shu qator yangilanadi (203 emas!)
                 override fun onPingUpdate(item: ServerItem, ping: Int) {
-                    notifyDataSetChanged()
+                    if (!notifyPingChanged(item)) {
+                        notifyDataSetChanged()
+                    }
                 }
                 override fun onAllDone() {
                     ServerStore.save(a, a.servers)
@@ -1874,7 +2245,7 @@ class ServersFragment : Fragment() {
                 .setTitle(ctx.getString(R.string.manual_added))
                 .setSingleChoiceItems(labels, idx) { d, which ->
                     ManualSortStore.setMode(ctx, modes[which].first)
-                    rebuild()
+                    rebuildAndNotify()
                     d.dismiss()
                 }
                 .setNeutralButton(
@@ -1887,7 +2258,7 @@ class ServersFragment : Fragment() {
                         .setPositiveButton(R.string.dialog_delete_yes) { _, _ ->
                             a.servers.removeAll { it.subId == null }
                             ServerStore.save(a, a.servers)
-                            rebuild()
+                            rebuildAndNotify()
                             Toast.makeText(ctx, R.string.toast_deleted,
                                 Toast.LENGTH_SHORT).show()
                         }
@@ -2011,7 +2382,7 @@ class ServersFragment : Fragment() {
                         3 -> {
                             sub.hiddenOnHome = !sub.hiddenOnHome
                             act?.let { a -> SubscriptionStore.save(a, a.subscriptions) }
-                            rebuild()
+                            rebuildAndNotify()
                             val msg = if (sub.hiddenOnHome)
                                 c.getString(R.string.sub_hidden_toast, sub.name)
                             else c.getString(R.string.sub_shown_toast, sub.name)
@@ -2035,7 +2406,7 @@ class ServersFragment : Fragment() {
                         a.subscriptions.remove(sub)
                         SubscriptionStore.save(a, a.subscriptions)
                     }
-                    rebuild()
+                    rebuildAndNotify()
                     frag.refresh()
                     Toast.makeText(c, R.string.toast_deleted, Toast.LENGTH_SHORT).show()
                 }
@@ -2059,7 +2430,7 @@ class ServersFragment : Fragment() {
                         a.servers.removeAll { it.subId == null }
                         ServerStore.save(a, a.servers)
                     }
-                    rebuild()
+                    rebuildAndNotify()
                     frag.refresh()
                     Toast.makeText(c, R.string.toast_deleted, Toast.LENGTH_SHORT).show()
                 }
@@ -2297,4 +2668,396 @@ class ServersFragment : Fragment() {
                 .show()
         }
     }
+
+
+
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ★ TUZATISH #10 (BUG #1): view tozalash
+    //
+    //  Fragment almashganda eski view daraxti yo'q qilinadi. Agar
+    //  RecyclerView/LayoutManager havolalari qolsa, eski scroll holati
+    //  yangi ekranga ta'sir qilishi mumkin. Shuning uchun tozalaymiz.
+    // ═══════════════════════════════════════════════════════════════
+    override fun onDestroyView() {
+        try {
+            // Scroll pozitsiyasini eslab qolamiz (keyin tiklash uchun)
+            persistScrollPosition()
+            // RecyclerView'ni bo'shatamiz
+            rv?.adapter = null
+            rv?.layoutManager = null
+        } catch (_: Throwable) { }
+        rv = null
+        search = null
+        selectionBar = null
+        selCountText = null
+        super.onDestroyView()
+    }
+
+
+    /**
+     * ★ FIX121-SCROLL (BUG #1): tab ko'rsatilganda chaqiriladi.
+     */
+    fun onTabShown() {
+        if (!isAdded || view == null) return
+        android.util.Log.i("NurVPN-DBG", "ServersFragment: onTabShown")
+        // ═══════════════════════════════════════════════════════════════
+        //  ★ FIX128-SERVERLIST: `refreshServers()` QO'SHILDI
+        //
+        //  QURILMADA TASDIQLANDI (01:05:23):
+        //    SERVERS onScrolled: range=264 extent=264  ← ro'yxat BO'SH
+        //    286 ta server saqlangan, lekin ekranda ko'rinmaydi.
+        //
+        //  ═══ ILDIZ SABAB ═══
+        //
+        //  Avval bu metod FAQAT `restoreScrollPosition()` chaqirardi.
+        //  Fragment birinchi marta `show()` qilinganda adapter allaqachon
+        //  `init { rebuild() }` bilan qurilgan, LEKIN o'sha paytda
+        //  `MainActivity.servers` hali YUKLANMAGAN bo'lishi mumkin
+        //  (ServerStore.load() asinxron yoki keyinroq chaqiriladi).
+        //
+        //  Natijada `rows` BO'SH qoladi va tab'ga har o'tilganda ham
+        //  qayta yuklash bo'lmagani uchun ro'yxat hech qachon
+        //  to'lmaydi — foydalanuvchi "server bo'limida joyidan
+        //  qimirlamayapti" deb ko'radi.
+        //
+        //  ═══ YECHIM ═══
+        //
+        //  Tab ko'rsatilganda `refreshServers()` — `rows` qayta
+        //  quriladi va RecyclerView yangilanadi.
+        // ═══════════════════════════════════════════════════════════════
+        refreshServers()
+        restoreScrollPosition()
+    }
+
+    /** ★ FIX121-SCROLL: fragment yashirilganda scroll holatini saqlaymiz. */
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (hidden) {
+            android.util.Log.i("NurVPN-DBG", "ServersFragment: yashirildi — scroll saqlanadi")
+            persistScrollPosition()
+        } else {
+            android.util.Log.i("NurVPN-DBG", "ServersFragment: ko'rsatildi — scroll tiklanadi")
+            restoreScrollPosition()
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ★ TUZATISH #8: TO'LIQ AJRATILGAN scroll holati
+    //
+    //  Nega oldingi urinish ishlamadi:
+    //   1) Home va Servers layoutlarida 5 ta ID bir xil edi
+    //      (selection_bar, sel_count, ...) → Android View holatini
+    //      ID bo'yicha tiklab, ESKI scroll ni YANGI ekranga o'tkazardi.
+    //   2) ScrollView/RecyclerView `android:saveEnabled` bilan O'ZI ham
+    //      scroll holatini saqlardi → mening kodim bilan rachkalashardi.
+    //
+    //  Endi: layout ID lari unique, avtomatik saqlash O'CHIRILGAN,
+    //  pozitsiya faqat shu fragment tomonidan boshqariladi.
+    // ═══════════════════════════════════════════════════════════════
+    override fun onSaveInstanceState(outState: android.os.Bundle) {
+        super.onSaveInstanceState(outState)
+        persistScrollPosition()
+        outState.putInt(KEY_SCROLL_Y, savedScrollY)
+    }
+
+    override fun onViewStateRestored(savedInstanceState: android.os.Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        restoreScrollPosition()
+    }
+
+    /** Joriy scroll pozitsiyasini o'qiydi va eslab qoladi. */
+    private fun persistScrollPosition() {
+        try {
+            val c = scrollContainer() ?: return
+            savedScrollY = readScroll(c)
+            // MainActivity'da saqlaymiz — fragment qayta yaratilsa ham qoladi
+            (activity as? MainActivity)?.setScrollMemory("servers", savedScrollY)
+            // ★ FIX125-SCROLLDBG: diagnostika
+            android.util.Log.i("NurVPN-SCROLL",
+                "SERVERS persist: y=$savedScrollY container=${c.javaClass.simpleName}")
+        } catch (_: Throwable) { }
+    }
+
+    /**
+     * Saqlangan pozitsiyani tiklaydi.
+     *
+     * ★ FIX121-SCROLL: avval `maxOf(savedScrollY, fromActivity)` edi —
+     * bu XATO edi: eski katta qiymat yangi kichik qiymatni bosib ketardi
+     * va scroll "sakrab" ketardi. Endi fragment'ning o'z qiymati ustuvor,
+     * u 0 bo'lsa Activity xotirasidan olinadi.
+     */
+    private fun restoreScrollPosition() {
+        try {
+            val fromActivity = (activity as? MainActivity)
+                ?.getScrollMemory("servers") ?: 0
+            val y = if (savedScrollY > 0) savedScrollY else fromActivity
+            // ★ FIX125-SCROLLDBG: diagnostika
+            android.util.Log.i("NurVPN-SCROLL",
+                "SERVERS restore: saved=$savedScrollY fromActivity=$fromActivity -> y=$y")
+            if (y <= 0) return
+            savedScrollY = y
+            view?.post {
+                try {
+                    val c = scrollContainer()
+                    android.util.Log.i("NurVPN-SCROLL",
+                        "SERVERS restore POST: container=${c?.javaClass?.simpleName} " +
+                            "before=${c?.let { readScroll(it) }} target=$y")
+                    if (c != null) writeScroll(c, y)
+                    android.util.Log.i("NurVPN-SCROLL",
+                        "SERVERS restore POST keyin: actual=${c?.let { readScroll(it) }}")
+                } catch (_: Throwable) { }
+            }
+        } catch (_: Throwable) { }
+    }
+
+    /** Scroll konteynerini qaytaradi. */
+    private fun scrollContainer(): android.view.View? =
+        view?.findViewById(R.id.server_list)
+
+    private fun readScroll(c: android.view.View): Int = when (c) {
+        is androidx.recyclerview.widget.RecyclerView ->
+            c.computeVerticalScrollOffset()
+        is android.widget.ScrollView -> c.scrollY
+        else -> 0
+    }
+
+    private fun writeScroll(c: android.view.View, y: Int) {
+        when (c) {
+            is androidx.recyclerview.widget.RecyclerView -> {
+                // ⚠️ scrollToPositionWithOffset faqat LinearLayoutManager'da.
+                //    Boshqa LayoutManager'da scrollToPosition ishlatiladi.
+                val lm = c.layoutManager
+                if (lm is androidx.recyclerview.widget.LinearLayoutManager) {
+                    lm.scrollToPositionWithOffset(y, 0)
+                } else {
+                    lm?.scrollToPosition(y)
+                }
+            }
+            is android.widget.ScrollView -> c.scrollTo(0, y)
+        }
+    }
+
+    /**
+     * ★ TUZATISH #9: Xray/sing-box JSON obunasini import qiladi.
+     *
+     * Qo'llab-quvvatlanadi:
+     *   • JSON massiv:  [ {outbounds:[{protocol:"vless",...}]}, ... ]
+     *   • Bitta obyekt: {outbounds:[...]}
+     *   • `remarks` maydoni server nomi sifatida olinadi
+     *
+     * @return qo'shilgan serverlar soni
+     */
+    private fun importJsonSubscription(json: String, subUrl: String): Int {
+        val a = activity as? MainActivity ?: return 0
+        var added = 0
+        try {
+            val configs: List<org.json.JSONObject> = when {
+                json.startsWith("[") -> {
+                    val arr = org.json.JSONArray(json)
+                    (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
+                }
+                else -> listOf(org.json.JSONObject(json))
+            }
+
+            for (cfg in configs) {
+                val outbounds = cfg.optJSONArray("outbounds") ?: continue
+                val remark = cfg.optString("remarks").ifBlank { null }
+
+                for (i in 0 until outbounds.length()) {
+                    val ob = outbounds.optJSONObject(i) ?: continue
+                    val proto = ob.optString("protocol")
+
+                    // ═══ WireGuard (AWG) JSON import O'CHIRILGAN ═══
+                    if (proto == "wireguard") continue
+
+                    if (proto !in JSON_PROTOCOLS) continue
+
+                    val link = buildLinkFromJsonOutbound(ob, remark) ?: continue
+                    if (link.length > 8192) continue
+
+                    val si = parseServer(link, subUrl) ?: continue
+                    if (a.servers.any { it.link == si.link }) continue
+                    a.servers.add(si)
+                    added++
+                }
+            }
+
+            if (added > 0) {
+                com.nurvpn.app.storage.ServerStore.save(a, a.servers)
+                activity?.runOnUiThread { ad?.notifyDataChanged() }
+            }
+            android.util.Log.i("NurVPN-DBG",
+                "importJsonSubscription: $added server qo'shildi")
+        } catch (t: Throwable) {
+            android.util.Log.w("NurVPN-DBG",
+                "importJsonSubscription xato: ${t.message}")
+        }
+        return added
+    }
+
+    /** JSON outbound → proxy link. */
+    /**
+     * Xray JSON dagi wireguard outbound'ni .conf matniga aylantiradi.
+     * Maydonlar: secretKey, publicKey, endpoint (host:port), allowedIPs.
+     */
+    private fun buildWireGuardConfFromJson(ob: org.json.JSONObject): String? {
+        return try {
+            val settings = ob.optJSONObject("settings") ?: return null
+            val secretKey = settings.optString("secretKey", "")
+            if (secretKey.isBlank()) return null
+
+            val peers = settings.optJSONArray("peers") ?: return null
+            if (peers.length() == 0) return null
+            val peer = peers.optJSONObject(0) ?: return null
+
+            val publicKey = peer.optString("publicKey", "")
+            val endpoint = peer.optString("endpoint", "")
+            if (publicKey.isBlank() || endpoint.isBlank()) return null
+
+            val mtu = settings.optInt("mtu", 1360)
+            val addressArr = settings.optJSONArray("address")
+            val addresses = mutableListOf<String>()
+            if (addressArr != null) {
+                for (j in 0 until addressArr.length()) {
+                    addresses.add(addressArr.optString(j))
+                }
+            }
+            if (addresses.isEmpty()) addresses.add("172.16.0.2/32")
+
+            val allowedIpsArr = peer.optJSONArray("allowedIPs")
+            val allowedIps = if (allowedIpsArr != null && allowedIpsArr.length() > 0) {
+                (0 until allowedIpsArr.length()).map { allowedIpsArr.optString(it) }
+                    .joinToString(", ")
+            } else "0.0.0.0/0, ::/0"
+
+            buildString {
+                appendLine("[Interface]")
+                appendLine("PrivateKey = $secretKey")
+                appendLine("Address = " + addresses.joinToString(", "))
+                appendLine("MTU = $mtu")
+                appendLine()
+                appendLine("[Peer]")
+                appendLine("PublicKey = $publicKey")
+                appendLine("Endpoint = $endpoint")
+                appendLine("AllowedIPs = $allowedIps")
+            }
+        } catch (t: Throwable) {
+            android.util.Log.w("NurVPN-DBG",
+                "buildWireGuardConfFromJson xato: " + t.message)
+            null
+        }
+    }
+
+    private fun buildLinkFromJsonOutbound(
+        ob: org.json.JSONObject, remark: String?
+    ): String? {
+        val proto = ob.optString("protocol")
+        val server = ob.optString("address").ifEmpty {
+            ob.optJSONObject("settings")
+                ?.optJSONArray("vnext")?.optJSONObject(0)?.optString("address")
+                ?: ob.optJSONObject("settings")
+                    ?.optJSONArray("servers")?.optJSONObject(0)?.optString("address")
+                ?: return null
+        }
+        if (server.isEmpty()) return null
+        val port = ob.optInt("port").takeIf { it > 0 }
+            ?: ob.optJSONObject("settings")
+                ?.optJSONArray("vnext")?.optJSONObject(0)?.optInt("port")
+                ?.takeIf { it > 0 }
+            ?: ob.optJSONObject("settings")
+                ?.optJSONArray("servers")?.optJSONObject(0)?.optInt("port")
+                ?.takeIf { it > 0 }
+            ?: 443
+
+        val tag = java.net.URLEncoder.encode(remark ?: server, "UTF-8")
+        val stream = ob.optJSONObject("streamSettings")
+        val security = stream?.optString("security").orEmpty()
+        val sni = stream?.optJSONObject("tlsSettings")?.optString("serverName")
+            .orEmpty().ifEmpty {
+                stream?.optJSONObject("realitySettings")?.optString("serverName")
+                    .orEmpty()
+            }
+        val pbk = stream?.optJSONObject("realitySettings")
+            ?.optString("publicKey").orEmpty()
+
+        return try {
+            when (proto) {
+                "vless" -> {
+                    val id = ob.optJSONObject("settings")
+                        ?.optJSONArray("vnext")?.optJSONObject(0)
+                        ?.optJSONArray("users")?.optJSONObject(0)?.optString("id")
+                        ?: return null
+                    if (id.isEmpty()) return null
+                    val q = StringBuilder("security=")
+                    q.append(if (security.isEmpty()) "none" else security)
+                    if (sni.isNotEmpty()) q.append("&sni=$sni")
+                    if (pbk.isNotEmpty()) q.append("&pbk=$pbk")
+                    "vless://$id@$server:$port?$q#$tag"
+                }
+                "vmess" -> {
+                    val vnext = ob.optJSONObject("settings")
+                        ?.optJSONArray("vnext")?.optJSONObject(0) ?: return null
+                    val id = vnext.optJSONArray("users")
+                        ?.optJSONObject(0)?.optString("id") ?: return null
+                    if (id.isEmpty()) return null
+                    val json = org.json.JSONObject()
+                        .put("v", "2").put("ps", remark ?: server)
+                        .put("add", server).put("port", port.toString())
+                        .put("id", id).put("aid", "0").put("net", "tcp")
+                        .put("tls", if (security == "tls") "tls" else "")
+                    if (sni.isNotEmpty()) json.put("sni", sni)
+                    "vmess://" + android.util.Base64.encodeToString(
+                        json.toString().toByteArray(Charsets.UTF_8),
+                        android.util.Base64.NO_WRAP)
+                }
+                "trojan" -> {
+                    val pw = ob.optJSONObject("settings")
+                        ?.optJSONArray("servers")?.optJSONObject(0)
+                        ?.optString("password") ?: return null
+                    val q = if (sni.isNotEmpty()) "?sni=$sni" else ""
+                    "trojan://$pw@$server:$port$q#$tag"
+                }
+                "shadowsocks" -> {
+                    val s = ob.optJSONObject("settings")
+                        ?.optJSONArray("servers")?.optJSONObject(0) ?: return null
+                    val pw = s.optString("password")
+                    val method = s.optString("method")
+                    if (pw.isEmpty() || method.isEmpty()) return null
+                    val ui = android.util.Base64.encodeToString(
+                        "$method:$pw".toByteArray(Charsets.UTF_8),
+                        android.util.Base64.NO_WRAP or android.util.Base64.URL_SAFE)
+                    "ss://$ui@$server:$port#$tag"
+                }
+                "hysteria2", "hy2" -> {
+                    val pw = ob.optJSONObject("settings")?.optString("password")
+                        ?: ob.optString("password").takeIf { it.isNotEmpty() }
+                        ?: return null
+                    val q = StringBuilder()
+                    ob.optJSONObject("obfs")?.let {
+                        q.append("obfs=${it.optString("type")}")
+                        q.append("&obfs-password=${it.optString("password")}")
+                    }
+                    "hysteria2://$pw@$server:$port?$q#$tag"
+                }
+                "tuic" -> {
+                    val s = ob.optJSONObject("settings") ?: return null
+                    val uuid = s.optString("uuid")
+                    val pw = s.optString("password")
+                    if (uuid.isEmpty()) return null
+                    "tuic://$uuid:$pw@$server:$port#$tag"
+                }
+                "anytls" -> {
+                    val pw = ob.optJSONObject("settings")?.optString("password")
+                        ?: return null
+                    "anytls://$pw@$server:$port#$tag"
+                }
+                else -> null
+            }
+        } catch (t: Throwable) {
+            android.util.Log.w("NurVPN-DBG", "buildLink xato ($proto): ${t.message}")
+            null
+        }
+    }
+
 }

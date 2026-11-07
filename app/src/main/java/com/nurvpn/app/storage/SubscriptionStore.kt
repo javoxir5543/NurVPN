@@ -23,6 +23,13 @@ object SubscriptionStore {
             o.put("trafficUsed", sub.trafficUsed)
             o.put("trafficTotal", sub.trafficTotal)
             o.put("serverCount", sub.serverCount)
+            // ★ FIX149-SUBINFO: header metama'lumotlari
+            if (sub.updateIntervalDays > 0) {
+                o.put("updateIntervalDays", sub.updateIntervalDays)
+            }
+            if (sub.webPage.isNotEmpty()) o.put("webPage", sub.webPage)
+            if (sub.supportUrl.isNotEmpty()) o.put("supportUrl", sub.supportUrl)
+            if (sub.announce.isNotEmpty()) o.put("announce", sub.announce)
             o.put("encrypted", sub.encrypted)
             o.put("hiddenOnHome", sub.hiddenOnHome)
             o.put("order", sub.order)
@@ -52,6 +59,11 @@ object SubscriptionStore {
                 sub.trafficUsed = o.optLong("trafficUsed", 0)
                 sub.trafficTotal = o.optLong("trafficTotal", 0)
                 sub.serverCount = o.optInt("serverCount", 0)
+                // ★ FIX149-SUBINFO: header metama'lumotlari
+                sub.updateIntervalDays = o.optInt("updateIntervalDays", 0)
+                sub.webPage = o.optString("webPage", "")
+                sub.supportUrl = o.optString("supportUrl", "")
+                sub.announce = o.optString("announce", "")
                 sub.encrypted = o.optBoolean("encrypted", false)
                 sub.hiddenOnHome = o.optBoolean("hiddenOnHome", false)
                 sub.order = o.optInt("order", 0)

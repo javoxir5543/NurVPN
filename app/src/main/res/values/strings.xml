@@ -99,7 +99,6 @@
     <string name="btn_connect">Ulanish</string>
 
     <!-- ═══════════ I18N — YANGI STRINGLAR ═══════════ -->
-    <!-- Toast -->
     <string name="toast_loading">Yuklanmoqda…</string>
     <string name="toast_internet_error">Internet xatosi</string>
     <string name="toast_added_count">%1$d ta qo\'shildi</string>
@@ -122,7 +121,6 @@
     <string name="toast_qr_no_format">QR\'da tanilgan format topilmadi&#10;&#10;Qo\'llab-quvvatlanadi:&#10;• vless://, vmess://, hysteria2://&#10;• AWG config ([Interface] ... [Peer])&#10;• Subscription URL (https://...)</string>
     <string name="toast_portal_code">Bu Portal WG aktivatsiya kodi: %1$s&#10;&#10;Portal API integratsiyasi kerak.&#10;Hozircha portal ilovasidan config oling.</string>
 
-    <!-- Dialog -->
     <string name="dialog_add_server">Server qo\'shish</string>
     <string name="dialog_sub_load">Obuna yuklash</string>
     <string name="dialog_sub_add">Obuna qo\'shish</string>
@@ -140,7 +138,6 @@
     <string name="dialog_save">Saqlash</string>
     <string name="dialog_rename_awg">🏷 Nomini o\'zgartirish</string>
 
-    <!-- TextView -->
     <string name="text_no_servers_add">Serverlar yo\'q. Pastdan qo\'shing.</string>
     <string name="text_no_servers">Serverlar yo\'q</string>
     <string name="text_manual_count">🔧  Qo\'lda qo\'shilgan  (%1$d ta)</string>
@@ -150,7 +147,6 @@
     <string name="text_dash">—</string>
     <string name="text_count_ta">%1$d ta</string>
 
-    <!-- Hint -->
     <string name="hint_vless_links">vless://...  (bir nechta linkni birga qo\'yish mumkin)</string>
     <string name="hint_mixed_links">vless://... (bir nechta link)  YOKI  https://sub-url.com/xxx</string>
     <string name="hint_name_optional">Nomi (ixtiyoriy)</string>
@@ -246,12 +242,12 @@
     <string name="toast_removed_fav">Sevimlilardan olindi</string>
     <string name="fav_card_title">Sevimlilar</string>
     <string name="awg_settings_title">AWG Config — sozlamalar</string>
-    <string name="os_warp1_name">WARP Cloudflare #1</string>
-    <string name="os_warp1_desc">AmneziaWG (WARP). 162.159.192.38:1074. Eng tez.</string>
-    <string name="os_warp2_name">WARP Cloudflare #2</string>
-    <string name="os_warp2_desc">AmneziaWG (WARP). engage.cloudflareclient.com:864.</string>
-    <string name="os_warp3_name">WARP Cloudflare #3 (MTU 1380)</string>
-    <string name="os_warp3_desc">AmneziaWG (WARP). 188.114.99.157:1074. Katta MTU.</string>
+    <string name="os_warp1_name">AmneziaWG 1</string>
+    <string name="os_warp1_desc">162.159.192.38:1074. Самый быстрый.</string>
+    <string name="os_warp2_name">AmneziaWG 2</string>
+    <string name="os_warp2_desc">engage.cloudflareclient.com:864.</string>
+    <string name="os_warp3_name">AmneziaWG 3</string>
+    <string name="os_warp3_desc">188.114.99.157:1074. Большой MTU.</string>
     <string name="notif_action_pause">Pauza</string>
     <string name="notif_action_resume">Davom etish</string>
     <string name="notif_action_stop">Uzish</string>
@@ -317,10 +313,8 @@
     <string name="qr_share_copy">📋 Nusxalash</string>
     <string name="qr_share_title">QR kod</string>
     <string name="toast_qr_gen_error">QR yaratishda xato</string>
-    <!-- ═══ HWID ═══ -->
     <string name="hwid_title">HWID yuborish</string>
     <string name="hwid_desc">Qurilma ID sini subscription serverga yuborish. Ba\'zi provayderlar qurilma limitini shu bilan tekshiradi.</string>
-    <string name="settings_proto_transport">Protokol / Transport</string>
     <string name="editor_server_title">Server sozlamalari</string>
     <string name="editor_section_main">Asosiy</string>
     <string name="editor_section_transport">Transport</string>
@@ -367,7 +361,7 @@
     <string name="adv_logs">Loglarni ulashish (xato topish uchun)</string>
     <string name="adv_logs_empty">Hozircha log yo\'q — avval ulanib ko\'ring</string>
 
-    <!-- ═══ Obuna kartasi ═══ -->
+    <!-- ═══ Subscription card ═══ -->
     <string name="sub_days_left">📅 %1$d kun qoldi</string>
     <string name="sub_days_left_one">📅 1 kun qoldi</string>
     <string name="sub_expired">📅 Muddati tugagan</string>
@@ -387,33 +381,6 @@
     <string name="os_masque2_desc">MASQUE (HTTP/2). mail.ru SNI. YouTube, Instagram, AI.</string>
     <string name="os_masque3_name">MASQUE WARP #3 (162.159.198.2)</string>
     <string name="os_masque3_desc">MASQUE (HTTP/2). 4pda SNI. Zaxira akkaunt.</string>
-    <!-- Crypt1 shifrlangan obuna -->
-    <string name="encrypted_locked_title">🔒 Encrypted subscription — copy/share/QR blocked</string>
-    <string name="encrypted_share_blocked">🔒 Encrypted subscription — sharing is not allowed</string>
-    <string name="encrypted_copy_blocked">🔒 Encrypted subscription — copying is not allowed</string>
-    <string name="encrypted_qr_blocked">🔒 Encrypted subscription — QR display is not allowed</string>
-    <string name="encrypted_decode_failed">❌ Could not decode encrypted link</string>
-    <string name="encrypted_url_hidden">🔒 Hidden encrypted subscription URL</string>
-    <!-- Biometrika -->
-    <string name="bio_unlock">🔓 Open via biometrics</string>
-    <string name="bio_lock">🔒 Lock</string>
-    <string name="bio_locked_toast">🔒 Locked</string>
-    <string name="bio_unlocked_toast">✅ Unlocked</string>
-    <string name="bio_title">Confirm security</string>
-    <string name="bio_sub_default">Allow to view encrypted data</string>
-    <string name="bio_sub_unlock">%1$s - confirm to open data</string>
-    <string name="bio_sub_copy">%1$s - confirm to copy</string>
-    <string name="bio_sub_qr">%1$s - confirm to view QR code</string>
-    <string name="bio_no_lock">⚠️ Warning! Your phone has no screen lock. Please set a password for security.</string>
-    <string name="kill_switch_title">🛡 Full Security (Kill Switch)</string>
-    <string name="kill_switch_msg">To prevent your real IP from leaking when the internet disconnects, please enable "Always-on VPN" and "Block connections without VPN" in Android system settings.\n\nGo to settings now?</string>
-    <string name="kill_switch_btn">Go to settings</string>
-    <string name="kill_switch_later">Later</string>
-    <string name="kill_switch_msg_on">To prevent your real IP from leaking, please ENABLE "Always-on VPN" and "Block connections without VPN" in system settings.</string>
-    <string name="kill_switch_msg_off">To completely disable Kill Switch and restore normal internet, please DISABLE "Always-on VPN" and "Block connections without VPN" in system settings.</string>
-    <string name="sub_limit_title">⚠️ Subscription not working</string>
-    <string name="sub_limit_msg">The provider has exceeded the device limit.\n\nSolution:\n1. Reset devices in the provider bot\n2. Or get a new subscription\n3. Or enter links manually via + Add</string>
-    <string name="sub_limit_btn">Got it</string>
 
     <string name="sub_menu_hide_from_home">&#x1F648; Asosiy ekrandan yashirish</string>
     <string name="sub_menu_show_on_home">&#x1F441; Asosiy ekranda ko\'rsatish</string>
@@ -429,4 +396,65 @@
     <string name="update_wait">Iltimos kuting...</string>
     <string name="update_error">Yuklashda xatolik: %1$s</string>
     <string name="update_unknown_sources">Noma\'lum manbalardan o\'rnatishga ruxsat bering</string>
+    <string name="no_subscription_redirect">No subscription found. Enable one of the open sources.</string>
+    <!-- ★ FIX150-INCYSTYLE: subscription card metadata -->
+    <string name="sub_btn_support">Support</string>
+    <string name="sub_btn_web">Website</string>
+    <string name="sub_bytes_used">%1$s / %2$s</string>
+    <string name="sub_remaining">Left: %1$s</string>
+    <string name="sub_announce_title">Announcement</string>
+    <string name="sub_unlimited">Unlimited</string>
+    <string name="editor_field_final_mask">FinalMask (JSON)</string>
+
+    <!-- ★ FIX157-RELEASEPREP: qo'shilgan stringlar -->
+    <string name="toast_sub_url_hint">Bu obuna URL manzili. Uni qo\'shish uchun «Ochiq manbalar» bo\'limidan foydalaning</string>
+    <string name="bio_lock">🔒 Lock</string>
+    <string name="bio_locked_toast">🔒 Locked</string>
+    <string name="bio_unlock">🔓 Open via biometrics</string>
+    <string name="bio_unlocked_toast">✅ Unlocked</string>
+    <string name="bio_title">Confirm security</string>
+    <string name="bio_no_lock">⚠️ Warning! Your phone has no screen lock. Please set a password for security.</string>
+    <string name="bio_sub_default">Allow to view encrypted data</string>
+    <string name="bio_sub_unlock">%1$s - confirm to open data</string>
+    <string name="bio_sub_copy">%1$s - confirm to copy</string>
+    <string name="bio_sub_qr">%1$s - confirm to view QR code</string>
+    <string name="encrypted_decode_failed">❌ Could not decode encrypted link</string>
+    <string name="encrypted_locked_title">🔒 Encrypted subscription — copy/share/QR blocked</string>
+    <string name="encrypted_share_blocked">🔒 Encrypted subscription — sharing is not allowed</string>
+    <string name="encrypted_copy_blocked">🔒 Encrypted subscription — copying is not allowed</string>
+    <string name="encrypted_qr_blocked">🔒 Encrypted subscription — QR display is not allowed</string>
+    <string name="kill_switch_title">🛡 Full Security (Kill Switch)</string>
+    <string name="kill_switch_msg">To prevent your real IP from leaking when the internet disconnects, please enable "Always-on VPN" and "Block connections without VPN" in Android system settings.\n\nGo to settings now?</string>
+    <string name="kill_switch_msg_on">To prevent your real IP from leaking, please ENABLE "Always-on VPN" and "Block connections without VPN" in system settings.</string>
+    <string name="kill_switch_msg_off">To completely disable Kill Switch and restore normal internet, please DISABLE "Always-on VPN" and "Block connections without VPN" in system settings.</string>
+    <string name="kill_switch_btn">Go to settings</string>
+    <string name="kill_switch_later">Later</string>
+    <string name="sub_limit_title">⚠️ Subscription not working</string>
+    <string name="sub_limit_msg">The provider has exceeded the device limit.\n\nSolution:\n1. Reset devices in the provider bot\n2. Or get a new subscription\n3. Or enter links manually via + Add</string>
+    <string name="sub_limit_btn">Got it</string>
+    <string name="settings_proto_transport">Protokol / Transport</string>
+    <string name="os_radikal_hy2_name">Radikal Hysteria2</string>
+    <string name="os_radikal_hy2_desc">Hysteria2 configs by 0xRadikal</string>
+    <string name="os_sigridforum_name">Sigrid Forum</string>
+    <string name="os_sigridforum_desc">Hiddify subscription</string>
+    <string name="os_aeryx_name">Aeryx VPN</string>
+    <string name="os_aeryx_desc">AeryxVPN subscription</string>
+    <string name="os_aetris_name">Aetris VPN</string>
+    <string name="os_aetris_desc">AetrisVPN blacklist subscription</string>
+    <string name="os_masque_1_name">MASQUE 1</string>
+    <string name="os_masque_1_desc">162.159.198.2. Cloudflare CONNECT-IP. SNI 4pda.</string>
+    <string name="os_masque_2_name">MASQUE 2</string>
+    <string name="os_masque_2_desc">162.159.199.2. SNI mail.ru.</string>
+    <string name="os_masque_3_name">MASQUE 3</string>
+    <string name="os_masque_3_desc">162.159.198.2. Резервный аккаунт.</string>
+    <string name="os_masque_4_name">MASQUE 4</string>
+    <string name="os_masque_4_desc">162.159.198.2. Cloudflare WARP via MASQUE.</string>
+    <string name="os_masque_5_name">MASQUE 5</string>
+    <string name="os_masque_5_desc">162.159.199.2. Cloudflare WARP via MASQUE.</string>
+
+    <!-- ★ FIX157-RELEASEPREP: qo'shilgan stringlar -->
+    <string name="toast_server_empty">Server is empty</string>
+    <string name="toast_yaml_masque_error">YAML MASQUE parse error</string>
+    <string name="toast_yaml_wg_error">YAML WireGuard parse error</string>
+    <string name="toast_install_error_fmt">Error starting installation: %1$s</string>
 </resources>

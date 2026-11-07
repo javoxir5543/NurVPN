@@ -40,6 +40,26 @@ class ServerConfig(@JvmField var originalLink: String) {
     var upMbps: String = ""
     var downMbps: String = ""
 
+    /**
+     * ★ FIX153: Hysteria2 FinalMask (UDP obfuscator) — JSON matn.
+     *
+     * ⚠️ MUHIM: bu maydon hozircha sing-box JSON ga YOZILMAYDI.
+     *
+     * Tekshiruv natijasi: `libbox.aar` (sing-box 1.14.3-lx18) ning
+     * native qatlamida `final_mask` / `finalMask` kaliti UMUMAN YO'Q
+     * (63MB `libbox.so` ichida 200 014 satr — 0 ta mos kelish).
+     * Faqat `SalamanderConn` (ya'ni `obfs`) mavjud.
+     *
+     * Noto'g'ri kalit qo'shilsa sing-box Hysteria2 ulanishini
+     * buzishi mumkin. Shuning uchun qiymat FAQAT saqlanadi:
+     *   • UI → `cfg.finalMask`
+     *   • Link → `finalmask=` parametri
+     *
+     * Kelajakda NurCore ishlatilganda shu maydon `final_mask`
+     * sifatida JSON ga qo'shiladi.
+     */
+    var finalMask: String = ""
+
     // TUIC
     var congestionControl: String = "bbr"
     var udpRelayMode: String = "native"

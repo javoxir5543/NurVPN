@@ -10,6 +10,7 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.nurvpn.app.R
+import com.nurvpn.app.core.FinalMaskJson
 import com.nurvpn.app.core.LinkBuilder
 import com.nurvpn.app.core.Protocol
 import com.nurvpn.app.core.ServerConfig
@@ -51,6 +52,8 @@ class ServerEditorActivity : AppCompatActivity() {
     private lateinit var allowInsecureSw: Switch
     private lateinit var obfsSp: Spinner
     private lateinit var obfsPassEt: EditText
+    // ★ FIX153: Hysteria2 FinalMask (JSON matn)
+    private lateinit var finalMaskEt: EditText
     private lateinit var upMbpsEt: EditText
     private lateinit var downMbpsEt: EditText
     private lateinit var ccSp: Spinner
@@ -78,6 +81,8 @@ class ServerEditorActivity : AppCompatActivity() {
     private lateinit var insecureGroup: LinearLayout
     private lateinit var obfsGroup: LinearLayout
     private lateinit var obfsPassGroup: LinearLayout
+    // ★ FIX153: FinalMask guruhi (faqat HY2 da ko'rinadi)
+    private lateinit var finalMaskGroup: LinearLayout
     private lateinit var upMbpsGroup: LinearLayout
     private lateinit var downMbpsGroup: LinearLayout
     private lateinit var ccGroup: LinearLayout
@@ -324,6 +329,32 @@ class ServerEditorActivity : AppCompatActivity() {
         obfsPassGroup.addView(makeFieldRow(getString(R.string.editor_field_obfs_password), obfsPassEt))
         root.addView(obfsPassGroup)
 
+        // ★ FIX153: Hysteria2 FinalMask (JSON) — faqat HY2 da ko'rinadi.
+        //   Ko'p qatorli maydon (JSON uzun bo'ladi).
+        //   ⚠️ JSON saqlanadi, lekin sing-box ga YOZILMAYDI —
+        //      libbox'da `final_mask` kaliti yo'q.
+        finalMaskGroup = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        // ★ FIX155: hint — TO'LIQ namuna (parol bilan, INCY uslubida).
+        //   Avval quruq `{"udp":[{"type":"salamander"}]}` edi —
+        //   foydalanuvchi parolni qayerga yozishni bilmasdi.
+        finalMaskEt = makeEt(
+            "{\n  \"udp\": [\n    {\n      \"type\": \"salamander\",\n" +
+            "      \"settings\": {\n        \"password\": \"...\"\n" +
+            "      }\n    }\n  ]\n}").apply {
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            // ★ FIX155: chiroyli JSON 9+ qatorni egallaydi
+            maxLines = 14
+            minLines = 6
+            gravity = Gravity.TOP or Gravity.START
+            // JSON — texnik matn, avtoto'g'rilash/taklif ZARARLI
+            setHorizontallyScrolling(false)
+        }
+        finalMaskGroup.addView(makeFieldRow(
+            getString(R.string.editor_field_final_mask), finalMaskEt))
+        root.addView(finalMaskGroup)
+
         upMbpsGroup = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         upMbpsEt = makeEt("", numeric = true)
         upMbpsGroup.addView(makeFieldRow(getString(R.string.editor_field_up_mbps), upMbpsEt))
@@ -447,6 +478,12 @@ class ServerEditorActivity : AppCompatActivity() {
 
         obfsSp.setSelection(obfsOptions.indexOf(cfg.obfs).coerceAtLeast(0))
         obfsPassEt.setText(cfg.obfsPassword)
+        // ★ FIX155: INCY uslubidagi TO'LIQ va chiroyli JSON.
+        //   Avval `cfg.finalMask` xom matni yozilardi — u bo'sh
+        //   yoki eski quruq qolip bo'lishi mumkin edi.
+        //   Endi har doim `obfs` + `obfsPassword` dan YASALADI.
+        finalMaskEt.setText(
+            FinalMaskJson.display(cfg.obfs, cfg.obfsPassword))
         upMbpsEt.setText(cfg.upMbps)
         downMbpsEt.setText(cfg.downMbps)
         ccSp.setSelection(ccOptions.indexOf(cfg.congestionControl).coerceAtLeast(0))
@@ -500,6 +537,7 @@ class ServerEditorActivity : AppCompatActivity() {
         setV(obfsPassGroup, isHy2)
         setV(upMbpsGroup, isHy2)
         setV(downMbpsGroup, isHy2)
+        setV(finalMaskGroup, isHy2)   // ★ FIX153
 
         // TUIC
         setV(ccGroup, isTuic)
@@ -536,6 +574,27 @@ class ServerEditorActivity : AppCompatActivity() {
 
         cfg.obfs = obfsOptions[obfsSp.selectedItemPosition]
         cfg.obfsPassword = obfsPassEt.text.toString().trim()
+        // ★ FIX155: JSON dan `type` + `password` ajratib olamiz.
+        //
+        //   ⚠️ `obfs` / `obfsPassword` — ASOSIY manba (link va
+        //      sing-box ularni ishlatadi). JSON dan yangilanadi.
+        //
+        //   Xato JSON bo'lsa → `parse()` null qaytaradi va
+        //   mavjud qiymatlar SAQLANIB QOLADI (ilova qulamaydi).
+        val fmText = finalMaskEt.text.toString().trim()
+        val fmParsed = FinalMaskJson.parse(fmText)
+        if (fmParsed != null) {
+            val (fmType, fmPass) = fmParsed
+            if (fmType.isNotEmpty()) cfg.obfs = fmType
+            cfg.obfsPassword = fmPass
+            // Spinner'ni ham sinxronlaymiz (ko'rinish mos bo'lsin)
+            val idx = obfsOptions.indexOf(fmType)
+            if (idx >= 0) obfsSp.setSelection(idx)
+        }
+        // sing-box (YASSI) formatida saqlanadi — `settings` qavati
+        // yadro tomonidan tushunilmaydi.
+        cfg.finalMask = if (fmText.isEmpty()) "" else FinalMaskJson.toSingBox(fmText)
+
         cfg.upMbps = upMbpsEt.text.toString().trim()
         cfg.downMbps = downMbpsEt.text.toString().trim()
         cfg.congestionControl = ccOptions[ccSp.selectedItemPosition]
