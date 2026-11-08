@@ -457,4 +457,30 @@
     <string name="toast_yaml_masque_error">YAML MASQUE parse error</string>
     <string name="toast_yaml_wg_error">YAML WireGuard parse error</string>
     <string name="toast_install_error_fmt">Error starting installation: %1$s</string>
+
+    <!-- ★ FIX161-WARPGEN: WARP generator matnlari -->
+    <string name="warp_generate_btn">☁ Generate WARP (MASQUE)</string>
+    <string name="warp_progress_title">Generating WARP</string>
+    <string name="warp_progress_msg">Connecting to Cloudflare…</string>
+    <string name="warp_success">✅ WARP server created and added: %1$s</string>
+    <string name="warp_already_exists">This WARP configuration already exists</string>
+    <string name="warp_err_network">No internet connection or the API did not respond</string>
+    <string name="warp_err_crypto">Key generation error (X25519 not supported)</string>
+    <string name="warp_err_blocked">Cloudflare API rejected the request. Try again later</string>
+    <string name="warp_err_generic">API error. Try again later</string>
+    <string name="warp_err_no_activity">Screen not loaded — please try again</string>
+
+    <!-- ★ FIX162-KIBERWARP: Kiberportal WARP configlari -->
+    <string name="os_masque_6_name">MASQUE h3 (4pda)</string>
+    <string name="os_masque_6_desc">Cloudflare WARP h3 · 162.159.197.2</string>
+    <string name="os_masque_7_name">MASQUE h3 (Alt)</string>
+    <string name="os_masque_7_desc">Cloudflare WARP h3 · 162.159.197.1</string>
+    <string name="os_masque_8_name">MASQUE h2 (4pda)</string>
+    <string name="os_masque_8_desc">Cloudflare WARP h2 · 162.159.197.2</string>
+    <string name="os_masque_9_name">MASQUE h2 (Alt)</string>
+    <string name="os_masque_9_desc">Cloudflare WARP h2 · 162.159.197.5</string>
+    <string name="os_masque_10_name">MASQUE 198.2</string>
+    <string name="os_masque_10_desc">Cloudflare WARP h2 · 162.159.198.2</string>
+    <string name="os_masque_11_name">MASQUE mail.ru</string>
+    <string name="os_masque_11_desc">Cloudflare WARP h2 · 162.159.199.2</string>
 </resources>

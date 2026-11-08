@@ -105,6 +105,66 @@ SNI = mail.ru
 Network = h3
 Profile = cloudflare"""
 
+    val MASQUE_6: String = """PrivateKey = MHcCAQEEIDGq2+BEUnc88zXO3v2H622vxJ7/J6ydI7iSZRmv3ymZoAoGCCqGSM49AwEHoUQDQgAEcQfc8lrqDeNvzXA+9rCrPd1BUpqhu9ehtAMQQIL1sdQI8wJGOaf7+jyhPQ8oguczV1UthXd0QeecnF4SAzjSog==
+PublicKey = MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w==
+Address = 172.16.0.2, 2606:4700:110:8a8b:5a75:3d7f:af48:303b
+MTU = 1360
+Server = 162.159.197.2
+Port = 443
+SNI = 4pda.to
+Network = h3
+Profile = cloudflare"""
+
+    val MASQUE_7: String = """PrivateKey = MHcCAQEEIDGq2+BEUnc88zXO3v2H622vxJ7/J6ydI7iSZRmv3ymZoAoGCCqGSM49AwEHoUQDQgAEcQfc8lrqDeNvzXA+9rCrPd1BUpqhu9ehtAMQQIL1sdQI8wJGOaf7+jyhPQ8oguczV1UthXd0QeecnF4SAzjSog==
+PublicKey = MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w==
+Address = 172.16.0.2, 2606:4700:110:8a8b:5a75:3d7f:af48:303b
+MTU = 1360
+Server = 162.159.197.1
+Port = 443
+SNI = 4pda.to
+Network = h3
+Profile = cloudflare"""
+
+    val MASQUE_8: String = """PrivateKey = MHcCAQEEIDGq2+BEUnc88zXO3v2H622vxJ7/J6ydI7iSZRmv3ymZoAoGCCqGSM49AwEHoUQDQgAEcQfc8lrqDeNvzXA+9rCrPd1BUpqhu9ehtAMQQIL1sdQI8wJGOaf7+jyhPQ8oguczV1UthXd0QeecnF4SAzjSog==
+PublicKey = MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w==
+Address = 172.16.0.2, 2606:4700:110:8a8b:5a75:3d7f:af48:303b
+MTU = 1360
+Server = 162.159.197.2
+Port = 443
+SNI = 4pda.to
+Network = h2
+Profile = cloudflare"""
+
+    val MASQUE_9: String = """PrivateKey = MHcCAQEEIDGq2+BEUnc88zXO3v2H622vxJ7/J6ydI7iSZRmv3ymZoAoGCCqGSM49AwEHoUQDQgAEcQfc8lrqDeNvzXA+9rCrPd1BUpqhu9ehtAMQQIL1sdQI8wJGOaf7+jyhPQ8oguczV1UthXd0QeecnF4SAzjSog==
+PublicKey = MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w==
+Address = 172.16.0.2, 2606:4700:110:8a8b:5a75:3d7f:af48:303b
+MTU = 1360
+Server = 162.159.197.5
+Port = 443
+SNI = 4pda.to
+Network = h2
+Profile = cloudflare"""
+
+    val MASQUE_10: String = """PrivateKey = MHcCAQEEIDNvVxQi6f70IY5ZXe57iwAxjLJRMA2ZqPWVHIfQcLCEoAoGCCqGSM49AwEHoUQDQgAEJXErBnXsRWEgVDgjz3CgZlc62HW2LovHdWLmeMqr8Yt9uYJx4ur3NhVM0100W9zyp7LLVTf/dTxb2MlFFK2T+g==
+PublicKey = MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w==
+Address = 172.16.0.2, 2606:4700:110:8cfe:cd54:bba3:2914:42c1
+MTU = 1360
+Server = 162.159.198.2
+Port = 443
+SNI = 4pda.to
+Network = h2
+Profile = cloudflare"""
+
+    val MASQUE_11: String = """PrivateKey = MHcCAQEEIDNvVxQi6f70IY5ZXe57iwAxjLJRMA2ZqPWVHIfQcLCEoAoGCCqGSM49AwEHoUQDQgAEJXErBnXsRWEgVDgjz3CgZlc62HW2LovHdWLmeMqr8Yt9uYJx4ur3NhVM0100W9zyp7LLVTf/dTxb2MlFFK2T+g==
+PublicKey = MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w==
+Address = 172.16.0.2, 2606:4700:110:8cfe:cd54:bba3:2914:42c1
+MTU = 1360
+Server = 162.159.199.2
+Port = 443
+SNI = mail.ru
+Network = h2
+Profile = cloudflare"""
+
     val ALL: List<Pair<String, String>> = listOf(
         "amnezia_1" to AMNEZIA_1,
         "amnezia_2" to AMNEZIA_2,
@@ -113,7 +173,13 @@ Profile = cloudflare"""
         "masque_2" to MASQUE_2,
         "masque_3" to MASQUE_3,
         "masque_4" to MASQUE_4,
-        "masque_5" to MASQUE_5
+        "masque_5" to MASQUE_5,
+        "masque_6" to MASQUE_6,
+        "masque_7" to MASQUE_7,
+        "masque_8" to MASQUE_8,
+        "masque_9" to MASQUE_9,
+        "masque_10" to MASQUE_10,
+        "masque_11" to MASQUE_11,
     )
 
     fun byId(id: String): String? = ALL.firstOrNull { it.first == id }?.second

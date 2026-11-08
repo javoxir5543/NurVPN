@@ -860,6 +860,23 @@ class MainActivity : AppCompatActivity() {
         android.util.Log.i("NurVPN-DEEPLINK", "Saved pending_deeplink")
     }
 
+    /**
+     * ★ FIX159: «Unknown sources» ruxsatidan qaytgach o'rnatishni
+     * avtomatik davom ettiramiz — avval foydalanuvchi «Yangilash»
+     * tugmasini qaytadan bosishi kerak edi.
+     *
+     * `MainActivity` da avval `onResume` UMUMAN yo'q edi.
+     */
+    override fun onResume() {
+        super.onResume()
+        try {
+            com.nurvpn.app.util.UpdateManager.resumePendingInstall(this)
+        } catch (t: Throwable) {
+            android.util.Log.w("NurVPN-UPDATE",
+                "resumePendingInstall xatosi: ${t.message}")
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         try {

@@ -65,10 +65,24 @@ object UpdateManager {
         } catch (e: Exception) { "1.0" }
     }
 
+    /**
+     * ★ FIX159: versiya qismlarini RAQAM bo'yicha ajratib olamiz.
+     *
+     * Avval `split(".").map { it.toIntOrNull() ?: 0 }` edi — harf
+     * aralash qismni jimgina `0` ga aylantirardi:
+     *
+     *     "1.12.1-beta" → [1, 12, 0]   (oxirgi raqam yo'qoladi)
+     *     "v1.12.2"     → [0, 12, 2]   (birinchi raqam 0)
+     *
+     * Endi: `"v1.12.2"` → `[1, 12, 2]`, `"1.12.1-beta"` → `[1, 12, 1]`.
+     */
+    private fun versionParts(v: String): List<Int> =
+        Regex("\\d+").findAll(v).map { it.value.toIntOrNull() ?: 0 }.toList()
+
     private fun isNewerVersion(latest: String, current: String): Boolean {
         return try {
-            val l = latest.split(".").map { it.toIntOrNull() ?: 0 }
-            val c = current.split(".").map { it.toIntOrNull() ?: 0 }
+            val l = versionParts(latest)
+            val c = versionParts(current)
             for (i in 0 until maxOf(l.size, c.size)) {
                 val lPart = l.getOrElse(i) { 0 }
                 val cPart = c.getOrElse(i) { 0 }
@@ -112,7 +126,16 @@ object UpdateManager {
                 val downloadDir = activity.cacheDir
                 if (!downloadDir.exists()) downloadDir.mkdirs()
                 val apkFile = File(downloadDir, "update.apk")
+                // ★ FIX159: eski/qoldiq APK larni tozalaymiz (joy tejaladi
+                //   va buzilgan yuklab olish qayta ishlatilmasin).
                 if (apkFile.exists()) apkFile.delete()
+                try {
+                    downloadDir.listFiles { f -> f.name.startsWith("update") }
+                        ?.forEach { f -> if (f.name != apkFile.name) f.delete() }
+                } catch (t: Throwable) {
+                    android.util.Log.w("NurVPN-UPDATE",
+                        "eski APK tozalash xatosi: ${t.message}")
+                }
 
                 val input = conn.inputStream
                 val output = FileOutputStream(apkFile)
@@ -147,13 +170,73 @@ object UpdateManager {
         }.start()
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    //  ★ FIX159: «Unknown sources» ruxsatidan keyin DAVOM ETISH
+    //
+    //  NUQSON: `installApk()` ruxsat yo'q bo'lsa Settings'ga o'tib
+    //  `return` qilardi — APK yuklangan bo'lsa ham o'rnatish
+    //  boshlanmasdi. Foydalanuvchi tugmani qaytadan bosishi kerak edi.
+    //
+    //  YECHIM: so'rovni vaqtincha eslab qolamiz, `MainActivity.onResume`
+    //  da ruxsat berilganini tekshirib AVTOMATIK davom ettiramiz.
+    // ═══════════════════════════════════════════════════════════════════
+
+    /** Rezyume oynasi: 2 daqiqa (foydalanuvchi Settings'da uzoq qolsa). */
+    private const val RESUME_WINDOW_MS = 2 * 60 * 1000L
+
+    private var pendingApk: File? = null
+    private var pendingAt: Long = 0L
+
+    /** Ruxsat so'ralayotganda APK ni eslab qolamiz. */
+    private fun rememberPending(apkFile: File) {
+        pendingApk = apkFile
+        pendingAt = System.currentTimeMillis()
+    }
+
+    /**
+     * `MainActivity.onResume()` dan chaqiriladi.
+     *
+     * Ruxsat berilgan bo'lsa — o'rnatishni avtomatik boshlaydi.
+     * Rezyume oynasi o'tgan yoki fayl yo'q bo'lsa — tozalaydi.
+     */
+    fun resumePendingInstall(activity: Activity) {
+        val apk = pendingApk ?: return
+        val fresh = System.currentTimeMillis() - pendingAt <= RESUME_WINDOW_MS
+        if (!fresh || !apk.exists()) {
+            pendingApk = null
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                && !activity.packageManager.canRequestPackageInstalls()) {
+            return                      // ruxsat hali berilmagan — kutamiz
+        }
+        pendingApk = null               // ikki marta ishga tushmasin
+        installApk(activity, apk)
+    }
+
+    /** O'rnatish dialogi ochilgach APK ni o'chirish (joy tejaladi). */
+    fun cleanupInstall() {
+        pendingApk = null
+    }
+
     private fun installApk(activity: Activity, apkFile: File) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!activity.packageManager.canRequestPackageInstalls()) {
                 Toast.makeText(activity, activity.getString(com.nurvpn.app.R.string.update_unknown_sources), Toast.LENGTH_LONG).show()
+                // ★ FIX159: so'rovni eslab qolamiz — foydalanuvchi ruxsat
+                //   berib qaytganda `onResume` o'rnatishni DAVOM ettiradi.
+                rememberPending(apkFile)
                 val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
                     .setData(Uri.parse("package:" + activity.packageName))
-                activity.startActivity(intent)
+                try {
+                    activity.startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(activity,
+                        activity.getString(
+                            com.nurvpn.app.R.string.toast_install_error_fmt,
+                            e.message),
+                        Toast.LENGTH_LONG).show()
+                }
                 return
             }
         }

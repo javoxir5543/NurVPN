@@ -39,6 +39,12 @@ object OpenSourceCatalog {
         OpenSourceSubscription(id = "masque_3", nameRes = R.string.os_masque_3_name, descriptionRes = R.string.os_masque_3_desc, awgId = "masque_3", flag = "\uD83C\uDF10"),
         OpenSourceSubscription(id = "masque_4", nameRes = R.string.os_masque_4_name, descriptionRes = R.string.os_masque_4_desc, awgId = "masque_4", flag = "\u2601\uFE0F"),
         OpenSourceSubscription(id = "masque_5", nameRes = R.string.os_masque_5_name, descriptionRes = R.string.os_masque_5_desc, awgId = "masque_5", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "masque_6", nameRes = R.string.os_masque_6_name, descriptionRes = R.string.os_masque_6_desc, awgId = "masque_6", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "masque_7", nameRes = R.string.os_masque_7_name, descriptionRes = R.string.os_masque_7_desc, awgId = "masque_7", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "masque_8", nameRes = R.string.os_masque_8_name, descriptionRes = R.string.os_masque_8_desc, awgId = "masque_8", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "masque_9", nameRes = R.string.os_masque_9_name, descriptionRes = R.string.os_masque_9_desc, awgId = "masque_9", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "masque_10", nameRes = R.string.os_masque_10_name, descriptionRes = R.string.os_masque_10_desc, awgId = "masque_10", flag = "\u2601\uFE0F"),
+        OpenSourceSubscription(id = "masque_11", nameRes = R.string.os_masque_11_name, descriptionRes = R.string.os_masque_11_desc, awgId = "masque_11", flag = "\u2601\uFE0F"),
         OpenSourceSubscription(id = "radikal_hy2", nameRes = R.string.os_radikal_hy2_name, descriptionRes = R.string.os_radikal_hy2_desc, url = "https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs/main/protocols/hysteria2.txt", flag = "\uD83C\uDF10"),
     )
 

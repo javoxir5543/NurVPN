@@ -5,7 +5,7 @@ import org.junit.Test
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- *  v1.12.0 — TASDIQLANGAN FAKTLAR UCHUN REGRESSIYA TESTLARI
+ *  v1.12.2 — TASDIQLANGAN FAKTLAR UCHUN REGRESSIYA TESTLARI
  *  (BUILD.VERSION + restart cooldown + scroll teskari mantiq)
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -22,26 +22,26 @@ class V112FixesTest {
     // ═══════════════ BUG #2: VERSION BUMP ═══════════════
 
     @Test
-    fun `bug2 - versionName 1_12_0 ga kotarilgan`() {
+    fun `bug2 - versionName 1_12_2 ga kotarilgan`() {
         val g = src("app/build.gradle")
         assertTrue(
-            "⚠️ BUG#2: versionName 1.12.0 bo'lishi shart. " +
+            "⚠️ BUG#2: versionName 1.12.2 bo'lishi shart. " +
                 "Telefonda eski versiya ishlayapti — yangi APK " +
                 "o'rnatilmaydi. Topilgan: " +
                 Regex("versionName\\s+\"([^\"]+)\"").find(g)?.value,
-            g.contains("versionName \"1.12.0\"")
+            g.contains("versionName \"1.12.2\"")
         )
     }
 
     @Test
-    fun `bug2 - versionCode 22 ga kotarilgan (19 emas)`() {
+    fun `bug2 - versionCode 24 ga kotarilgan (19 emas)`() {
         val g = src("app/build.gradle")
         val m = Regex("versionCode\\s+(\\d+)").find(g)
         assertNotNull("versionCode topilmadi", m)
         assertEquals(
-            "⚠️ BUG#2: versionCode 22 bo'lishi shart — aks holda Android " +
+            "⚠️ BUG#2: versionCode 24 bo'lishi shart — aks holda Android " +
                 "APK'ni yangilash deb hisoblamaydi (VERSION_DOWNGRADE)",
-            "22", m!!.groupValues[1]
+            "24", m!!.groupValues[1]
         )
     }
 
@@ -51,9 +51,9 @@ class V112FixesTest {
         val code = Regex("versionCode\\s+(\\d+)").find(g)!!.groupValues[1].toInt()
         val name = Regex("versionName\\s+\"([^\"]+)\"").find(g)!!
             .groupValues[1]
-        assertEquals("versionName 1.12.0 bo'lishi kerak", "1.12.0", name)
-        assertTrue("versionCode 22 bo'lishi kerak, topildi: $code",
-            code == 22)
+        assertEquals("versionName 1.12.2 bo'lishi kerak", "1.12.2", name)
+        assertTrue("versionCode 24 bo'lishi kerak, topildi: $code",
+            code == 24)
     }
 
     @Test

@@ -147,6 +147,50 @@ class SettingsFragment : Fragment() {
 
     private fun setupOpenSources(view: View) {
         val container = view.findViewById<LinearLayout>(R.id.open_source_container) ?: return
+        // ⚠️ FIX161: `ctx` shu metodda mavjud emas — lokal olamiz
+        val ctx = requireContext()
+
+        // ═══════════════════════════════════════════════════════════
+        //  ★ FIX161: Cloudflare WARP (MASQUE) generator
+        //
+        //  ⚠️ Tarmoq so'rovi UI oqimida EMAS — `Thread` ichida.
+        //     API so'rovi 20 sekundgacha cho'zilishi mumkin, shuning
+        //     uchun UI'ni bloklash MUMKIN EMAS.
+        // ═══════════════════════════════════════════════════════════
+        // ★ Bir marta RFC 7748 vektorlarini tekshiramiz (logcat'da ko'rinadi)
+        Thread {
+            if (!com.nurvpn.app.util.WarpGenerator.selftest()) {
+                android.util.Log.e("NurVPN-WARP", "selftest MUVAFFAQIYATSIZ")
+            }
+        }.start()
+
+        view.findViewById<android.widget.Button>(R.id.warp_generate_btn)
+            ?.setOnClickListener { btn ->
+                val act = activity as? MainActivity
+                if (act == null) {
+                    Toast.makeText(ctx, getString(R.string.warp_err_no_activity),
+                        Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
+                // ⚠️ Ikki marta bosishdan himoya
+                btn.isEnabled = false
+                val dlg = android.app.ProgressDialog(ctx).apply {
+                    setTitle(getString(R.string.warp_progress_title))
+                    setMessage(getString(R.string.warp_progress_msg))
+                    setCancelable(false)
+                    show()
+                }
+                Thread {
+                    val res = com.nurvpn.app.util.WarpGenerator.generate()
+                    act.runOnUiThread {
+                        try { dlg.dismiss() } catch (ignored: Throwable) {}
+                        btn.isEnabled = true
+                        onWarpGenerated(act, res.conf, res.endpoint, res.error)
+                    }
+                }.start()
+            }
+
+
         val inflater = LayoutInflater.from(requireContext())
         container.removeAllViews()
 
@@ -518,6 +562,66 @@ class SettingsFragment : Fragment() {
             exportMetrics()
         }
         return v
+    }
+
+    /**
+     * ★ FIX161: WARP generator natijasini qayta ishlash.
+     *
+     * Muvaffaqiyat: `AWGConfig` yaratib `awg.xml` ga saqlaydi va
+     * darhol joriy config qilib tanlaydi (`selectAWG`).
+     * ⚠️ `type` ni QO'LDA yozmaymiz — `AWGStore.load()` uni
+     *    `rawConf` matnidan o'zi aniqlaydi (yagona haqiqat manbasi).
+     */
+    private fun onWarpGenerated(
+        act: MainActivity,
+        conf: String?,
+        endpoint: String?,
+        error: String?
+    ) {
+        // ⚠️ `onWarpGenerated` — alohida metod, `ctx` bu yerda yo'q
+        val ctx = context ?: return
+        if (conf == null) {
+            val msg = when (error) {
+                "tarmoq" -> getString(R.string.warp_err_network)
+                "kalit_generatsiya" -> getString(R.string.warp_err_crypto)
+                "api_401", "api_403", "api_429" -> getString(R.string.warp_err_blocked)
+                else -> getString(R.string.warp_err_generic)
+            }
+            android.widget.Toast.makeText(ctx, msg,
+                android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        try {
+            val list = AWGStore.load(ctx)
+            // ⚠️ Takroriy qo'shishdan himoya
+            if (list.any { it.rawConf == conf }) {
+                android.widget.Toast.makeText(ctx,
+                    getString(R.string.warp_already_exists),
+                    android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+            val cfg = AWGConfig(conf)
+            cfg.endpoint = endpoint
+            cfg.address = ""
+            cfg.name = "WARP MASQUE " + (endpoint ?: "")
+            list.add(cfg)
+            AWGStore.save(ctx, list)
+
+            // Xotiradagi ro'yxatni yangilab, darhol tanlaymiz
+            act.awgConfigs = AWGStore.load(act)
+            val fresh = act.awgConfigs.firstOrNull { it.rawConf == conf } ?: cfg
+            act.selectAWG(fresh)
+            act.protocol = MainActivity.PROTO_AWG
+            android.util.Log.i("NurVPN-WARP",
+                "WARP config qo'shildi: ${fresh.endpoint}")
+            android.widget.Toast.makeText(ctx,
+                getString(R.string.warp_success, endpoint ?: ""),
+                android.widget.Toast.LENGTH_LONG).show()
+        } catch (t: Throwable) {
+            android.util.Log.e("NurVPN-WARP", "saqlash xatosi", t)
+            android.widget.Toast.makeText(ctx, getString(R.string.warp_err_generic),
+                android.widget.Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun showDnsDialog(a: MainActivity) {
