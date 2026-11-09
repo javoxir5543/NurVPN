@@ -100,7 +100,12 @@ object UpdateManager {
             .setPositiveButton(activity.getString(com.nurvpn.app.R.string.update_btn_now)) { _, _ ->
                 downloadAndInstall(activity, apkUrl)
             }
-            .setNegativeButton(activity.getString(com.nurvpn.app.R.string.update_btn_later), null)
+            .setNegativeButton(activity.getString(com.nurvpn.app.R.string.update_btn_later)) { _, _ ->
+                // ★ FIX_V1122_AUDIT: "Keyinroq" — kutayotgan o'rnatishni tozalaymiz
+                //   (aks holda `resumePendingInstall` 2 daqiqa ichida
+                //   foydalanuvchi istamagan o'rnatishni boshlab yuborardi).
+                cleanupInstall()
+            }
             .show()
     }
 
@@ -147,7 +152,12 @@ object UpdateManager {
                     total += count
                     if (fileLength > 0) {
                         val progress = (total * 100 / fileLength).toInt()
-                        activity.runOnUiThread { progressDialog.progress = progress }
+                        activity.runOnUiThread {
+                            // ★ FIX_V1122_AUDIT: yaroqli Activity'da yangilaymiz.
+                            if (!activity.isFinishing && !activity.isDestroyed) {
+                                progressDialog.progress = progress
+                            }
+                        }
                     }
                     output.write(data, 0, count)
                 }
@@ -157,13 +167,26 @@ object UpdateManager {
                 input.close()
 
                 activity.runOnUiThread {
+                    // ★ FIX_V1122_AUDIT: Activity yaroqli bo'lsa ishlaymiz.
+                    //   Yuklab olish paytida foydalanuvchi Back bosib
+                    //   chiqsa, `dismiss()` WindowLeaked beradi va
+                    //   FileProvider/startActivity yiqiladi.
+                    if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     progressDialog.dismiss()
                     installApk(activity, apkFile)
                 }
 
             } catch (e: Exception) {
                 activity.runOnUiThread {
-                    progressDialog.dismiss()
+                    // ★ FIX_V1122_AUDIT: xato yo'lida ham lifecycle himoyasi.
+                    try {
+                        if (!activity.isFinishing && !activity.isDestroyed) {
+                            progressDialog.dismiss()
+                        }
+                    } catch (t: Throwable) {
+                        // dialog allaqachon yopilgan — e'tiborsiz
+                    }
+                    if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     Toast.makeText(activity, activity.getString(com.nurvpn.app.R.string.update_error, e.message ?: ""), Toast.LENGTH_LONG).show()
                 }
             }
@@ -200,6 +223,8 @@ object UpdateManager {
      * Rezyume oynasi o'tgan yoki fayl yo'q bo'lsa — tozalaydi.
      */
     fun resumePendingInstall(activity: Activity) {
+        // ★ FIX_V1122_AUDIT: onResume chaqirilayotganda Activity yaroqli bo'lishi kerak.
+        if (activity.isFinishing || activity.isDestroyed) return
         val apk = pendingApk ?: return
         val fresh = System.currentTimeMillis() - pendingAt <= RESUME_WINDOW_MS
         if (!fresh || !apk.exists()) {
@@ -220,6 +245,9 @@ object UpdateManager {
     }
 
     private fun installApk(activity: Activity, apkFile: File) {
+        // ★ FIX_V1122_AUDIT: Activity tirik emas — o'rnatishni boshlash xavfli.
+        if (activity.isFinishing || activity.isDestroyed) return
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!activity.packageManager.canRequestPackageInstalls()) {
                 Toast.makeText(activity, activity.getString(com.nurvpn.app.R.string.update_unknown_sources), Toast.LENGTH_LONG).show()

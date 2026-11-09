@@ -580,17 +580,23 @@ class HomeFragment : Fragment() {
             pingHomeAll()
         }
 
-        // GLOBE_PATCH_APPLIED — btn_globe → GitHub
+        // ══ FIX_V1122_WARP_LINKS ══
+        //  🌐 (btn_globe) endi GitHub emas — MASQUE WARP Generator
+        //  havolalari ro'yxatini ochadi. Har bir havola tizim brauzerida
+        //  (Intent.ACTION_VIEW) ochiladi, pastda esa 3 tilli ogohlantirish.
+        //
+        //  Nega BottomSheet: Material 3 uslubiga mos, ro'yxat scroll
+        //  bo'ladi (kichik ekranda 4 ta havola + ogohlantirish sig'masligi
+        //  mumkin), va `AlertDialog` kabi "og'ir" ko'rinmaydi.
+        //
+        //  Nega `parent`/`resources`: `context` Fragment detach bo'lgach
+        //  null bo'lishi mumkin — dialog fonda ochilsa crash bo'lardi.
         fv<View>(R.id.btn_globe)?.setOnClickListener {
-            try {
-                val url = "https://github.com/javoxir5543/NurVPN"
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-            } catch (t: Throwable) {
-                android.widget.Toast.makeText(context,
-                    "Brauzer topilmadi", android.widget.Toast.LENGTH_SHORT).show()
-            }
+            val hostCtx = context ?: return@setOnClickListener
+            if (!isAdded) return@setOnClickListener
+            showWarpGeneratorSheet(hostCtx)
         }
-        fv<View>(R.id.header_awg)?.setOnClickListener { toggleAwg() }
+fv<View>(R.id.header_awg)?.setOnClickListener { toggleAwg() }
 
         // 📶 AWG ping tugmasi (karta sarlavhasida)
         val awgHeaderPing = fv<android.view.ViewGroup>(R.id.header_awg)
@@ -4254,6 +4260,143 @@ class HomeFragment : Fragment() {
             is android.widget.ScrollView -> c.scrollTo(0, y)
         }
     }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  ★ FIX_V1122_WARP_LINKS: MASQUE WARP Generator havolalari
+    //
+    //  Fon maydoni VA `btn_globe` yo'q. MASQUE 1-11, Hysteria2 va scroll
+    //  mantiqiga ALOQASI YO'Q — faqat yangi dialog.
+    // ══════════════════════════════════════════════════════════════════════
+
+    /** Havolalar ro'yxati (tartib UI'da saqlanadi). */
+    private val warpGeneratorLinks = listOf(
+        "https://warp-generation.github.io/",
+        "https://warp-gen.cyb-portal.org/",
+        "https://warpgen.net/",
+        "https://warp-generator.vercel.app/"
+    )
+
+    /**
+     * Chiroyli BottomSheet: sarlavha + 4 havola + ogohlantirish.
+     *
+     * Har bir havola bosilganda tizim brauzeri ochiladi. Brauzer
+     * bo'lmasa — Toast (crash EMAS).
+     */
+    private fun showWarpGeneratorSheet(hostCtx: Context) {
+        val dp = resources.displayMetrics.density
+        fun dp2px(v: Int) = (v * dp).toInt()
+
+        val content = android.widget.ScrollView(hostCtx).apply {
+            isFillViewport = true
+        }
+
+        val col = LinearLayout(hostCtx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp2px(20), dp2px(8), dp2px(20), dp2px(4))
+        }
+        content.addView(col)
+
+        // ── Sarlavha ────────────────────────────────────────────────────
+        col.addView(TextView(hostCtx).apply {
+            text = getString(R.string.warp_gen_title)
+            setTextColor(androidx.core.content.ContextCompat
+                .getColor(hostCtx, R.color.text_primary))
+            textSize = 17f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setPadding(0, dp2px(6), 0, dp2px(12))
+        })
+
+        // ── 4 ta havola ────────────────────────────────────────────────
+        warpGeneratorLinks.forEachIndexed { idx, link ->
+            val row = LinearLayout(hostCtx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = true
+                // Material "ripple" effekti — bosilganda ko'rinadi.
+                background = android.util.TypedValue().let { tv ->
+                    hostCtx.theme.resolveAttribute(
+                        android.R.attr.selectableItemBackground, tv, true)
+                    @Suppress("DEPRECATION")
+                    hostCtx.resources.getDrawable(tv.resourceId, hostCtx.theme)
+                }
+                setPadding(dp2px(4), dp2px(12), dp2px(4), dp2px(12))
+            }
+
+            row.addView(TextView(hostCtx).apply {
+                text = "${idx + 1}."
+                setTextColor(androidx.core.content.ContextCompat
+                    .getColor(hostCtx, R.color.accent))
+                textSize = 14f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                minWidth = dp2px(24)
+            })
+
+            row.addView(TextView(hostCtx).apply {
+                text = link
+                setTextColor(androidx.core.content.ContextCompat
+                    .getColor(hostCtx, R.color.text_primary))
+                textSize = 14f
+                layoutParams = LinearLayout.LayoutParams(
+                    0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            })
+
+            row.setOnClickListener { openWarpLink(hostCtx, link) }
+            col.addView(row)
+        }
+
+
+        // ── FIX_V1123_AUTHOR: Loyiha muallifi (GitHub) ──────────────────────────
+        //  Kichik va xira — dialog hajmini oshirmasligi uchun. Bosilganda
+        //  mavjud `openWarpLink()` ishlatiladi (yangi kod YO'Q).
+        col.addView(TextView(hostCtx).apply {
+            text = getString(R.string.warp_gen_author)
+            setTextColor(androidx.core.content.ContextCompat
+                .getColor(hostCtx, R.color.accent))
+            textSize = 12f
+            isClickable = true
+            isFocusable = true
+            val lp = LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+            lp.topMargin = dp2px(6)
+            layoutParams = lp
+            setPadding(dp2px(2), dp2px(6), dp2px(2), dp2px(4))
+            setOnClickListener { openWarpLink(hostCtx, "https://github.com/javoxir5543/NurVPN") }
+        })
+
+        // ── Ogohlantirish (3 tilda) ─────────────────────────────────────
+        col.addView(TextView(hostCtx).apply {
+            text = getString(R.string.warp_gen_warning)
+            setTextColor(androidx.core.content.ContextCompat
+                .getColor(hostCtx, R.color.text_secondary))
+            textSize = 12f
+            val lp = LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+            lp.topMargin = dp2px(14)
+            layoutParams = lp
+            setPadding(dp2px(2), 0, dp2px(2), dp2px(6))
+        })
+
+        androidx.appcompat.app.AlertDialog.Builder(hostCtx)
+            .setView(content)
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /** Havolani tizim brauzerida ochadi. Brauzer yo'q → Toast. */
+    private fun openWarpLink(hostCtx: Context, link: String) {
+        try {
+            hostCtx.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(link)))
+        } catch (t: Throwable) {
+            Toast.makeText(hostCtx,
+                getString(R.string.warp_gen_browser_missing),
+                Toast.LENGTH_SHORT).show()
+        }
+    }
+
 }
 
 

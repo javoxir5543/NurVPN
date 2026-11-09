@@ -727,19 +727,6 @@
                 android:textSize="12sp"
                 android:layout_marginTop="4dp"
                 android:layout_marginBottom="4dp"/>
-
-
-            <!-- ★ FIX161: Cloudflare WARP (MASQUE) generator -->
-            <Button
-                android:id="@+id/warp_generate_btn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"
-                android:text="@string/warp_generate_btn"
-                android:textSize="13sp"
-                android:minHeight="44dp"/>
-
             <LinearLayout
                 android:id="@+id/open_source_container"
                 android:layout_width="match_parent"

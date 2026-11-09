@@ -458,18 +458,6 @@
     <string name="toast_yaml_wg_error">YAML WireGuard parse error</string>
     <string name="toast_install_error_fmt">Error starting installation: %1$s</string>
 
-    <!-- ★ FIX161-WARPGEN: WARP generator matnlari -->
-    <string name="warp_generate_btn">☁ Создать WARP (MASQUE)</string>
-    <string name="warp_progress_title">Создание WARP</string>
-    <string name="warp_progress_msg">Подключение к Cloudflare…</string>
-    <string name="warp_success">✅ WARP сервер создан и добавлен: %1$s</string>
-    <string name="warp_already_exists">Эта конфигурация WARP уже существует</string>
-    <string name="warp_err_network">Нет подключения к интернету или API не отвечает</string>
-    <string name="warp_err_crypto">Ошибка генерации ключа (X25519 не поддерживается)</string>
-    <string name="warp_err_blocked">API Cloudflare отклонил запрос. Попробуйте позже</string>
-    <string name="warp_err_generic">Ошибка API. Попробуйте позже</string>
-    <string name="warp_err_no_activity">Страница не загружена — попробуйте снова</string>
-
     <!-- ★ FIX162-KIBERWARP: Kiberportal WARP configlari -->
     <string name="os_masque_6_name">MASQUE h3 (4pda)</string>
     <string name="os_masque_6_desc">Cloudflare WARP h3 · 162.159.197.2</string>
@@ -483,4 +471,11 @@
     <string name="os_masque_10_desc">Cloudflare WARP h2 · 162.159.198.2</string>
     <string name="os_masque_11_name">MASQUE mail.ru</string>
     <string name="os_masque_11_desc">Cloudflare WARP h2 · 162.159.199.2</string>
+
+    <!-- ★ FIX_V1122_WARP_LINKS: WARP Generator havolalari -->
+    <string name="warp_gen_title">Masque WARP Generator ➡️🌐</string>
+    <string name="warp_gen_author">Проект автора: GitHub</string>
+    <string name="warp_gen_warning">Если ссылки не открываются, включите VPN и попробуйте снова.</string>
+    <string name="warp_gen_browser_missing">Браузер не найден</string>
+
 </resources>
