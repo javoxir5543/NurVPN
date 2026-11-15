@@ -68,15 +68,25 @@ object BiometricAuthHelper {
         )
 
         if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
-            // Agar telefonda parol, PIN yoki barmoq izi umuman bo'lmasa:
-            // Foydalanuvchini bloklab qo'ymaymiz, faqat ogohlantiramiz.
+            // ★ H4 TUZATISH (audit): qurilmada ekran qulfi ham, barmoq izi ham YO'Q.
+            //
+            //   ILGARI: `onSuccess()` chaqirilardi ("Ruxsat beramiz") — ya'ni
+            //   himoya UMUMAN ishlamasdi: qulfni olib tashlagan foydalanuvchi
+            //   (yoki uni o'rnatmagan) ilova qulfini bir bosishda ochardi.
+            //
+            //   ENDI: `onUnavailable()` — soxta "muvaffaqiyat" bermaymiz.
+            //   Chaqiruvchi o'zi qaror qiladi (ogohlantiradi yoki ochiq qoldiradi),
+            //   lekin xavfsizlik "soxta yoqilgan" ko'rinmaydi.
             android.widget.Toast.makeText(
                 activity,
                 activity.getString(com.nurvpn.app.R.string.bio_no_lock),
                 android.widget.Toast.LENGTH_LONG
             ).show()
-            
-            onSuccess() // Ruxsat beramiz
+
+            android.util.Log.w("NurVPN-Bio",
+                "Qurilmada ekran qulfi ham, biometrika ham yo'q — autentifikatsiya " +
+                "o'tkazilmadi (onError)")
+            onError(activity.getString(com.nurvpn.app.R.string.bio_no_lock))
             return
         }
 

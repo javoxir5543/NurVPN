@@ -54,6 +54,9 @@ class SettingsFragment : Fragment() {
     private var splitModeGroup: android.widget.RadioGroup? = null
     private var dnsInput: EditText? = null
     private var killSwitch: MaterialSwitch? = null
+
+    /** ★ C5: qisman himoya ogohlantirishi bir marta chiqishi uchun. */
+    private var lastWarnedPartial = false
     private var ipv6Switch: MaterialSwitch? = null
     private var dnsLeakSwitch: MaterialSwitch? = null
     private var leakResultBox: android.widget.LinearLayout? = null
@@ -331,7 +334,8 @@ class SettingsFragment : Fragment() {
             R.id.proto_awg else R.id.proto_xray
         protoGroup?.check(pid)
 
-        killSwitch?.isChecked = a.prefs.getBoolean("kill_switch", false)
+        // ★ C5: ilova ichidagi sozlamadan o'qiymiz (dialogsiz ON/OFF).
+        syncKillSwitchState()
         ipv6Switch?.isChecked = IPv6Blocker.isBlocked(ctx)
         dnsLeakSwitch?.isChecked = DNSLeakProtection.isEnabled(ctx)
 
@@ -416,7 +420,11 @@ class SettingsFragment : Fragment() {
 
         killSwitch?.setOnCheckedChangeListener { _, ch ->
             if (binding) return@setOnCheckedChangeListener
-            showSystemVpnPrompt(ch)
+            // ★ C5: DIALOGSIZ — foydalanuvchi qarori (2026-11-15).
+            //   Ilova O'ZI bloklaydi (blackhole TUN), tizim sozlamasi kerak emas.
+            com.nurvpn.app.storage.KillSwitchStore.setEnabled(ctx, ch)
+            lastWarnedPartial = ch   // ogohlantirishni qayta ko'rsatmaslik
+            android.util.Log.i("NurVPN-KS", "Kill-switch: " + (if (ch) "YONIQ" else "O'CHIQ"))
         }
 
         ipv6Switch?.setOnCheckedChangeListener { _, ch ->
@@ -737,12 +745,12 @@ class SettingsFragment : Fragment() {
                 val a = activity as? com.nurvpn.app.ui.MainActivity
                 a?.prefs?.edit()?.putBoolean("kill_switch", isEnabling)?.apply()
                 
-                try {
-                    val intent = android.content.Intent("android.net.vpn.SETTINGS")
-                    startActivity(intent)
-                } catch (e: Exception) {
+                // ★ C5 TUZATISH: holatni pref'ga YOZMAYMIZ — tizimdan o'qiymiz.
+                //   Dialogdan qaytgach `onResume` -> `syncKillSwitchState()`
+                //   haqiqiy holatni ko'rsatadi.
+                if (!com.nurvpn.app.util.KillSwitch.openSettings(c)) {
                     android.widget.Toast.makeText(c,
-                        getString(R.string.toast_error_prefix, e.message),
+                        getString(R.string.toast_error_prefix, "VPN sozlamalari ochilmadi"),
                         android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
@@ -759,5 +767,28 @@ class SettingsFragment : Fragment() {
                 binding = false
             }
             .show()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // ★ C5: foydalanuvchi tizim sozlamalaridan qaytgach holatni yangilaymiz
+        syncKillSwitchState()
+    }
+
+    /**
+     * ★ C5 TUZATISH: switch holatini TIZIMDAN o'qiydi.
+     * Lockdown yoqilmagan bo'lsa — switch o'chiq ko'rinadi va
+     * foydalanuvchi himoya yo'qligini biladi.
+     */
+    private fun syncKillSwitchState() {
+        val ctx = context ?: return
+        val ks = killSwitch ?: return
+        binding = true
+        try {
+            // ★ C5: ILOVA ichidagi sozlama (tizim sozlamasi emas).
+            ks.isChecked = com.nurvpn.app.storage.KillSwitchStore.isEnabled(ctx)
+        } finally {
+            binding = false
+        }
     }
 }

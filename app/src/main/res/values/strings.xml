@@ -482,4 +482,5 @@
     <string name="os_amnezia_5_desc">ClashWARP 22 #2 — 162.159.192.1</string>
     <string name="os_amnezia_6_name">AmneziaWG 6</string>
     <string name="os_amnezia_6_desc">ClashWARP 22 #3 — 162.159.192.1</string>
+    <string name="kill_switch_partial_warning">Always-on yoqilgan, lekin "VPN\'siz ulanishni bloklash" YOQILMAGAN — VPN uzilsa IP oshkor bo\'ladi. Sozlamalarda yoqing.</string>
 </resources>
