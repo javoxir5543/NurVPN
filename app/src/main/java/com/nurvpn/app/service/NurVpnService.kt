@@ -312,6 +312,14 @@ class NurVpnService : VpnService() {
                 // ★ C5 MUHIM: eski tunnel YOPILDI, yangisi hali YO'Q.
                 //   Bu 1.5 s davomida trafik ochiq — real IP oshkor bo'ladi.
                 //   Kill-switch yoqilgan bo'lsa SHU OYNADA bloklaymiz.
+                //
+                // ⚠️ `tun?.close()` (307) bilan Android faol VPN'ni yo'qotadi
+                //    va BLOKLOVCHI TUN ham o'ladi. Lekin `blockTun` maydoni
+                //    hali non-null — shuning uchun `startBlockTun()`
+                //    "allaqachon faol" deb o'ylab, YANGI blok OCHMAYDI.
+                //    (Qurilmada tasdiqlangan: 0.66 s bo'shliq, IP oshkor.)
+                //    Shuning uchun avval MAJBURAN tozalaymiz.
+                blockTun = null
                 applyKillSwitch(false)
 
                 // c) 1 sekund kutish
@@ -619,7 +627,33 @@ class NurVpnService : VpnService() {
 
             tun = builder.establish() ?: throw Exception("TUN ochilmadi")
             Log.i(TAG, "═══ TUN OCHILDI: fd=${tun!!.fd} ═══")
-            return tun!!.fd
+            // ★★★ C5 KRITIK (2026-11-15) ★★★
+            // Yangi (libbox) TUN ochildi — Android endi SHUNI faol VPN deb
+            // biladi va bloklovchi TUN AVTOMATIK O'LADI (bir vaqtda faqat
+            // bitta VPN bo'ladi).
+            //
+            // `blockTun` maydonini TOZALAMASak, `startBlockTun()` keyingi
+            // safar "blok allaqachon faol" deb o'ylab, YANGI blok ochmaydi
+            // — natijada keyingi uzilishda bo'shliq paydo bo'ladi.
+            //   (Qurilmada tasdiqlangan: 2 marta bo'shliq.)
+            //
+            // ⚠️ LEKIN `blockTun = null` YETARLI EMAS: yangi libbox TUN
+            //    ochilishi bilan bloklovchi TUN o'lgan, ya'ni AYNAN SHU
+            //    PAYTDA default route egasi YO'Q → trafik asosiy tarmoqqa
+            //    qaytadi → REAL IP OSHKOR BO'LADI.
+            //
+            //    Shuning uchun yangi TUN ochilgach DARHOL blokni qayta
+            //    ochamiz. U `applyKillSwitch(true)` (config yuklangach)
+            //    chaqirilguncha turadi — aynan kerakli payt.
+            blockTun = null
+            val newFd = tun!!.fd
+            if (killSwitchOn()) {
+                // Yangi TUN egasidan KEYIN ochamiz — u ustun bo'ladi.
+                if (!startBlockTun()) {
+                    Log.w(TAG, "⚠️ KS: yangi TUN ochildi, blokni tiklab bo'lmadi")
+                }
+            }
+            return newFd
         }
 
         override fun autoDetectInterfaceControl(fd: Int) {
@@ -768,6 +802,15 @@ class NurVpnService : VpnService() {
                             return
                         }
                         Log.i(TAG, "✅ Tarmoq yo'qoldi — restart rejalashtirildi")
+                        // ★★★ C5 KRITIK TUZATISH (2026-11-15) ★★★
+                        // Tarmoq yo'qoldi, lekin restart 8 soniya kutadi
+                        // (NETWORK_STABILIZE_MS). SHU OYNADA tunnel uzilgan
+                        // tarmoqqa bog'lanib qoladi va trafik ODDIY YO'LGA
+                        // o'tib, REAL IP OSHKOR BO'LADI.
+                        //   (Qurilmada tasdiqlangan: TUN 10+ marta yo'qolgan,
+                        //    blok faqat 1 marta ishlagan.)
+                        // DARHOL bloklaymiz — restart tugagach ochiladi.
+                        applyKillSwitch(false)
                         lastRestartTime = now
                         this@NurVpnService.scheduleNetworkRestart(NETWORK_STABILIZE_MS)
                     }
@@ -1038,25 +1081,51 @@ class NurVpnService : VpnService() {
      * @return `true` — blok faol.
      */
     private fun startBlockTun(): Boolean {
-        if (blockTun != null) return true          // allaqachon faol
-        if (!killSwitchOn()) return false
+        if (blockTun != null) {
+            Log.i(TAG, "🛡 KS: blok allaqachon faol")
+            return true          // allaqachon faol
+        }
+        if (!killSwitchOn()) {
+            Log.i(TAG, "🛡 KS: sozlama O'CHIQ — blok kerak emas")
+            return false
+        }
+        Log.i(TAG, "🛡 KS: blok ochilmoqda...")
         return try {
             // ★ Builder — VpnService'ning INNER class'i, shuning uchun
             //   tashqi sinf orqali chaqiriladi (`this@NurVpnService`).
             val b = this@NurVpnService.Builder()
-            // Manzil kerak (aks holda TUN ochilmaydi), lekin ROUTE YO'Q.
+
+            // ── ★★★ C5 KRITIK TUZATISH (2026-11-15) ★★★ ──────────────
+            // ILGARI: route QO'SHILMASDI → Android VPN hech narsani
+            //         tutmasdi → trafik ODDIY tarmoqdan chiqib, REAL IP
+            //         OSHKOR BO'LARDI. (Qurilmada tasdiqlangan: blok paytida
+            //         `inbound connection to 1.1.1.1:853` o'tgan.)
+            //
+            // ENDI: 0.0.0.0/0 + ::/0 qo'shamiz → BARCHA trafik shu TUN'ga
+            //       yo'naltiriladi. Biz uni O'QIMAYMIZ → paketlar qora
+            //       tuynuqqa tushadi → hech qanday IP oshkor bo'lmaydi.
+            //
+            // ⚠️ MUHIM: paketni o'qish (read) SHART EMAS. Tizim yozadi,
+            //    biz o'qimaymiz — bu Android'da to'liq blok beradi.
+            // ───────────────────────────────────────────────────────────
             b.addAddress("10.255.255.1", 32)
+            b.addAddress("fd00:0:0:0:0:0:0:1", 128)
             b.setMtu(1280)
-            // ★ DNS ham YO'Q, route ham YO'Q — hamma narsa blokda.
-            if (Build.VERSION.SDK_INT >= 29) {
-                // O'zimizni blokdan chiqaramiz (aks holda ilova ham ishlamaydi)
-                runCatching { b.addDisallowedApplication(this@NurVpnService.packageName) }
-            }
+
+            // ★★ BARCHA trafik — bloklovchi TUN orqali (qora tuynuq)
+            b.addRoute("0.0.0.0", 0)
+            b.addRoute("::", 0)
+
+            // ✅ O'ZIMIZNI blokdan chiqaramiz — ilova UI/sozlamalar ishlashi uchun.
+            //    (`addDisallowedApplication` faqat o'zimizni chiqaradi;
+            //     BOSHQA ilovalar blokda qoladi.)
+            runCatching { b.addDisallowedApplication(this@NurVpnService.packageName) }
+
             blockTun = b.establish()
             val ok = blockTun != null
             android.util.Log.w(TAG,
-                if (ok) "🛡 KILL-SWITCH FAOLLASHDI — trafik bloklandi"
-                else "⚠️ Kill-switch TUN ochilmadi")
+                if (ok) "🛡 KILL-SWITCH FAOLLASHDI — trafik bloklandi (fd=${blockTun?.fd})"
+                else "⚠️ Kill-switch TUN ochilmadi — establish() null qaytardi")
             ok
         } catch (t: Throwable) {
             android.util.Log.e(TAG, "Kill-switch TUN xatosi", t)
@@ -1432,7 +1501,12 @@ class NurVpnService : VpnService() {
 
             // Shu orada STOP / yangi START kelgan bo'lsa — holatni "connected" qilmaymiz
             if (opSeq.get() != my) {
-                Log.i(TAG, "connect[$my]: ulanish paytida bekor qilingan")
+                Log.i(TAG, "connect[$my]: ulanish paytida bekor qilindi")
+                // ★ C5: bu connect bekor qilindi, lekin TUNNEL OCHILGAN.
+                //   Blokni ochmasak — blok abadiy qolib, internet o'ladi.
+                //   (Yangi amal o'zi blokni boshqaradi, shuning uchun
+                //    bu yerda ochish xavfsiz.)
+                applyKillSwitch(true)
                 return
             }
             // ★ C5: tunnel TIKLANDI — kill-switch blokini ochamiz.
