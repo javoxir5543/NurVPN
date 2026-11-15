@@ -800,14 +800,40 @@ class ServersFragment : Fragment() {
         // ★ YAML → MASQUE / WireGuard .conf konvertatsiya
         var finalConf = conf
         if (isClashYamlMasque(conf)) {
-            val converted = convertYamlMasqueToConf(conf)
-            if (converted == null) {
+            val convertedList = convertYamlMasqueToConfs(conf)
+            if (convertedList.isEmpty()) {
                 Toast.makeText(context, getString(R.string.toast_yaml_masque_error),
                     Toast.LENGTH_LONG).show()
                 return
             }
-            finalConf = converted
-            android.util.Log.i("NurVPN-AWG", "YAML MASQUE → conf:\n$converted")
+            if (convertedList.size > 1) {
+                var added = 0
+                var lastCfg: AWGConfig? = null
+                for (c in convertedList) {
+                    val pair = extractMasqueServer(c)
+                    if (pair.first.isEmpty()) continue
+                    val mc = AWGConfig(c)
+                    mc.type = "masque"
+                    mc.endpoint = pair.first + ":" + pair.second
+                    mc.address = ""
+                    mc.name = "MASQUE " + pair.first
+                    a.awgConfigs.add(mc)
+                    lastCfg = mc
+                    added++
+                }
+                val last = lastCfg ?: return
+                AWGStore.save(a, a.awgConfigs)
+                a.selectAWG(last)
+                a.protocol = MainActivity.PROTO_AWG
+                AWGEditorBus.init(a.awgConfigs, last, MainActivity.PROTO_AWG)
+                ad?.notifyDataChanged()
+                Toast.makeText(context,
+                    getString(R.string.toast_n_wg_added_fmt, added),
+                    Toast.LENGTH_SHORT).show()
+                return
+            }
+            finalConf = convertedList[0]
+            android.util.Log.i("NurVPN-AWG", "YAML MASQUE → conf: 1 ta")
         } else if (conf.contains("type: wireguard") && conf.contains("private-key")) {
             // ★ WireGuard YAML → .conf (bir yoki bir nechta proxy)
             val confs = try {
@@ -918,111 +944,102 @@ class ServersFragment : Fragment() {
         return Pair(srv, prt)
     }
 
-    private fun convertYamlMasqueToConf(yaml: String): String? {
-        val lines = yaml.lines()
-        var privateKey = ""
-        var publicKey = ""
-        var ip = ""
-        var ipv6 = ""
-        var mtu = "1280"
-        var server = ""
-        var port = "443"
-        var sni = ""
+    private fun yamlKv(into: MutableMap<String, String>, text: String) {
+        val i = text.indexOf(':')
+        if (i <= 0) return
+        val k = text.substring(0, i).trim().trim('"', '\'').lowercase().replace('_', '-')
+        var v = text.substring(i + 1).trim()
+        val hash = v.indexOf(" #")
+        if (hash >= 0) v = v.substring(0, hash).trim()
+        v = v.trim('"', '\'')
+        if (k.isNotEmpty() && v.isNotEmpty()) into[k] = v
+    }
 
-        // 1) Anchor (&msq) blokni o qish
+    /** YAML dagi BARCHA MASQUE proxylarni .conf matnlariga aylantiradi (&msq umumiy qiymatlar bilan). */
+    private fun convertYamlMasqueToConfs(yaml: String): List<String> {
+        val lines = yaml.lines()
+        val defaults = HashMap<String, String>()
         var inAnchor = false
         var anchorIndent = -1
         for (line in lines) {
-            val trimmed = line.trim()
-            if (trimmed.isEmpty()) continue
-            val indent = line.indexOfFirst { !it.isWhitespace() }
-            if (trimmed.startsWith("msq:") || trimmed.contains("&msq")) {
+            val t = line.trim()
+            if (t.isEmpty() || t.startsWith("#")) continue
+            val ind = line.indexOfFirst { !it.isWhitespace() }
+            if (t.startsWith("msq:") || t.contains("&msq")) {
                 inAnchor = true
-                anchorIndent = indent
+                anchorIndent = ind
                 continue
             }
             if (inAnchor) {
-                if (indent <= anchorIndent) { inAnchor = false; continue }
-                val parts = trimmed.split(":", limit = 2)
-                if (parts.size == 2) {
-                    val k = parts[0].trim()
-                    val v = parts[1].trim().trim('"')
-                    when (k) {
-                        "private-key", "private_key" -> privateKey = v
-                        "public-key", "public_key" -> publicKey = v
-                        "ip" -> ip = v
-                        "ipv6" -> ipv6 = v
-                        "mtu" -> mtu = v
-                    }
-                }
+                if (ind <= anchorIndent) inAnchor = false else yamlKv(defaults, t)
             }
         }
 
-        // 2) proxies: bo limidan birinchi MASQUE yozuvni o qish
+        val out = ArrayList<String>()
+        var cur: HashMap<String, String>? = null
+        var curIndent = -1
         var inProxies = false
-        var inFirstProxy = false
-        var proxyIndent = -1
-        for (line in lines) {
-            val trimmed = line.trim()
-            if (trimmed == "proxies:") { inProxies = true; continue }
-            if (!inProxies) continue
 
-            if (trimmed.startsWith("- ") && !inFirstProxy) {
-                val first = trimmed.removePrefix("- ").trim()
-                val parts = first.split(":", limit = 2)
-                if (parts.size == 2) {
-                    val k = parts[0].trim()
-                    val v = parts[1].trim().trim('"')
-                    when (k) {
-                        "server" -> server = v
-                        "port" -> port = v
-                        "sni" -> sni = v
-                        "private-key", "private_key" -> privateKey = v
-                        "public-key", "public_key" -> publicKey = v
-                        "ip" -> ip = v
-                        "ipv6" -> ipv6 = v
-                        "mtu" -> mtu = v
-                    }
-                }
-                inFirstProxy = true
-                proxyIndent = line.indexOfFirst { !it.isWhitespace() }
+        fun flush() {
+            val p = cur ?: return
+            cur = null
+            val m = HashMap<String, String>(defaults)
+            m.putAll(p)
+            val type = m["type"]?.lowercase()
+            if (type != null && type != "masque") return
+            val server = m["server"] ?: return
+            val pk = m["private-key"] ?: return
+            val pub = m["public-key"] ?: return
+            val addr = listOf(m["ip"], m["ipv6"])
+                .mapNotNull { s -> s?.substringBefore("/")?.takeIf { it.isNotEmpty() } }
+                .joinToString(", ")
+            if (addr.isEmpty()) return
+            val net = if ((m["network"] ?: "h2").lowercase() == "h3") "h3" else "h2"
+            val sb = StringBuilder()
+            sb.append("PrivateKey = ").append(pk).append('\n')
+            sb.append("PublicKey = ").append(pub).append('\n')
+            sb.append("Address = ").append(addr).append('\n')
+            sb.append("MTU = ").append(m["mtu"] ?: "1280").append('\n')
+            sb.append("Server = ").append(server).append('\n')
+            sb.append("Port = ").append(m["port"] ?: "443").append('\n')
+            val sni = m["sni"]
+            if (!sni.isNullOrEmpty()) sb.append("SNI = ").append(sni).append('\n')
+            sb.append("Network = ").append(net).append('\n')
+            sb.append("Profile = cloudflare").append('\n')
+            out.add(sb.toString())
+        }
+
+        for (line in lines) {
+            val t = line.trim()
+            if (t.isEmpty() || t.startsWith("#")) continue
+            val ind = line.indexOfFirst { !it.isWhitespace() }
+            if (!inProxies) {
+                if (t == "proxies:") inProxies = true
                 continue
             }
-
-            if (inFirstProxy) {
-                if (trimmed.isEmpty()) continue
-                val indent = line.indexOfFirst { !it.isWhitespace() }
-                if (trimmed.startsWith("- ") && indent <= proxyIndent + 2) break
-                val parts = trimmed.split(":", limit = 2)
-                if (parts.size == 2) {
-                    val k = parts[0].trim()
-                    val v = parts[1].trim().trim('"')
-                    when (k) {
-                        "server" -> server = v
-                        "port" -> port = v
-                        "sni" -> sni = v
-                        "private-key", "private_key" -> privateKey = v
-                        "public-key", "public_key" -> publicKey = v
-                        "ip" -> ip = v
-                        "ipv6" -> ipv6 = v
-                        "mtu" -> mtu = v
-                    }
+            if (ind == 0 && !t.startsWith("-")) break
+            if ((t.startsWith("- ") || t == "-") && (cur == null || ind <= curIndent)) {
+                flush()
+                val m = HashMap<String, String>()
+                cur = m
+                curIndent = ind
+                val first = t.removePrefix("-").trim()
+                if (first.startsWith("{")) {
+                    for (part in first.trim('{', '}').split(",")) yamlKv(m, part.trim())
+                } else {
+                    yamlKv(m, first)
                 }
+                continue
             }
+            cur?.let { yamlKv(it, t) }
         }
-
-        if (privateKey.isEmpty() || publicKey.isEmpty() || server.isEmpty()) return null
-        val addr = if (ipv6.isNotEmpty()) ip + ", " + ipv6 else ip
-
-        return "PrivateKey = " + privateKey + "\n" +
-               "PublicKey = " + publicKey + "\n" +
-               "Address = " + addr + "\n" +
-               "MTU = " + mtu + "\n" +
-               "Server = " + server + "\n" +
-               "Port = " + port + "\n" +
-               "SNI = " + sni + "\n" +
-               "Profile = cloudflare\n"
+        flush()
+        android.util.Log.i("NurVPN-AWG", "convertYamlMasqueToConfs: ${out.size} ta proxy")
+        return out
     }
+
+    private fun convertYamlMasqueToConf(yaml: String): String? =
+        convertYamlMasqueToConfs(yaml).firstOrNull()
 
     private fun showSubDialog() {
         if (!isAdded) return
@@ -1235,6 +1252,20 @@ class ServersFragment : Fragment() {
         } catch (t: Throwable) { "Subscription" }
     }
 
+    private fun java.io.InputStream.readCapped(max: Int): ByteArray {
+        val bos = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(8192)
+        var total = 0
+        while (true) {
+            val r = read(buf)
+            if (r < 0) break
+            total += r
+            if (total > max) break
+            bos.write(buf, 0, r)
+        }
+        return bos.toByteArray()
+    }
+
     private fun fetchSub(urlStr: String): String {
         android.util.Log.i("NurVPN-DBG", "fetchSub: boshlanishi URL=$urlStr")
         return try {
@@ -1266,14 +1297,14 @@ class ServersFragment : Fragment() {
                 return ""
             }
 
-            val compressedBytes = c.inputStream.use { it.readBytes() }
+            val compressedBytes = c.inputStream.use { it.readCapped(4 * 1024 * 1024) }
             val bodyBytes = when {
                 encoding.contains("gzip") -> java.util.zip.GZIPInputStream(
                     java.io.ByteArrayInputStream(compressedBytes)
-                ).use { it.readBytes() }
+                ).use { it.readCapped(8 * 1024 * 1024) }
                 encoding.contains("deflate") -> java.util.zip.InflaterInputStream(
                     java.io.ByteArrayInputStream(compressedBytes)
-                ).use { it.readBytes() }
+                ).use { it.readCapped(8 * 1024 * 1024) }
                 else -> compressedBytes
             }
             val body = String(bodyBytes, Charsets.UTF_8)

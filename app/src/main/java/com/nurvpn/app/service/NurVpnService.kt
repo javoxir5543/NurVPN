@@ -113,6 +113,8 @@ class NurVpnService : VpnService() {
         const val CH_ID = "vpn"
         const val NOTIF_ID = 1
         const val TAG = "NurVPN-Svc"
+        @Volatile private var guardInstalled = false
+        @Volatile private var guardService: java.lang.ref.WeakReference<NurVpnService>? = null
     }
 
     /** Start/Stop bir vaqtda chaqirilishini oldini oladi. */
@@ -161,6 +163,7 @@ class NurVpnService : VpnService() {
     //  restart FAQAT keyingi haqiqiy tarmoq o'zgarishida bo'ladi.
     // ═══════════════════════════════════════════════════════════════════
     @Volatile private var networkBaselineReady = false
+    @Volatile private var lastCapPush = 0L
 
     // ═══════════════════════════════════════════════════════════════════
     //  ★ FIX123-SYSRESTART: TIZIM TIKLASH BAYROG'I
@@ -194,7 +197,9 @@ class NurVpnService : VpnService() {
     // NET_PATCH_APPLIED
 
     private val networkRestartHandler = Handler(Looper.getMainLooper())
-    private val networkRestartRunnable = Runnable { doNetworkRestart() }
+    private val networkRestartRunnable = Runnable {
+        Thread { doNetworkRestart() }.apply { name = "NurVPN-netrestart" }.start()
+    }
 
     /**
      * Network switch restart logikasi — alohida funksiya.
@@ -225,20 +230,24 @@ class NurVpnService : VpnService() {
      * foydalanuvchi xabar oladi. Maqsad: loop'ni to'xtatish.
      */
     private fun installCrashGuard() {
+        // Servis zaif havola orqali saqlanadi: handler eski servisni xotirada
+        // ushlab turmaydi va har onCreate'da zanjirga qayta qo'shilmaydi.
+        guardService = java.lang.ref.WeakReference(this)
+        if (guardInstalled) return
+        guardInstalled = true
         val prev = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
                 Log.e(TAG, "‼️ USHLANMAGAN ISTISNO (${thread.name})", throwable)
                 com.nurvpn.app.core.LogBuffer.add(
                     "CRASH: ${throwable.javaClass.simpleName}: ${throwable.message}")
-                // Xizmatni to'xtatamiz — Android qayta ishga tushirmasin
-                try { stopSelf() } catch (_: Throwable) {}
-                try { broadcast("error",
+                val svc = guardService?.get()
+                try { svc?.stopSelf() } catch (_: Throwable) {}
+                try { svc?.broadcast("error",
                     "Kutilmagan xato: ${throwable.javaClass.simpleName}") } catch (_: Throwable) {}
             } catch (_: Throwable) {
                 // handler ichida ham crash bo'lmasin
             } finally {
-                // Oldingi handler'ga uzatamiz (Android o'z ishini qilsin)
                 prev?.uncaughtException(thread, throwable)
             }
         }
@@ -573,7 +582,11 @@ class NurVpnService : VpnService() {
             // ★ setBlocking() kill-switch EMAS (u fd'ni blocking rejimga o'tkazib,
             //   libbox o'qishini qotirib qo'yishi mumkin). Haqiqiy kill-switch:
             //   Android Sozlamalar → VPN → NurVPN → "Always-on" + "VPN'siz ulanishni bloklash".
-            if (Build.VERSION.SDK_INT >= 29) builder.setMetered(false)
+            if (Build.VERSION.SDK_INT >= 29) {
+                val cmM = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                val capsM = pickPhysicalNetwork()?.let { cmM.getNetworkCapabilities(it) }
+                builder.setMetered(capsM?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true)
+            }
 
             // ★★★ MUHIM: real upstream network'ni o'rnatamiz ★★★
             val un: android.net.Network? =
@@ -729,6 +742,8 @@ class NurVpnService : VpnService() {
                         val now = System.currentTimeMillis()
                         Log.i(TAG, "onLost: $network (handle=$handle)")
                         pushDefaultInterface(l)
+                        val curL = this@NurVpnService.underlyingNetwork
+                        if (curL != null && network != curL) return
 
                         // ★ FIX122-LOOP: baseline tayyor bo'lmasa — restart yo'q
                         if (!networkBaselineReady) {
@@ -759,7 +774,13 @@ class NurVpnService : VpnService() {
                         network: android.net.Network,
                         caps: android.net.NetworkCapabilities
                     ) {
-                        pushDefaultInterface(l)
+                        val nowP = System.currentTimeMillis()
+                        if (nowP - this@NurVpnService.lastCapPush > 3000L) {
+                            this@NurVpnService.lastCapPush = nowP
+                            pushDefaultInterface(l)
+                        }
+                        val curC = this@NurVpnService.underlyingNetwork
+                        if (curC != null && network != curC) return
                         // NET_PATCH: tarmoq INTERNET yoki VALIDATED yo'qotgan bo'lsa — restart
                         val hasInternet = caps.hasCapability(
                             android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -775,6 +796,7 @@ class NurVpnService : VpnService() {
                         }
                     }
                 }
+                ifaceCallback?.let { runCatching { cm.unregisterNetworkCallback(it) } }
                 ifaceCallback = cb
                 cm.registerNetworkCallback(req, cb)
             } catch (t: Throwable) {
@@ -835,16 +857,14 @@ class NurVpnService : VpnService() {
                         ni.setMetered(false)
 
                         // ★ sing-box NetworkInterface.Type:
-                        //   0=other, 1=wifi, 2=cellular, 3=ethernet
+                        //   0=wifi, 1=cellular, 2=ethernet, 3=other (log bilan tasdiqlangan)
                         val t = when {
-                            jni.name.startsWith("wlan") -> 1   // WiFi
-                            jni.name.startsWith("eth") -> 3    // Ethernet
+                            jni.name.startsWith("wlan") -> 0 // WiFi
                             jni.name.startsWith("rmnet") ||
                                 jni.name.startsWith("ccmni") ||
-                                jni.name.startsWith("pdp") -> 2  // Cellular
-                            jni.name.startsWith("dummy") ||
-                                jni.name.startsWith("tun") -> 0  // Other
-                            else -> 0
+                                jni.name.startsWith("pdp") -> 1  // Cellular
+                            jni.name.startsWith("eth") -> 2    // Ethernet
+                            else -> 3  // Other (tun, dummy, ...)
                         }
                         ni.setType(t)
                         list.add(ni)

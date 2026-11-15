@@ -13,7 +13,7 @@ object AWGStore {
         val arr = JSONArray()
         for (c in configs) {
             val o = JSONObject()
-            o.put("raw", c.rawConf)
+            o.put("raw", c.rawConf?.trimEnd())
             o.put("name", c.name)
             o.put("endpoint", c.endpoint)
             o.put("address", c.address ?: "")
@@ -34,7 +34,7 @@ object AWGStore {
             val arr = JSONArray(s)
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
-                val c = AWGConfig(o.optString("raw"))
+                val c = AWGConfig(o.optString("raw").trimEnd())
                 c.name = o.optString("name", null)
                 c.endpoint = o.optString("endpoint", null)
                 // ★ Agar endpoint bo'sh bo'lsa — rawConf'dan hisoblaymiz

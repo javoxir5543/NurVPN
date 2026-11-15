@@ -16,6 +16,11 @@ object SingBoxConfig {
 
     class ParseException(msg: String) : Exception(msg)
 
+    /** Logga kalit/parol yozmaslik uchun. */
+    private fun redactJson(s: String): String =
+        Regex("\"(private_key|public_key|password|pre_shared_key)\":\"[^\"]*\"")
+            .replace(s) { "\"" + it.groupValues[1] + "\":\"***\"" }
+
     // ═══════════════════════════════════════════════════════════
     // UMUMIY YORDAMCHILAR
     // ═══════════════════════════════════════════════════════════
@@ -280,7 +285,7 @@ object SingBoxConfig {
         q["upmbps"]?.toIntOrNull()?.let { o.put("up_mbps", it) }
         q["downmbps"]?.toIntOrNull()?.let { o.put("down_mbps", it) }
         Log.i(TAG, "Hysteria2: $host:$port insecure=TRUE (majburiy), obfs=$obfs, obfs-pass=${if (q["obfs-password"] != null) "BOR" else "YO'Q"}")
-        Log.i(TAG, "Hysteria2 JSON: $o")
+        Log.i(TAG, "Hysteria2 JSON: " + redactJson(o.toString()))
         return o
     }
 
@@ -900,10 +905,58 @@ object SingBoxConfig {
         }
         o.put("peers", JSONArray().put(peer))
         Log.i(TAG, "AWG: $host:$port mtu=$mtu addrs=${addrList.length()}")
-        Log.i(TAG, "AWG JSON: " + o.toString())
+        Log.i(TAG, "AWG JSON: " + redactJson(o.toString()))
         var v6 = false
         for (i in 0 until addrList.length()) if (addrList.getString(i).contains(":")) v6 = true
         return AwgParsed(o, dnsList, host, mtu, v6)
+    }
+    /**
+     * ★ FIX_PUBKEY_PAIRING: `Server` ga mos `PublicKey` ni qaytaradi.
+     *
+     * ILDIZ SABAB: TLS pin xatosi (`different public key than pinned`).
+     * Kalit guruhlari TLS orqali o'lchangan — `fix_pubkey_pairing.py`.
+     *
+     * Noma'lum server uchun berilgan kalit o'zgarishsiz qaytadi.
+     */
+    // ⚠️ `const val` lar `mapOf` dan OLDIN turishi SHART — aks holda
+    //    Kotlin: "Variable 'MASQUE_PUB_A' must be initialized".
+    private const val MASQUE_PUB_A =
+        "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEab5PD8DnqxlOcsLgHX9r/6BTUf8x0JX7eNbWwRQb5dzmIDq7b3qaidcGNR/qxBCaa8reMTK63bMGpwW9J/H59w=="
+
+    private const val MASQUE_PUB_B =
+        "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w=="
+
+    private val SERVER_PUBKEY: Map<String, String> = mapOf(
+        "162.159.197.1" to MASQUE_PUB_A,
+        "162.159.197.3" to MASQUE_PUB_A,
+        "162.159.197.4" to MASQUE_PUB_A,
+        "162.159.192.1" to MASQUE_PUB_A,
+        "162.159.193.1" to MASQUE_PUB_A,
+        "162.159.194.1" to MASQUE_PUB_A,
+        "162.159.195.1" to MASQUE_PUB_A,
+        "162.159.196.1" to MASQUE_PUB_A,
+        "162.159.197.2" to MASQUE_PUB_B,
+        "162.159.197.5" to MASQUE_PUB_B,
+        "162.159.198.2" to MASQUE_PUB_B,
+        "162.159.199.2" to MASQUE_PUB_B
+    )
+
+    private fun normalizeMasquePublicKey(server: String, current: String): String {
+        // ⚠️ FAQAT ma'lum A/B kalit almashtiriladi.
+        //
+        // Yuklash manbalari: `BuiltinAwgConfigs.kt`, MASQUE editor,
+        // YAML/JSON import, obuna — hammasi shu yerdan o'tadi.
+        //
+        // Foydalanuvchi O'Z kalitini qo'ygan bo'lishi mumkin (Cloudflare
+        // kalitni yangilagan, korporativ WARP profili, boshqa akkaunt).
+        // Uni jadvaldagisi bilan almashtirsak — BIZ buzamiz. Shuning uchun
+        // faqat eski A/B kalitlar (bizning tarixiy xatomiz) tuzatiladi.
+        if (current != MASQUE_PUB_A && current != MASQUE_PUB_B) return current
+        val want = SERVER_PUBKEY[server] ?: return current
+        if (want != current) {
+            Log.w(TAG, "MASQUE: $server uchun PublicKey juftligi tuzatildi")
+        }
+        return want
     }
 
     @Throws(ParseException::class)
@@ -944,6 +997,7 @@ object SingBoxConfig {
         var ip = ""
         var ipv6 = ""
         var mtu = 1280
+        var vhttp = ""
 
         for (raw in rawConf.lines()) {
             val t = raw.trim()
@@ -976,9 +1030,42 @@ object SingBoxConfig {
                 }
                 k.equals("MTU", true) -> mtu = (v.toIntOrNull() ?: 1280).coerceIn(576, 1500)
                 k.equals("Profile", true) -> o.put("profile", v.lowercase())
+                // ★ FIX_FORCE_H2_CLEAN: `Network` = vhttp (haqiqiy JSON kaliti `vhttp`).
+                k.equals("Network", true) -> vhttp = v.trim().lowercase()
             }
         }
 
+        // ★ FIX_PUBKEY_PAIRING: `Server` ↔ `PublicKey` juftligini tiklaymiz.
+        //
+        //   ILDIZ SABAB (qurilmada o'lchangan): `Server` o'zgartirilib,
+        //   `PublicKey` eski qolgan bo'lsa, yadro TLS sertifikatini
+        //   pin qila olmaydi:
+        //
+        //       masque: remote endpoint has a different public key than pinned
+        //
+        //   Bu xato 693 marta kuzatilgan — tarmoq butunlay ishlamagan.
+        //
+        //   KALIT GURUHLARI (TLS SPKI, SNI=4pda.to, HAQIQIY o'lchov):
+        //       GURUH A: 197.1 197.3 197.4 192.1 193.1 194.1 195.1 196.1
+        //       GURUH B: 197.2 197.5 198.2 199.2
+        //
+        //   ⚠️ GURUHLAR HAR XIL — `197.x` oilasi ARALASH. Yangi server
+        //      qo'shsangiz, kalitini TLS orqali o'lchang:
+        //          python3 tools/fix_pubkey_pairing.py --probe <ip>
+        //
+        //   Noma'lum server — TEGILMAYDI (kalit saqlanadi).
+                // ★ FIX_GROUP_A: runtime server almashtirish OLIB TASHLANDI.
+        //
+        //   Ilgari A guruhi serverlari (197.1 va boshqalar) JIMGINA
+        //   `198.2` ga o'tkazilardi. Bu yomon edi: UI bir narsani
+        //   ko'rsatib, trafik boshqasiga ketardi.
+        //
+        //   Endi ma'lumot `BuiltinAwgConfigs.kt` da to'g'rilangan —
+        //   foydalanuvchi nima tanlasa, o'sha ishlatiladi.
+        //
+        //   Faqat KALIT juftligi tuzatiladi (bizning tarixiy xatomiz);
+        //   foydalanuvchining o'z kaliti TEGILMAYDI.
+        publicKey = normalizeMasquePublicKey(server, publicKey)
         if (server.isEmpty()) throw ParseException("MASQUE: Server yo'q")
         if (privateKey.isEmpty()) throw ParseException("MASQUE: PrivateKey yo'q")
         if (publicKey.isEmpty()) throw ParseException("MASQUE: PublicKey yo'q")
@@ -993,8 +1080,24 @@ object SingBoxConfig {
         o.put("mtu", mtu)
         if (sni.isNotEmpty()) o.put("sni", sni)
 
-        Log.i(TAG, "MASQUE: $server:$port sni=$sni mtu=$mtu profile=${o.optString("profile")} network=${o.optString("network")}")
-        Log.i(TAG, "MASQUE JSON: " + o.toString())
+        // ★ FIX_FORCE_H2_CLEAN: h3 MAJBURIY h2 ga o'giriladi (QUIC bloklangan tarmoqlarda
+        //   yadro har ulanishda h3 sinab vaqt yo'qotadi). `auto` ham h2.
+        when {
+            vhttp == "h2" -> o.put("vhttp", "h2")
+            vhttp == "h3" || vhttp == "auto" -> {
+                Log.w(TAG, "MASQUE: Network=$vhttp -> h2 ga majburan o'girildi")
+                o.put("vhttp", "h2")
+            }
+            else -> {
+                if (vhttp.isNotEmpty())
+                    Log.w(TAG, "MASQUE: noma'lum Network=\"$vhttp\" — o'rniga h2")
+                o.put("vhttp", "h2")
+            }
+        }
+
+        Log.i(TAG, "MASQUE: $server:$port sni=$sni mtu=$mtu " +
+            "profile=${o.optString("profile")} vhttp=${o.optString("vhttp")}")
+        Log.i(TAG, "MASQUE JSON: " + redactJson(o.toString()))
         return o
     }
 

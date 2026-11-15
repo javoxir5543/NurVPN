@@ -84,7 +84,7 @@ class MasqueEditorActivity : AppCompatActivity() {
         serverEt.setText(m["server"] ?: m["endpoint"] ?: "")
         portEt.setText(m["port"] ?: "443")
         sniEt.setText(m["sni"] ?: "")
-        networkEt.setText(m["network"] ?: "h3")
+        networkEt.setText(m["network"] ?: "h2")
         mtuEt.setText(m["mtu"] ?: "1280")
         privateKeyEt.setText(m["privatekey"] ?: "")
         publicKeyEt.setText(m["publickey"] ?: "")
@@ -109,7 +109,7 @@ class MasqueEditorActivity : AppCompatActivity() {
 
     private fun updatePreview() {
         val p = preview ?: return
-        val r = buildRaw()
+        val r = buildRaw().replace(Regex("(?m)^PrivateKey = .*$"), "PrivateKey = ********")
         p.text = if (r.length > 400) r.substring(0, 400) + "..." else r
     }
 
@@ -122,6 +122,11 @@ class MasqueEditorActivity : AppCompatActivity() {
         }
         if (index < 0 || index >= AWGEditorBus.configs.size) return
         val cfg = AWGEditorBus.configs[index]
+        val portNum = portEt.text.toString().trim().toIntOrNull()
+        if (portNum == null || portNum !in 1..65535) {
+            Toast.makeText(this, R.string.editor_invalid_port, Toast.LENGTH_SHORT).show()
+            return
+        }
         cfg.rawConf = buildRaw()
         cfg.endpoint = srv + ":" + portEt.text.toString().trim()
         cfg.type = "masque"

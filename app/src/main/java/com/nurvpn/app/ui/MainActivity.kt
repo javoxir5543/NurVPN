@@ -287,11 +287,20 @@ class MainActivity : AppCompatActivity() {
             currentServer = servers.find { it.link == savedLink }
         val savedAwg = prefs.getString("current_awg", null)
         if (savedAwg != null)
-            currentAWG = awgConfigs.find { it.rawConf == savedAwg }
+            // ★ FIX_CONFIG_MATCH: oxiridagi bo'shliq farqi aniq solishtirishni buzardi.
+            currentAWG = awgConfigs.find {
+                it.rawConf?.trimEnd() == savedAwg.trimEnd()
+            }
         if (currentServer == null && servers.isNotEmpty())
             currentServer = servers[0]
-        if (currentAWG == null && awgConfigs.isNotEmpty())
+        if (currentAWG == null && awgConfigs.isNotEmpty()) {
+            // ★ FIX_CONFIG_MATCH: JIMGINA bo'lmasin.
+            android.util.Log.w("NurVPN-CFG",
+                "current_awg topilmadi (saved=${savedAwg?.length} belgi) " +
+                "-> awgConfigs[0] ishlatiladi: ${awgConfigs[0].name}")
             currentAWG = awgConfigs[0]
+        }
+
         android.util.Log.i("NurVPN-PERF",
             "onCreate[5e] current topish: ${System.currentTimeMillis() - __t}ms")
         __t = System.currentTimeMillis()

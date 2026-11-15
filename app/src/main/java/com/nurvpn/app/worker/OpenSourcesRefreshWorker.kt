@@ -137,7 +137,19 @@ class OpenSourcesRefreshWorker(
                 conn.disconnect()
                 return null
             }
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            val text = conn.inputStream.use { ins ->
+                val bos = java.io.ByteArrayOutputStream()
+                val buf = ByteArray(8192)
+                var total = 0
+                while (true) {
+                    val r = ins.read(buf)
+                    if (r < 0) break
+                    total += r
+                    if (total > 8 * 1024 * 1024) throw java.io.IOException("javob juda katta")
+                    bos.write(buf, 0, r)
+                }
+                bos.toString("UTF-8")
+            }
             conn.disconnect()
             text.ifBlank { null }
         } catch (t: Throwable) {

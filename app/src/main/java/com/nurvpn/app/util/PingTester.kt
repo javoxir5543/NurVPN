@@ -58,7 +58,10 @@ object PingTester {
     /** HOST_RTT (ICMP) uchun standart timeout — 4s juda uzoq edi. */
     private const val DEFAULT_TIMEOUT_MS = 2500
 
-    private val pool: ExecutorService = Executors.newFixedThreadPool(MAX_CONCURRENT)
+    private val pool: ExecutorService = java.util.concurrent.ThreadPoolExecutor(
+        MAX_CONCURRENT, MAX_CONCURRENT, 20L, TimeUnit.SECONDS,
+        java.util.concurrent.LinkedBlockingQueue<Runnable>()
+    ).apply { allowCoreThreadTimeOut(true) }
 
     private val main = Handler(Looper.getMainLooper())
 
@@ -174,6 +177,12 @@ object PingTester {
             pending[item] = ping
         }
 
+        fun stop() {
+            flushed.set(true)
+            main.removeCallbacks(flushTask)
+            pending.clear()
+        }
+
         fun markDone() {
             flushed.set(true)
             main.removeCallbacks(flushTask)
@@ -247,8 +256,8 @@ object PingTester {
                     batcher.offer(si, -1)
                 } finally {
                     try { sem.release() } catch (_: Throwable) {}
-                    if (remaining.decrementAndGet() == 0 && runId.get() == myRun) {
-                        batcher.markDone()
+                    if (remaining.decrementAndGet() == 0) {
+                        if (runId.get() == myRun) batcher.markDone() else batcher.stop()
                     }
                 }
             }

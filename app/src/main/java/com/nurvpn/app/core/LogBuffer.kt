@@ -12,8 +12,11 @@ object LogBuffer {
     @Synchronized
     fun add(line: String) {
         if (lines.size >= MAX_LINES) lines.removeFirst()
-        lines.addLast(fmt.format(java.util.Date()) + " " + line.take(400))
+        lines.addLast(fmt.format(java.util.Date()) + " " + redact(line).take(400))
     }
+
+    private val secretRe = Regex("[A-Za-z0-9+/=_-]{40,}")
+    private fun redact(s: String) = secretRe.replace(s, "***")
 
     @Synchronized
     fun clear() {

@@ -55,3 +55,7 @@ keystore.properties
 *.jks
 keystore/
 tools/
+
+# Log fayllar (adb logcat)
+log
+*.log

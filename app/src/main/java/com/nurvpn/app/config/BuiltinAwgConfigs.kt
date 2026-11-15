@@ -92,7 +92,7 @@ MTU = 1360
 Server = 162.159.198.2
 Port = 443
 SNI = 4pda.to
-Network = h3
+Network = h2
 Profile = cloudflare"""
 
     val MASQUE_5: String = """PrivateKey = MHcCAQEEICGfgyMaCjNIqxqOKNWsiWpSvYBD5q8ijggQK61lrnvDoAoGCCqGSM49AwEHoUQDQgAE6I1efvaN5EbKlwFT1lgxAoosX6Sflf73DfXDMks7poxUvbyX+2VqOv+ffSp7sbk/rNCWeAOrganNgJUR64MybA==
@@ -102,7 +102,7 @@ MTU = 1360
 Server = 162.159.199.2
 Port = 443
 SNI = mail.ru
-Network = h3
+Network = h2
 Profile = cloudflare"""
 
     val MASQUE_6: String = """PrivateKey = MHcCAQEEIDGq2+BEUnc88zXO3v2H622vxJ7/J6ydI7iSZRmv3ymZoAoGCCqGSM49AwEHoUQDQgAEcQfc8lrqDeNvzXA+9rCrPd1BUpqhu9ehtAMQQIL1sdQI8wJGOaf7+jyhPQ8oguczV1UthXd0QeecnF4SAzjSog==
@@ -112,17 +112,17 @@ MTU = 1360
 Server = 162.159.197.2
 Port = 443
 SNI = 4pda.to
-Network = h3
+Network = h2
 Profile = cloudflare"""
 
     val MASQUE_7: String = """PrivateKey = MHcCAQEEIDGq2+BEUnc88zXO3v2H622vxJ7/J6ydI7iSZRmv3ymZoAoGCCqGSM49AwEHoUQDQgAEcQfc8lrqDeNvzXA+9rCrPd1BUpqhu9ehtAMQQIL1sdQI8wJGOaf7+jyhPQ8oguczV1UthXd0QeecnF4SAzjSog==
 PublicKey = MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w==
 Address = 172.16.0.2, 2606:4700:110:8a8b:5a75:3d7f:af48:303b
 MTU = 1360
-Server = 162.159.197.1
+Server = 162.159.198.2
 Port = 443
 SNI = 4pda.to
-Network = h3
+Network = h2
 Profile = cloudflare"""
 
     val MASQUE_8: String = """PrivateKey = MHcCAQEEIDGq2+BEUnc88zXO3v2H622vxJ7/J6ydI7iSZRmv3ymZoAoGCCqGSM49AwEHoUQDQgAEcQfc8lrqDeNvzXA+9rCrPd1BUpqhu9ehtAMQQIL1sdQI8wJGOaf7+jyhPQ8oguczV1UthXd0QeecnF4SAzjSog==
