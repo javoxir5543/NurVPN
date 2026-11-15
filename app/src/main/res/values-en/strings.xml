@@ -459,14 +459,6 @@
     <string name="toast_install_error_fmt">Error starting installation: %1$s</string>
 
     <!-- ★ FIX162-KIBERWARP: Kiberportal WARP configlari -->
-    <string name="os_masque_6_name">MASQUE h3 (4pda)</string>
-    <string name="os_masque_6_desc">Cloudflare WARP h3 · 162.159.197.2</string>
-    <string name="os_masque_7_name">MASQUE h3 (Alt)</string>
-    <string name="os_masque_7_desc">Cloudflare WARP h3 · 162.159.197.1</string>
-    <string name="os_masque_8_name">MASQUE h2 (4pda)</string>
-    <string name="os_masque_8_desc">Cloudflare WARP h2 · 162.159.197.2</string>
-    <string name="os_masque_9_name">MASQUE h2 (Alt)</string>
-    <string name="os_masque_9_desc">Cloudflare WARP h2 · 162.159.197.5</string>
     <string name="os_masque_10_name">MASQUE 198.2</string>
     <string name="os_masque_10_desc">Cloudflare WARP h2 · 162.159.198.2</string>
     <string name="os_masque_11_name">MASQUE mail.ru</string>
@@ -478,4 +470,16 @@
     <string name="warp_gen_warning">If the links do not open, turn on VPN and try again.</string>
     <string name="warp_gen_browser_missing">No browser found</string>
 
+    <string name="os_masque_6_name">MASQUE 6</string>
+    <string name="os_masque_6_desc">ClashWARP 18 — 162.159.198.2</string>
+    <string name="os_masque_7_name">MASQUE 7</string>
+    <string name="os_masque_7_desc">KiberPortal 63 — 162.159.199.199</string>
+    <string name="os_masque_8_name">MASQUE 8</string>
+    <string name="os_masque_8_desc">KiberPortal 19 — 162.159.199.199</string>
+    <string name="os_amnezia_4_name">AmneziaWG 4</string>
+    <string name="os_amnezia_4_desc">ClashWARP 22 #1 — 162.159.192.1</string>
+    <string name="os_amnezia_5_name">AmneziaWG 5</string>
+    <string name="os_amnezia_5_desc">ClashWARP 22 #2 — 162.159.192.1</string>
+    <string name="os_amnezia_6_name">AmneziaWG 6</string>
+    <string name="os_amnezia_6_desc">ClashWARP 22 #3 — 162.159.192.1</string>
 </resources>

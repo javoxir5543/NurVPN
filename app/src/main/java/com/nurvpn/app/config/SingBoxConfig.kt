@@ -1105,6 +1105,38 @@ object SingBoxConfig {
     fun masqueOutbound(rawConf: String): JSONObject = parseMasque(rawConf, false)
 
     @Throws(ParseException::class)
+
+    /**
+     * Cloudflare WARP IPv6 manzilini sintez qiladi.
+     *
+     * ★ FIX_V6_SYNTH: Ba'zi YAML fayllarda `ipv6: false` bo'ladi, lekin
+     *   Cloudflare WARP har doim IPv6 beradi. Manzil bo'lmasa ilovalar
+     *   AAAA so'rab, mavjud bo'lmagan IPv6 ga ulanib OSILADI:
+     *       outbound/masque[proxy]: missing IPv6 local address
+     *
+     * Prefiks: `2606:4700:110::/48` (Cloudflare WARP — barcha akkauntlarda bir xil).
+     * Host qismi: PrivateKey'dan deterministik (bir config uchun bir manzil).
+     *
+     * @return IPv6 manzil yoki `""` (PrivateKey topilmasa).
+     */
+    private fun synthesizeWarpV6(rawConf: String): String {
+        val priv = Regex("(?m)^PrivateKey\\s*=\\s*(.+)$")
+            .find(rawConf)?.groupValues?.get(1)?.trim() ?: return ""
+        if (priv.isEmpty()) return ""
+
+        // Deterministik host: SHA-256(PrivateKey) ning birinchi 8 bayti.
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        val h = md.digest(priv.toByteArray(Charsets.UTF_8))
+
+        // ⚠️ IPv6 manzil 8 guruhdan iborat.
+        //    Cloudflare prefiksi `2606:4700:110` — 3 guruh.
+        //    Qolgan 5 guruhni SHA-256 dan olamiz (har biri 16 bit).
+        val parts = (0 until 5).joinToString(":") { i ->
+            String.format("%02x%02x", h[i * 2], h[i * 2 + 1])
+        }
+        return "2606:4700:110:$parts"
+    }
+
     fun buildMasqueConfig(
         rawConf: String,
         dns: String = "1.1.1.1",
@@ -1114,6 +1146,19 @@ object SingBoxConfig {
         //   Config'da IPv6 manzil bo'lsa — MASQUE JSON'ga qo'shamiz,
         //   TUN'ga IPv6 beramiz. Telegram IPv6 DC orqali ishlaydi.
         val proxy = parseMasque(rawConf, false)
+        // ★ FIX_V6_SYNTH: YAML'da `ipv6` bo'lmasa (`ipv6: false`), Cloudflare
+        //   WARP prefiksidan deterministik manzil sintez qilamiz. Aks holda
+        //   ilovalar AAAA olib, mavjud bo'lmagan IPv6 ga ulanib OSILADI:
+        //       "outbound/masque[proxy]: missing IPv6 local address"
+        //   Prefiks har akkauntda bir xil (2606:4700:110::/48), host qismi
+        //   PrivateKey'dan olinadi — barqaror va takrorlanmas.
+        if (!proxy.has("ipv6") || proxy.optString("ipv6").isEmpty()) {
+            val v6 = synthesizeWarpV6(rawConf)
+            if (v6.isNotEmpty()) {
+                proxy.put("ipv6", v6)
+                android.util.Log.i("NurVPN-CFG", "MASQUE ipv6 sintez qilindi: $v6")
+            }
+        }
         val hasV6 = proxy.has("ipv6") && proxy.optString("ipv6").isNotEmpty()
         android.util.Log.i("NurVPN-CFG", "MASQUE hasV6=$hasV6 ipv6=${proxy.optString("ipv6")}")
         return assemble(proxy, false, dns, null, !hasV6,
@@ -1188,6 +1233,19 @@ object SingBoxConfig {
                 .put("query_type", qTypes)
                 .put("action", "route")
                 .put("server", "dns-fakeip"))
+        }
+        // ═══ UNIVERSAL IPv6 HIMOYASI (FIX_AAAA_BLOCK) ═══
+        //  TUN'da IPv6 manzil YO'Q bo'lsa (`tunV6=false`), ilovalar AAAA
+        //  so'rab, mavjud bo'lmagan IPv6 manzilga ulanib OSILIB qoladi:
+        //      "outbound/masque[proxy]: missing IPv6 local address"
+        //      "open connection to [2a03:2880:...]:443 ... missing IPv6"
+        //  Har qanday YAML uchun ishlaydi (`ipv6` bor yoki yo'q — farqi yo'q).
+        //  IPv6 KERAK bo'lsa config'ga `Address = 172.16.0.2, 2606:...` yozing.
+        if (!tunV6) {
+            dnsRules.put(JSONObject()
+                .put("query_type", JSONArray().put("AAAA"))
+                .put("action", "predefined")
+                .put("rcode", "NOERROR"))
         }
         val dns = JSONObject()
             .put("servers", servers)
